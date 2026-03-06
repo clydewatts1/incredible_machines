@@ -1,0 +1,107 @@
+name: "Incredible Machines External Configuration"
+version: "1.0"
+
+templates:
+  Square:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  Rectangle:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  Circle:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  Diamond:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  Half-Circle:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  Quarter-Circle:
+    friction: 0.5
+    elasticity: 0.5
+    mass: 1.0
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+
+variants:
+  bouncy_ball:
+    template: "Circle"
+    label: "Bouncy Ball"
+    key_bind: "1"
+    friction: 0.3
+    elasticity: 0.9
+    radius: 15
+    mass: 1.0
+    collision_sound: "bounce.wav"
+
+  long_ramp:
+    template: "Rectangle"
+    label: "Long Ramp"
+    key_bind: "2"
+    friction: 0.8
+    elasticity: 0.2
+    width: 240
+    height: 10
+    is_static: True
+    texture_path: "assets/images/wood_texture.png"
+
+  red_diamond:
+    template: "Diamond"
+    label: "Red Diamond"
+    key_bind: "3"
+    width: 40
+    height: 40
+    mass: 50.0
+    is_static: True
+    color: [255, 0, 0]
+
+  half_circle:
+    template: "Half-Circle"
+    label: "Half Circle"
+    key_bind: "4"
+    radius: 50
+    segments: 15
+    mass: 5.0
+    is_static: True
+    color: [0, 200, 200]
+
+  quarter_circle:
+    template: "Quarter-Circle"
+    label: "Quarter Circle"
+    key_bind: "5"
+    radius: 50
+    segments: 15
+    is_static: True
+    mass: 5.0
+    color: [200, 200, 0]
+
+  textured_rectangle:
+    template: "Rectangle"
+    label: "Textured Rectangle"
+    key_bind: "6"
+    width: 60
+    height: 60
+    is_static: True
+    texture_path: "assets/images/wood_texture.png"

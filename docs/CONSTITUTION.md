@@ -4,36 +4,57 @@
 
 * **Project Type:** 2D Physics Puzzle Sandbox Game.  
 * **Language:** Python 3.11+  
-* **Rendering & Window Management:** pygame (Strictly for drawing graphics, handling UI, and capturing user input).  
-* **Physics Engine:** pymunk (Strictly for mathematical simulation of gravity, collisions, and constraints).  
-* **Prohibited Tech:** Do not introduce other game engines (like Godot, Unity, Arcade) or physics wrappers. Stick strictly to Pygame and Pymunk.
+* **Rendering & Window Management:** pygame.  
+* **Physics Engine:** pymunk.
 
 ## **2\. Architectural Rules (The Golden Rule)**
 
-* **Strict Separation of Concerns:** The physics simulation (pymunk.Space) and the graphical rendering (pygame.Surface) must be strictly decoupled.  
-* **The Pymunk Rule:** Visuals must *always* follow the physics. The Pymunk body's position and rotation dictate where the Pygame sprite is drawn. Never update a Pygame visual coordinate directly during gameplay; update the Pymunk body and let the renderer follow it.  
-* **Object-Oriented Design (OOP):** All game pieces (balls, ramps, gears, ropes) must inherit from a base GamePart or Entity class that manages both its Pymunk body/shape and its Pygame rendering logic.
+* **Strict Separation of Concerns:** Physics simulation and graphical rendering must be strictly decoupled.  
+* **The Pymunk Rule:** Visuals must *always* follow the physics.  
+* **Object-Oriented Design (OOP):** All game pieces inherit from a base GamePart or Entity class.
 
 ## **3\. Game State Management**
 
-The game exists in two mutually exclusive primary states:
-
-1. **Edit Mode (Build Phase):** \* The physics space DOES NOT step (space.step() is not called).  
-   * Gravity is effectively zero/paused.  
-   * User input (mouse) can grab, move, and rotate objects.  
-2. **Play Mode (Simulation Phase):**  
-   * The physics space steps forward at a fixed time step (e.g., 1/60.0).  
-   * Gravity is active.  
-   * User cannot move objects directly with the mouse (unless interacting with specific "trigger" UI items).
+1. **Edit Mode (Build Phase):** Physics paused, dragging enabled.  
+2. **Play Mode (Simulation Phase):** Physics active, dragging disabled.
 
 ## **4\. Physics & Simulation Standards**
 
-* **Fixed Time Steps:** Always use a fixed delta time for space.step(1/60.0) to ensure deterministic physics behavior. Do not use variable frame rates for physics calculations.  
-* **Constants File:** All physics variables (gravity, elasticity, friction, density) must be stored in easily adjustable variables or a constants configuration. Do not hardcode magic numbers deep inside functions.  
-* **Coordinate Conversion:** Remember that Pygame's Y-axis goes *down* (top-left is 0,0) and Pymunk's standard Y-axis often goes *up*. **Crucial:** Pymunk 5.0+ handles Pygame coordinates natively if configured correctly, but you must ensure visual rotation matches physics rotation (which is in radians).
+* **Fixed Time Steps:** 1/60.0.  
+* **Constants File:** No magic numbers in functions.  
+* **Coordinate Conversion:** Pymunk (radians) to Pygame (degrees) conversion must be consistent.
 
 ## **5\. Agent Coding Guidelines**
 
-* **Readability over Cleverness:** Write clear, heavily commented code. Explain *why* a specific Pymunk joint or constraint is being used.  
-* **Incremental Implementation:** Build components one by one. Do not attempt to build gears, ropes, and pulleys simultaneously.  
-* **Fail Loudly:** If there is a mismatch between a Pygame visual and a Pymunk body, throw an error or log it. Do not swallow exceptions.
+* **Readability over Cleverness.**  
+* **Incremental Implementation.**  
+* **Fail Loudly:** Throw errors for mismatched physics/visuals.
+
+## **6\. Quality Assurance & Validation**
+
+* **Human-in-the-Loop Testing:** Every spec must include "Manual Test Instructions".
+
+## **7\. Documentation & Naming Conventions**
+
+* **Specifications:** docs/SPECIFICATION\_M\[Number\]\_\[Name\].md  
+* **Implementation Plans:** docs/IMPLEMENTATION\_PLAN\_M\[Number\]\_\[Name\].md  
+* **Code Files:** snake\_case.py.
+
+## **8\. Audio & Sound Standards**
+
+* **Universal Audio Feedback.**  
+* **In-Memory Management.**  
+* **Fallback Sound Logic.**
+
+## **9\. Data Management & Property Standards**
+
+* **YAML-Based Configuration:** All configurable properties live in external YAML files.  
+* **Template-Variant Inheritance:** The YAML structure must support templates (base properties) and variants (specific instances).  
+* **Property Merging:** When loading a variant, the system must deep-merge the template's properties with the variant's overrides.  
+* **Entity Metadata Structure:** Entities support a dictionary-based properties attribute.
+
+## **10\. Visual Asset & Aesthetic Standards**
+
+* **YAML-Driven Assets:** Backgrounds and entity textures must be defined in YAML.  
+* **Sprite-based Entities:** If an entity specifies a texture\_path, the draw() method must render a rotated pygame.Surface.  
+* **Rotation Sync:** Sprites must be rotated using \-math.degrees(self.body.angle).

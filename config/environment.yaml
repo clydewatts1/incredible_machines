@@ -1,0 +1,4 @@
+background_image: "assets/images/bg.png"
+fallback_color: [50, 50, 50]
+edit_mode_color: [255, 200, 0]
+play_mode_color: [0, 255, 0]
