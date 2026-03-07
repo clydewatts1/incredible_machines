@@ -1,0 +1,6 @@
+entities:
+- entity_id: bouncy_ball
+  position:
+    x: 269.0
+    y: 147.0
+  rotation: 0.0

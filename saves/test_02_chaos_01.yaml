@@ -1,0 +1,281 @@
+entities:
+- entity_id: bouncy_ball
+  position:
+    x: 211.0
+    y: 84.0
+  rotation: 17.101881870472354
+- entity_id: red_diamond
+  position:
+    x: 401.0
+    y: 189.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 321.0
+    y: 371.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 393.0
+    y: 382.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 453.0
+    y: 383.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 263.0
+    y: 323.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 134.0
+    y: 520.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 167.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 191.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 214.0
+    y: 524.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 247.0
+    y: 524.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 284.0
+    y: 526.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 310.0
+    y: 524.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 331.0
+    y: 522.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 351.0
+    y: 524.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 268.0
+    y: 521.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 264.0
+    y: 491.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 382.0
+    y: 499.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 377.0
+    y: 520.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 400.0
+    y: 520.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 427.0
+    y: 522.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 451.0
+    y: 522.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 467.0
+    y: 522.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 489.0
+    y: 524.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 512.0
+    y: 521.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 534.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 556.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 573.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 598.0
+    y: 516.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 619.0
+    y: 515.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 640.0
+    y: 506.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 668.0
+    y: 489.0
+  rotation: 0.7999999999999999
+- entity_id: bounce_block
+  position:
+    x: 676.0
+    y: 461.0
+  rotation: 0.7999999999999999
+- entity_id: shoot_block
+  position:
+    x: 171.0
+    y: 374.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 181.0
+    y: 286.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 600.0
+    y: 236.0
+  rotation: 0.0
+- entity_id: half_circle
+  position:
+    x: 512.0
+    y: 210.0
+  rotation: 3.2000000000000015
+- entity_id: half_circle
+  position:
+    x: 281.0
+    y: 215.0
+  rotation: 3.0000000000000013
+- entity_id: bouncy_ball
+  position:
+    x: 164.0
+    y: 94.0
+  rotation: 54.97332027303965
+- entity_id: bouncy_ball
+  position:
+    x: 330.0
+    y: 83.0
+  rotation: -237.72954107056867
+- entity_id: bouncy_ball
+  position:
+    x: 1636.278394098474
+    y: 36441.868856958885
+  rotation: 87.48808545237578
+- entity_id: bouncy_ball
+  position:
+    x: 98.07470651608838
+    y: 62229.59154338054
+  rotation: -37.643065412786854
+- entity_id: bouncy_ball
+  position:
+    x: 273.0
+    y: 81.0
+  rotation: 46.09653723733416
+- entity_id: bouncy_ball
+  position:
+    x: 633.0
+    y: 84.0
+  rotation: -7.8977117510923005
+- entity_id: red_diamond
+  position:
+    x: 534.0
+    y: 361.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 598.0
+    y: 314.0
+  rotation: 0.0
+- entity_id: quarter_circle
+  position:
+    x: 407.0
+    y: 245.0
+  rotation: 0.6
+- entity_id: quarter_circle
+  position:
+    x: 424.0
+    y: 302.0
+  rotation: 0.7999999999999999
+- entity_id: long_ramp
+  position:
+    x: 278.0
+    y: 147.0
+  rotation: -0.19999999999999998
+- entity_id: long_ramp
+  position:
+    x: 548.0
+    y: 159.0
+  rotation: 0.4
+- entity_id: shoot_block
+  position:
+    x: 234.0
+    y: 504.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 155.0
+    y: 499.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 319.0
+    y: 495.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 116.0
+    y: 518.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 149.0
+    y: 536.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 230.0
+    y: 542.0
+  rotation: 0.0

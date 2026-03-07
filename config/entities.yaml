@@ -5,6 +5,12 @@ templates:
   Square:
     friction: 0.5
     elasticity: 0.5
+    collision_sound: "default_collision.wav"
+    spawn_sound: "spawn.wav"
+    texture_path: ""
+  UShape:
+    friction: 0.5
+    elasticity: 0.5
     mass: 1.0
     collision_sound: "default_collision.wav"
     spawn_sound: "spawn.wav"
@@ -65,7 +71,7 @@ variants:
     width: 240
     height: 10
     is_static: True
-    texture_path: "assets/images/wood_texture.png"
+    texture_path: "assets/images/wood_grain_oak.png"
 
   red_diamond:
     template: "Diamond"
@@ -105,3 +111,59 @@ variants:
     height: 60
     is_static: True
     texture_path: "assets/images/wood_texture.png"
+
+
+  square_block:
+    template: "Square"
+    label: "Square Block"
+    key_bind: "6"
+    width: 20
+    height: 20
+    is_static: True
+    elasticity: 0.5
+    texture_path: "assets/images/wood_texture.png"
+
+
+  bounce_block:
+    template: "Square"
+    label: "Bounce Block"
+    key_bind: "6"
+    width: 20
+    height: 20
+    is_static: True
+    elasticity: 1.2
+    texture_path: "assets/images/wood_texture.png"
+
+
+  shoot_block:
+    template: "Square"
+    label: "Shoot Block"
+    key_bind: "7"
+    width: 20
+    height: 20
+    is_static: True 
+    elasticity: 4
+    texture_path: "assets/images/rivets_01.png"
+
+
+  cannon:
+    template: "UShape"
+    label: "Cannon"
+    width: 60
+    height: 60
+    is_static: True
+    shoot_velocity: [0, -500]
+    shoot_frequency: 1.0
+    max_count: 10
+    projectile_id: "bouncy_ball"
+    texture_path: ""
+
+
+  basket:
+    template: "UShape"
+    label: "Basket"
+    width: 80
+    height: 60
+    is_static: True
+    ingest_types: ["bouncy_ball"]
+    texture_path: ""

@@ -1,60 +1,93 @@
-# **Project Constitution: The Incredible Machine Clone**
+# **Incredible Machines: Project Constitution**
 
-## **1\. Core Identity & Tech Stack**
+This document defines the core principles, architectural constraints, and coding standards for the "Incredible Machines" project. All AI agents and developers must adhere to these rules to maintain project integrity.
 
-* **Project Type:** 2D Physics Puzzle Sandbox Game.  
-* **Language:** Python 3.11+  
-* **Rendering & Window Management:** pygame.  
-* **Physics Engine:** pymunk.
+## **1\. Project Identity**
 
-## **2\. Architectural Rules (The Golden Rule)**
+* **Name:** Incredible Machines  
+* **Genre:** 2D Physics-based puzzle game (inspired by The Incredible Machine)  
+* **Core Loop:** Place parts \-\> Run simulation \-\> Achieve goal \-\> Next level  
+* **Vibe:** Tinkering, experimentation, playful physics, mechanical logic.
 
-* **Strict Separation of Concerns:** Physics simulation and graphical rendering must be strictly decoupled.  
-* **The Pymunk Rule:** Visuals must *always* follow the physics.  
-* **Object-Oriented Design (OOP):** All game pieces inherit from a base GamePart or Entity class.
+## **2\. Core Technologies**
 
-## **3\. Game State Management**
+* **Language:** Python 3.x  
+* **Rendering & Input:** Pygame Community Edition (CE) is highly recommended over standard Pygame for better performance and modern features.  
+* **Physics Engine:** Pymunk (2D physics library)  
+* **Configuration:** YAML (for levels, parts, environment settings)
 
-1. **Edit Mode (Build Phase):** Physics paused, dragging enabled.  
-2. **Play Mode (Simulation Phase):** Physics active, dragging disabled.
+## **3\. Architectural Principles**
 
-## **4\. Physics & Simulation Standards**
+* **Separation of Concerns:**  
+  * *Physics (Pymunk):* Handles all collision, gravity, mass, and movement. Visuals must *follow* physics, not dictate them.  
+  * *Rendering (Pygame):* Only reads physics state to draw the screen.  
+  * *Game Logic:* State machine managing transitions (Edit Mode vs. Play Mode).  
+* **Data-Driven Design:** Hardcoding values (mass, friction, sprite paths) in Python is strictly prohibited. All entity definitions must live in config/entities.yaml.  
+* **Modularity:** New parts/entities should be easily added by creating a new class inheriting from a base Entity class and adding a YAML entry.
 
-* **Fixed Time Steps:** 1/60.0.  
-* **Constants File:** No magic numbers in functions.  
-* **Coordinate Conversion:** Pymunk (radians) to Pygame (degrees) conversion must be consistent.
+## **4\. Physics Engine (Pymunk) Mandates**
 
-## **5\. Agent Coding Guidelines**
+* **The Single Source of Truth:** Pymunk's Space is the absolute authority on object position and rotation.  
+* **Coordinate Systems:** Pygame's origin (0,0) is top-left. Pymunk's origin can be bottom-left (standard) or top-left depending on setup. *Mandate:* Explicitly define and document the coordinate conversion functions and use them universally.  
+* **Units:** 1 Pymunk unit \= 1 pixel (unless a specific scale factor is explicitly decided and documented). Keep mass and forces within reasonable, stable ranges.  
+* **Time Step:** The physics simulation must use a fixed time step (e.g., 60Hz) to ensure deterministic behavior across different machines. Do *not* use variable delta-time for physics step().
 
-* **Readability over Cleverness.**  
-* **Incremental Implementation.**  
-* **Fail Loudly:** Throw errors for mismatched physics/visuals.
+## **5\. Coding Standards (Python)**
 
-## **6\. Quality Assurance & Validation**
+* **Style:** PEP 8 compliant. Use type hinting (e.g., def calculate\_force(mass: float) \-\> float:) for all function signatures.  
+* **Naming Conventions:**  
+  * Classes: PascalCase  
+  * Variables/Functions: snake\_case  
+  * Constants: UPPER\_SNAKE\_CASE  
+* **Error Handling:** Fail gracefully. If a sprite is missing, draw a magenta placeholder rectangle and log a warning; do not crash.
 
-* **Human-in-the-Loop Testing:** Every spec must include "Manual Test Instructions".
+## **6\. The State Machine**
 
-## **7\. Documentation & Naming Conventions**
+The game must clearly distinguish between:
 
-* **Specifications:** docs/SPECIFICATION\_M\[Number\]\_\[Name\].md  
-* **Implementation Plans:** docs/IMPLEMENTATION\_PLAN\_M\[Number\]\_\[Name\].md  
-* **Code Files:** snake\_case.py.
+1. **Edit Mode:** Physics simulation is *paused*. Players can place, move, and configure parts.  
+2. **Play Mode:** Physics simulation is *running*. Player input is restricted to interactive parts (e.g., flipping a switch). Parts cannot be added or moved freely.
 
-## **8\. Audio & Sound Standards**
+## **7\. Version Control & AI Interaction**
 
-* **Universal Audio Feedback.**  
-* **In-Memory Management.**  
-* **Fallback Sound Logic.**
+* **Incremental Commits:** Code changes must be small, focused, and tied to a specific milestone.  
+* **Agent Roles:** Respect the defined roles of the Speckit AI agents (Plan, Specify, Implement, Checklist, Review). Do not merge steps.
 
-## **9\. Data Management & Property Standards**
+## **8\. YAML Configuration Standards**
 
-* **YAML-Based Configuration:** All configurable properties live in external YAML files.  
-* **Template-Variant Inheritance:** The YAML structure must support templates (base properties) and variants (specific instances).  
-* **Property Merging:** When loading a variant, the system must deep-merge the template's properties with the variant's overrides.  
-* **Entity Metadata Structure:** Entities support a dictionary-based properties attribute.
+* All configurations (entities, levels) must be validated upon loading.  
+* Structure must be clean and self-documenting.  
+* Example:  
+  ball\_bowling:  
+    type: dynamic  
+    mass: 10  
+    radius: 15  
+    elasticity: 0.1  
+    friction: 0.8  
+    visual: "bowling\_ball.png"
 
-## **10\. Visual Asset & Aesthetic Standards**
+## **9\. Performance Constraints**
 
-* **YAML-Driven Assets:** Backgrounds and entity textures must be defined in YAML.  
-* **Sprite-based Entities:** If an entity specifies a texture\_path, the draw() method must render a rotated pygame.Surface.  
-* **Rotation Sync:** Sprites must be rotated using \-math.degrees(self.body.angle).
+* Target Framerate: 60 FPS.  
+* Object limits: The game should comfortably handle at least 100 physics objects simultaneously without dropping frames.  
+* Avoid loading assets (images, sounds) during the main loop. Pre-load everything during initialization.
+
+## **10\. Milestone Progression**
+
+* Work must proceed strictly according to the defined milestones.  
+* No "feature creep." Do not implement features from Milestone 4 while working on Milestone 2\.
+
+## **11\. User Interface (UI) Standards**
+
+* **Playable Area Boundary:** The UI acts as a physical picture frame. The Pymunk physics boundaries (static lines for floor/walls/ceiling) must be inset to match the playable\_rect. Objects must never spawn, fall, or bounce *behind* the UI elements.  
+* **Separation of Input:** The game must distinguish between "UI Clicks" and "World Clicks." The main event loop must process UI collisions first. If a click falls on a UI element, it MUST NOT accidentally interact with the physics space behind it.  
+* **Lightweight UI:** Avoid heavy external UI libraries (like pygame\_gui) unless absolutely necessary. Maintain a simple, custom UI manager (utils/ui\_manager.py) focusing on clear, basic components like buttons and panels.  
+* **Data-Driven Toolbars:** Object palettes (side panels) must populate dynamically based on the variants loaded from config/entities.yaml. Avoid hardcoding object buttons. Icons should be auto-generated by drawing the entity onto a temporary surface.  
+* **Graceful Stubs:** If a UI element represents a feature that does not yet exist (e.g., "Save", "Load", "Challenges"), it must render visually but safely log a "Not Implemented" message to the console when clicked, preventing game crashes.  
+* **Clear State Indication:** The UI must provide immediate, obvious visual feedback of the current game state (e.g., highlighting whether the game is currently in PLAY or EDIT mode, and indicating the active tool via a "ghost" cursor).
+
+## **12. Relational Architecture & Constraints**
+
+* **Two-Pass Instantiation Rule:** The engine must spawn all bodies/shapes first, and then apply constraints/joints in a second pass.  
+* **Instance Identity Rule:** Every spawned entity must have a Unique Identifier (UUID) to allow constraints and save/load files to target specific instances on the canvas.  
+* **Cascading Deletion Rule:** If an entity is deleted, the system must safely remove any associated Pymunk constraints attached to it before removing the body.

@@ -1,0 +1,196 @@
+entities:
+- entity_id: cannon
+  position:
+    x: 625.0
+    y: 295.0
+  rotation: 0.0
+- entity_id: long_ramp
+  position:
+    x: 571.0
+    y: 143.0
+  rotation: 0.7999999999999999
+- entity_id: shoot_block
+  position:
+    x: 114.0
+    y: 544.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 135.0
+    y: 542.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 159.0
+    y: 545.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 180.0
+    y: 543.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 207.0
+    y: 541.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 230.0
+    y: 540.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 257.0
+    y: 537.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 276.0
+    y: 537.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 300.0
+    y: 536.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 321.0
+    y: 538.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 347.0
+    y: 541.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 368.0
+    y: 539.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 389.0
+    y: 540.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 410.0
+    y: 538.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 433.0
+    y: 539.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 465.0
+    y: 540.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 491.0
+    y: 538.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 512.0
+    y: 537.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 535.0
+    y: 543.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 565.0
+    y: 543.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 597.0
+    y: 541.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 655.0
+    y: 545.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 682.0
+    y: 539.0
+  rotation: 0.0
+- entity_id: shoot_block
+  position:
+    x: 633.0
+    y: 540.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 612.0
+    y: 517.0
+  rotation: 0.0
+- entity_id: bounce_block
+  position:
+    x: 582.0
+    y: 523.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 548.0
+    y: 453.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 452.0
+    y: 448.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 400.0
+    y: 326.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 294.0
+    y: 407.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 253.0
+    y: 202.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 486.0
+    y: 218.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 346.0
+    y: 123.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 318.0
+    y: 263.0
+  rotation: 0.0
+- entity_id: basket
+  position:
+    x: 136.0
+    y: 504.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 599.0
+    y: 357.0
+  rotation: 0.0
+- entity_id: red_diamond
+  position:
+    x: 644.0
+    y: 399.0
+  rotation: 0.0

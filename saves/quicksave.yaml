@@ -1,0 +1,8 @@
+entities:
+- uuid: 3a811b4e-6c7d-4ac8-8aa3-9b104d68fd26
+  entity_id: bouncy_ball
+  position:
+    x: 431.0
+    y: 140.0
+  rotation: 0.0
+constraints: []
