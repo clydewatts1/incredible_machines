@@ -1,8 +1,29 @@
 entities:
-- uuid: 3a811b4e-6c7d-4ac8-8aa3-9b104d68fd26
-  entity_id: bouncy_ball
+- uuid: 7b14d491-0998-4fa8-a2a0-4225cfea5031
+  entity_id: cannon
   position:
-    x: 431.0
-    y: 140.0
+    x: 255.0
+    y: 282.0
+  rotation: 0.5
+  overrides: {}
+- uuid: 78286770-b416-4277-a914-f0383df7568b
+  entity_id: red_diamond
+  position:
+    x: 418.0
+    y: 205.0
   rotation: 0.0
+  overrides:
+    collision_sound: default_collision.wav
+    color:
+    - 255
+    - 200
+    - 0
+    elasticity: 0.5
+    friction: 0.5
+    height: 20
+    is_static: 'True'
+    key_bind: 3
+    mass: 50.0
+    spawn_sound: spawn.wav
+    width: 40
 constraints: []

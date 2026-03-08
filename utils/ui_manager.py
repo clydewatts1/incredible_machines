@@ -11,6 +11,112 @@ class UIElement:
     def handle_event(self, event):
         return False
 
+import textwrap
+
+class UITextInput(UIElement):
+    def __init__(self, rect, font, text="", color=(255, 255, 255), bg_color=(30, 30, 30), active_color=(60, 60, 60)):
+        super().__init__(rect)
+        self.font = font
+        self.text = text
+        self.color = color
+        self.bg_color = bg_color
+        self.active_color = active_color
+        self.is_active = False
+
+    def draw(self, surface):
+        if not self.is_visible: return
+        color = self.active_color if self.is_active else self.bg_color
+        pygame.draw.rect(surface, color, self.rect)
+        pygame.draw.rect(surface, (200, 200, 200) if self.is_active else (100, 100, 100), self.rect, 1)
+        
+        text_surf = self.font.render(self.text, True, self.color)
+        surface.blit(text_surf, (self.rect.x + 5, self.rect.y + 5))
+        
+        if self.is_active and pygame.time.get_ticks() % 1000 < 500:
+            cursor_x = self.rect.x + 5 + text_surf.get_width()
+            pygame.draw.line(surface, self.color, (cursor_x, self.rect.y + 5), (cursor_x, self.rect.bottom - 5))
+
+    def handle_event(self, event):
+        if not self.is_visible: return False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(event.pos):
+                self.is_active = True
+                return True
+            else:
+                self.is_active = False
+                
+        if self.is_active and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            elif event.key != pygame.K_RETURN:
+                self.text += event.unicode
+            return True
+        return False
+
+class UITextArea(UITextInput):
+    def __init__(self, rect, font, text="", color=(255, 255, 255), bg_color=(30, 30, 30), active_color=(60, 60, 60)):
+        super().__init__(rect, font, text, color, bg_color, active_color)
+
+    def draw(self, surface):
+        if not self.is_visible: return
+        color = self.active_color if self.is_active else self.bg_color
+        pygame.draw.rect(surface, color, self.rect)
+        pygame.draw.rect(surface, (200, 200, 200) if self.is_active else (100, 100, 100), self.rect, 1)
+        
+        # Word wrap rendering
+        x, y = self.rect.x + 5, self.rect.y + 5
+        lines = self.text.split('\n')
+        wrapped_lines = []
+        for line in lines:
+            if not line:
+                wrapped_lines.append("")
+                continue
+            words = line.split(" ")
+            current_line = ""
+            for word in words:
+                test_line = current_line + word + " "
+                if self.font.size(test_line)[0] < self.rect.width - 10:
+                    current_line = test_line
+                else:
+                    wrapped_lines.append(current_line)
+                    current_line = word + " "
+            wrapped_lines.append(current_line)
+            
+        for i, line in enumerate(wrapped_lines):
+            text_surf = self.font.render(line, True, self.color)
+            surface.blit(text_surf, (x, y + i * self.font.get_height()))
+
+        if self.is_active and pygame.time.get_ticks() % 1000 < 500:
+            if wrapped_lines:
+                last_line = wrapped_lines[-1]
+                cursor_x = x + self.font.size(last_line)[0]
+                cursor_y = y + (len(wrapped_lines) - 1) * self.font.get_height()
+            else:
+                cursor_x = x
+                cursor_y = y
+            pygame.draw.line(surface, self.color, (cursor_x, cursor_y), (cursor_x, cursor_y + self.font.get_height()))
+
+    def handle_event(self, event):
+        if not self.is_visible: return False
+        
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.rect.collidepoint(event.pos):
+                self.is_active = True
+                return True
+            else:
+                self.is_active = False
+                
+        if self.is_active and event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_BACKSPACE:
+                self.text = self.text[:-1]
+            elif event.key == pygame.K_RETURN:
+                self.text += '\n'
+            else:
+                self.text += event.unicode
+            return True
+        return False
+
 
 class UIPanel(UIElement):
     def __init__(self, rect, color=(40, 40, 40)):
@@ -117,6 +223,7 @@ class UIButton(UIElement):
 class UIManager:
     def __init__(self):
         self.elements = []
+        self.focused_element = None
 
     def add_element(self, element):
         self.elements.append(element)
@@ -141,7 +248,21 @@ class UIManager:
         for element in reversed(self.elements):
             if element.handle_event(event):
                 consumed = True
+                if isinstance(element, (UITextInput, UITextArea)) and event.type == pygame.MOUSEBUTTONDOWN:
+                    if self.focused_element and self.focused_element != element:
+                        self.focused_element.is_active = False
+                    self.focused_element = element if element.is_active else None
                 break
+                
+        # Handle clicking outside any text input to unfocus
+        if not consumed and event.type == pygame.MOUSEBUTTONDOWN:
+            if self.focused_element:
+                self.focused_element.is_active = False
+                self.focused_element = None
+                
+        # If we have a focused element, we should consume all keyboard events to prevent global hotkey triggers
+        if self.focused_element and event.type in (pygame.KEYDOWN, pygame.KEYUP):
+            return True
                 
         # If it wasn't a button click, we should still prevent clicking *through* a UIPanel
         if not consumed and event.type == pygame.MOUSEBUTTONDOWN:

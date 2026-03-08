@@ -2,8 +2,8 @@
 import pygame
 
 # Window Dimensions
-WINDOW_WIDTH = 800
-WINDOW_HEIGHT = 600
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 720
 
 # Physics Configuration
 PHYSICS_STEP = 1 / 60.0

@@ -15,19 +15,20 @@ from utils.level_manager import LevelManager
 
 UI_TOP_HEIGHT = 50
 UI_BOTTOM_HEIGHT = 40
-UI_SIDE_WIDTH = 100
+UI_SIDE_WIDTH = 80
+UI_RIGHT_SIDE_WIDTH = 120
 
 def create_boundaries(space):
     """Create screen boundaries so things don't fall off screen."""
     static_body = space.static_body
     w, h = constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT
-    thickness = 50.0
+    thickness = 500.0
     
     # Phase 2: Physics Boundaries align with playable_rect
     # Offset the segments outward by the thickness so the *inner edge* of the segment
     # rests exactly on the UI boundary lines.
     left = UI_SIDE_WIDTH - thickness
-    right = w - UI_SIDE_WIDTH + thickness
+    right = w - UI_RIGHT_SIDE_WIDTH + thickness
     top = UI_TOP_HEIGHT - thickness
     bottom = h - UI_BOTTOM_HEIGHT + thickness
     
@@ -60,14 +61,14 @@ def set_active_tool(tool_key, state_dict):
 
 def create_icon_surface(variant_key, variant_data):
     """Phase 4: Generates an icon surface geometrically matching the entity template."""
-    # Create an 60x60 transparent surface for the icon
-    surf = pygame.Surface((60, 60), pygame.SRCALPHA)
+    # Create an 40x40 transparent surface for the icon
+    surf = pygame.Surface((40, 40), pygame.SRCALPHA)
     
     template = variant_data.get("template", "Square")
     color = tuple(variant_data.get("color", [200, 200, 200]))
     
     # Calculate screen center of the surface
-    cx, cy = 30, 30
+    cx, cy = 20, 20
     
     try:
         from utils.geometry_utils import get_diamond_vertices, get_arc_vertices
@@ -151,7 +152,7 @@ def main():
     playable_rect = pygame.Rect(
         UI_SIDE_WIDTH, 
         UI_TOP_HEIGHT, 
-        w - 2 * UI_SIDE_WIDTH, 
+        w - UI_SIDE_WIDTH - UI_RIGHT_SIDE_WIDTH, 
         h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT
     )
     
@@ -159,7 +160,7 @@ def main():
     top_panel = UIPanel(pygame.Rect(0, 0, w, UI_TOP_HEIGHT), color=(50, 50, 50))
     bottom_panel = UIPanel(pygame.Rect(0, h - UI_BOTTOM_HEIGHT, w, UI_BOTTOM_HEIGHT), color=(50, 50, 50))
     left_panel = UIPanel(pygame.Rect(0, UI_TOP_HEIGHT, UI_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
-    right_panel = UIPanel(pygame.Rect(w - UI_SIDE_WIDTH, UI_TOP_HEIGHT, UI_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
+    right_panel = UIPanel(pygame.Rect(w - UI_RIGHT_SIDE_WIDTH, UI_TOP_HEIGHT, UI_RIGHT_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
     
     ui_manager.add_element(top_panel)
     ui_manager.add_element(bottom_panel)
@@ -211,6 +212,8 @@ def main():
             new_part = GamePart(space, pos["x"], pos["y"], variant_key)
             if "uuid" in data:
                 new_part.uuid = data["uuid"]
+            if "overrides" in data:
+                new_part.apply_draft_overrides(data["overrides"])
             new_part.body.angle = rot
             space.reindex_shapes_for_body(new_part.body)
             entities.append(new_part)
@@ -320,42 +323,154 @@ def main():
     
     # Side Panels dynamic population from variants
     left_y_offset = UI_TOP_HEIGHT + 10
-    right_y_offset = UI_TOP_HEIGHT + 10
     
-    # Track whether to put on left or right panel
-    place_left = True
-    
-    for variant_key, variant_data in all_variants.items():
-        icon_surf = create_icon_surface(variant_key, variant_data)
-        
-        # Format label (Title Case) or use YAML label
-        label_text = variant_data.get("label", variant_key.replace("_", " ").title())
-        
-        if place_left:
-            # Center the 80x80 button inside the 100px wide Left panel
-            btn_x = (UI_SIDE_WIDTH - 80) // 2
-            y_offset = left_y_offset
-            left_y_offset += 90
-        else:
-            # Center the 80x80 button inside the 100px wide Right panel
-            btn_x = w - UI_SIDE_WIDTH + (UI_SIDE_WIDTH - 80) // 2
-            y_offset = right_y_offset
-            right_y_offset += 90
+    # Track UI elements placed on the right
+    right_panel_elements = []
+
+    # Populate left panel
+    for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+        if i % 2 == 0:
+            icon_surf = create_icon_surface(variant_key, variant_data)
+            label_text = variant_data.get("label", variant_key.replace("_", " ").title())
+            btn_x = (UI_SIDE_WIDTH - 60) // 2
             
-        btn_rect = pygame.Rect(btn_x, y_offset, 80, 80)
-        
-        btn = UIButton(
-            btn_rect, 
-            text=label_text, 
-            font=small_font, 
-            icon_surface=icon_surf, 
-            callback=set_active_tool(variant_key, game_state), 
-            click_sound="clunk_side.wav"
-        )
-        ui_manager.add_element(btn)
-        
-        # Toggle placement for the next button
-        place_left = not place_left
+            btn_rect = pygame.Rect(btn_x, left_y_offset, 60, 60)
+            btn = UIButton(
+                btn_rect, text=label_text, font=small_font, icon_surface=icon_surf, 
+                callback=set_active_tool(variant_key, game_state), click_sound="clunk_side.wav"
+            )
+            ui_manager.add_element(btn)
+            left_y_offset += 70
+            
+    # Statically populate right panel once so they can be tracked
+    ry = UI_TOP_HEIGHT + 10
+    for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+        if i % 2 != 0:
+            icon_surf = create_icon_surface(variant_key, variant_data)
+            label_text = variant_data.get("label", variant_key.replace("_", " ").title())
+            btn_x = w - UI_RIGHT_SIDE_WIDTH + (UI_RIGHT_SIDE_WIDTH - 60) // 2
+            
+            btn = UIButton(
+                pygame.Rect(btn_x, ry, 60, 60), text=label_text, font=small_font, 
+                icon_surface=icon_surf, callback=set_active_tool(variant_key, game_state), 
+                click_sound="clunk_side.wav"
+            )
+            ui_manager.add_element(btn)
+            right_panel_elements.append(btn)
+            ry += 70
+
+    from utils.ui_manager import UITextInput, UITextArea
+
+    panel_scroll_offset = [0] # List so it can be mutated within functions
+
+    def build_right_panel():
+        try:
+            for el in right_panel_elements:
+                if el in ui_manager.elements:
+                    ui_manager.elements.remove(el)
+            right_panel_elements.clear()
+
+            selected = game_state.get("selected_instance")
+            if selected is None:
+                panel_scroll_offset[0] = 0
+                ry = UI_TOP_HEIGHT + 10 + panel_scroll_offset[0]
+                for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+                    if i % 2 != 0:
+                        icon_surf = create_icon_surface(variant_key, variant_data)
+                        label_text = variant_data.get("label", variant_key.replace("_", " ").title())
+                        btn_x = w - UI_RIGHT_SIDE_WIDTH + (UI_RIGHT_SIDE_WIDTH - 60) // 2
+                        
+                        btn = UIButton(
+                            pygame.Rect(btn_x, ry, 60, 60), text=label_text, font=small_font, 
+                            icon_surface=icon_surf, callback=set_active_tool(variant_key, game_state), 
+                            click_sound="clunk_side.wav"
+                        )
+                        ui_manager.add_element(btn)
+                        right_panel_elements.append(btn)
+                        ry += 70
+            else:
+                y_off = UI_TOP_HEIGHT + 10 + panel_scroll_offset[0]
+                btn_x = w - UI_RIGHT_SIDE_WIDTH + 10
+                lbl = UILabel(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 20), text="Properties", font=small_font)
+                ui_manager.add_element(lbl)
+                right_panel_elements.append(lbl)
+                y_off += 25
+                
+                inputs = {}
+                all_keys = set(selected.properties.keys()).union(selected.overrides.keys())
+                for k in sorted(list(all_keys)):
+                    if k in ["visual", "template", "texture_path", "image", "label"]: continue
+                    val = selected.get_property(k)
+                    
+                    klbl = UILabel(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 15), text=k, font=small_font)
+                    ui_manager.add_element(klbl)
+                    right_panel_elements.append(klbl)
+                    y_off += 15
+                    
+                    v_str = str(val)
+                    if len(v_str) > 20 or "\n" in v_str:
+                        inp = UITextArea(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 50), font=small_font, text=v_str)
+                        y_off += 55
+                    else:
+                        inp = UITextInput(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 20), font=small_font, text=v_str)
+                        y_off += 25
+                        
+                    ui_manager.add_element(inp)
+                    right_panel_elements.append(inp)
+                    inputs[k] = inp
+                    
+                def apply_props():
+                    new_dict = {}
+                    for k, inp in inputs.items():
+                        val_str = inp.text
+                        import ast
+                        # Fix for list/dict representations:
+                        try:
+                            if val_str.startswith("[") or val_str.startswith("{"):
+                                new_dict[k] = ast.literal_eval(val_str)
+                            elif "." in val_str:
+                                new_dict[k] = float(val_str)
+                            else:
+                                new_dict[k] = int(val_str)
+                        except (ValueError, SyntaxError):
+                            new_dict[k] = val_str
+                    selected.apply_draft_overrides(new_dict)
+                    game_state["selected_instance"] = None
+                    build_right_panel()
+
+                def cancel_props():
+                    game_state["selected_instance"] = None
+                    build_right_panel()
+                    
+                def reset_props():
+                    if hasattr(selected, 'overrides'):
+                        selected.overrides.clear()
+                        # Reapply defaults by essentially applying empty overrides, or just forcing a reload of physics
+                        selected.apply_draft_overrides({})
+                    game_state["selected_instance"] = None
+                    build_right_panel()
+
+                y_off += 5
+                btn_save = UIButton(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 25), text="Save", font=small_font, callback=apply_props)
+                ui_manager.add_element(btn_save)
+                right_panel_elements.append(btn_save)
+                y_off += 30
+                
+                btn_reset = UIButton(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 25), text="Reset", font=small_font, callback=reset_props)
+                ui_manager.add_element(btn_reset)
+                right_panel_elements.append(btn_reset)
+                y_off += 30
+                
+                btn_can = UIButton(pygame.Rect(btn_x, y_off, UI_RIGHT_SIDE_WIDTH - 20, 25), text="Cancel", font=small_font, callback=cancel_props)
+                ui_manager.add_element(btn_can)
+                right_panel_elements.append(btn_can)
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(f"CRASH IN BUILD RIGHT PANEL: {e}")
+
+    # initialize right panel (we already built the first state, just let it exist)
+    # build_right_panel()
 
     # Initialize Pymunk Physics
     space = pymunk.Space()
@@ -458,20 +573,38 @@ def main():
                 continue
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # Check if click is inside the playable rect before interacting with the world
-                if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
-                    info = space.point_query_nearest(event.pos, 5.0, pymunk.ShapeFilter())
-                    if info and info.shape and info.shape.body != space.static_body:
-                        # Grab the body
-                        grabbed_body = info.shape.body
-                    elif game_state["active_tool"] is not None:
-                        # Spawning logic via active tool
-                        variant_key = game_state["active_tool"]
-                        m_x, m_y = event.pos
-                        new_part = GamePart(space, m_x, m_y, variant_key)
-                        entities.append(new_part)
-                        active_instances[new_part.uuid] = new_part
-                        new_part.play_event_sound("spawn_sound")
+                try:
+                    # Check if click is inside the playable rect before interacting with the world
+                    if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
+                        info = space.point_query_nearest(event.pos, 5.0, pymunk.ShapeFilter())
+                        if info and info.shape and info.shape.body != space.static_body:
+                            # Grab the body
+                            grabbed_body = info.shape.body
+                            
+                            # Phase 3 Selection Logic
+                            # Find which entity owns this shape
+                            for entity in entities:
+                                if info.shape in getattr(entity, 'shapes', [entity.shape]):
+                                    game_state["selected_instance"] = entity
+                                    build_right_panel()
+                                    break
+                        elif game_state["active_tool"] is not None:
+                            # Spawning logic via active tool
+                            variant_key = game_state["active_tool"]
+                            m_x, m_y = event.pos
+                            new_part = GamePart(space, m_x, m_y, variant_key)
+                            entities.append(new_part)
+                            active_instances[new_part.uuid] = new_part
+                            new_part.play_event_sound("spawn_sound")
+                        else:
+                            # Deselect if clicking empty space
+                            if game_state.get("selected_instance") is not None:
+                                game_state["selected_instance"] = None
+                                build_right_panel()
+                except Exception as e:
+                    import traceback
+                    traceback.print_exc()
+                    print(f"CRASH IN CLICK LOOP: {e}")
             
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
                 # Right-click deletion
@@ -506,17 +639,26 @@ def main():
                 
             elif event.type == pygame.MOUSEWHEEL:
                 if current_mode == "EDIT":
-                    target = grabbed_body
-                    if not target:
-                        info = space.point_query_nearest(pygame.mouse.get_pos(), 5.0, pymunk.ShapeFilter())
-                        if info and info.shape and info.shape.body != space.static_body:
-                            target = info.shape.body
-                    if target:
-                        target.angle += event.y * 0.1
-                        space.reindex_shapes_for_body(target)
+                    # Check if mouse is over the right panel
+                    if pygame.mouse.get_pos()[0] > w - UI_RIGHT_SIDE_WIDTH:
+                        if game_state.get("selected_instance") is not None:
+                            panel_scroll_offset[0] += event.y * 20
+                            # clamp scroll offset so it doesn't go below 0 (downwards)
+                            if panel_scroll_offset[0] > 0:
+                                panel_scroll_offset[0] = 0
+                            build_right_panel()
+                    else:
+                        target = grabbed_body
+                        if not target:
+                            info = space.point_query_nearest(pygame.mouse.get_pos(), 5.0, pymunk.ShapeFilter())
+                            if info and info.shape and info.shape.body != space.static_body:
+                                target = info.shape.body
+                        if target:
+                            target.angle += event.y * 0.1
+                            space.reindex_shapes_for_body(target)
 
         # Continuous rotation checks while in edit mode
-        if current_mode == "EDIT" and grabbed_body:
+        if current_mode == "EDIT" and grabbed_body and not ui_manager.focused_element:
             keys = pygame.key.get_pressed()
             rotated = False
             if keys[pygame.K_q]:
@@ -561,6 +703,15 @@ def main():
         # Draw all entities
         for entity in entities:
             entity.update_visual(screen)
+            
+            # Phase 6: Visual indicator
+            if current_mode == "EDIT" and getattr(entity, 'overrides', {}):
+                body = getattr(entity, 'body', None)
+                if body:
+                    x, y = int(body.position.x), int(body.position.y)
+                    # Draw a small magenta dot/circle in the center to indicate overrides
+                    pygame.draw.circle(screen, (255, 0, 255), (x, y), 5)
+                    pygame.draw.circle(screen, (0, 0, 0), (x, y), 5, 1)
             
         # Phase 5: Ghost Cursor Preview
         if current_mode == "EDIT" and not grabbed_body and game_state["active_tool"] is not None:

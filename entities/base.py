@@ -16,12 +16,13 @@ class GamePart:
         self.uuid = str(uuid.uuid4())
         self.variant_key = property_key
         self.properties = load_entity_config(property_key)
-        self.template = self.properties.get("template")
+        self.overrides = {}
+        self.template = self.get_property("template")
         self.is_hovered = False
         
         # Determine Body Type
-        mass = self.properties.get("mass", 1.0)
-        is_static = self.properties.get("is_static", False)
+        mass = float(self.get_property("mass", 1.0))
+        is_static = self.get_property("is_static", False)
         
         if is_static:
             self.body = pymunk.Body(body_type=pymunk.Body.STATIC)
@@ -34,45 +35,45 @@ class GamePart:
         tex_width, tex_height = 0, 0
         self.shapes = []
         if self.template == "Circle":
-            radius = self.properties.get("radius", 15)
+            radius = float(self.get_property("radius", 15))
             self.shapes = [pymunk.Circle(self.body, radius)]
             tex_width, tex_height = radius * 2, radius * 2
             if not is_static:
                 self.body.moment = pymunk.moment_for_circle(mass, 0, radius)
         elif self.template in ["Rectangle", "Square"]:
-            width = self.properties.get("width", 50)
-            height = self.properties.get("height", 50)
+            width = float(self.get_property("width", 50))
+            height = float(self.get_property("height", 50))
             self.shapes = [pymunk.Poly.create_box(self.body, size=(width, height))]
             tex_width, tex_height = width, height
             if not is_static:
                 self.body.moment = pymunk.moment_for_box(mass, (width, height))
         elif self.template == "Diamond":
-            width = self.properties.get("width", 50)
-            height = self.properties.get("height", 50)
+            width = float(self.get_property("width", 50))
+            height = float(self.get_property("height", 50))
             verts = get_diamond_vertices(width, height)
             self.shapes = [pymunk.Poly(self.body, verts)]
             tex_width, tex_height = width, height
             if not is_static:
                 self.body.moment = pymunk.moment_for_poly(mass, verts)
         elif self.template == "Half-Circle":
-            radius = self.properties.get("radius", 50)
-            segments = self.properties.get("segments", 15)
+            radius = float(self.get_property("radius", 50))
+            segments = int(self.get_property("segments", 15))
             verts = get_arc_vertices(radius, 0, math.pi, segments)
             self.shapes = [pymunk.Poly(self.body, verts)]
             tex_width, tex_height = radius * 2, radius
             if not is_static:
                 self.body.moment = pymunk.moment_for_poly(mass, verts)
         elif self.template == "Quarter-Circle":
-            radius = self.properties.get("radius", 50)
-            segments = self.properties.get("segments", 15)
+            radius = float(self.get_property("radius", 50))
+            segments = int(self.get_property("segments", 15))
             verts = get_arc_vertices(radius, 0, math.pi / 2, segments)
             self.shapes = [pymunk.Poly(self.body, verts)]
             tex_width, tex_height = radius, radius
             if not is_static:
                 self.body.moment = pymunk.moment_for_poly(mass, verts)
         elif self.template == "UShape":
-            width = self.properties.get("width", 60)
-            height = self.properties.get("height", 60)
+            width = float(self.get_property("width", 60))
+            height = float(self.get_property("height", 60))
             thick = 10
             base_verts = [(-width/2, height/2 - thick), (width/2, height/2 - thick), (width/2, height/2), (-width/2, height/2)]
             left_verts = [(-width/2, -height/2), (-width/2 + thick, -height/2), (-width/2 + thick, height/2), (-width/2, height/2)]
@@ -101,13 +102,13 @@ class GamePart:
         self.shape = self.shapes[0]
         self.space.add(self.body)
         for s in self.shapes:
-            s.elasticity = self.properties.get("elasticity", 0.5)
-            s.friction = self.properties.get("friction", 0.5)
+            s.elasticity = float(self.get_property("elasticity", 0.5))
+            s.friction = float(self.get_property("friction", 0.5))
             self.space.add(s)
         
         # Texture Loading & Caching (Milestone 8)
         self.base_texture = None
-        texture_rel_path = self.properties.get("texture_path", "")
+        texture_rel_path = str(self.get_property("texture_path", ""))
         if texture_rel_path:
             import os
             tex_abs_path = os.path.join(os.path.dirname(__file__), '..', texture_rel_path)
@@ -211,13 +212,38 @@ class GamePart:
             self.shoot_count = 0
             self.force_shoot = False
 
+    def get_property(self, key, default=None):
+        if key in self.overrides:
+            return self.overrides[key]
+        return self.properties.get(key, default)
+
+    def apply_draft_overrides(self, new_dict):
+        """
+        Applies a dictionary of drafted overrides.
+        Requires re-establishing physical properties on the body.
+        For Phase 2/3, we update simple things like mass, friction, bounce directly if possible.
+        """
+        for k, v in new_dict.items():
+            self.overrides[k] = v
+            
+        # Re-calc dynamic mass
+        if "mass" in new_dict and not self.get_property("is_static", False):
+            mass = float(self.get_property("mass", 1.0))
+            self.body.mass = mass
+            
+        for shape in self.shapes:
+            if "elasticity" in new_dict:
+                shape.elasticity = float(self.get_property("elasticity", 0.3))
+            if "friction" in new_dict:
+                shape.friction = float(self.get_property("friction", 0.5))
+
     def update_logic(self, dt, game_state, entities, active_instances=None):
         """
         Executes active logic (e.g. Cannon spawning) during PLAY state.
         """
         if self.variant_key == "cannon" and game_state.get("mode") == "PLAY":
-            freq = self.properties.get("shoot_frequency", 1.0)
-            max_count = self.properties.get("max_count", -1)
+            freq = float(self.get_property("shoot_frequency", 1.0))
+            max_count = int(self.get_property("max_count", -1))
             
             if getattr(self, 'shoot_timer', None) is None:
                 self.shoot_timer = 0.0
@@ -233,15 +259,15 @@ class GamePart:
                     if not force_shoot:
                         self.shoot_count += 1
                     
-                    proj_id = self.properties.get("projectile_id", "ball")
+                    proj_id = str(self.get_property("projectile_id", "ball"))
                     import math
                     angle = self.body.angle
                     
-                    vel = self.properties.get("shoot_velocity", [0, -500])
+                    vel = self.get_property("shoot_velocity", [0, -500])
                     vx = vel[0] * math.cos(angle) - vel[1] * math.sin(angle)
                     vy = vel[0] * math.sin(angle) + vel[1] * math.cos(angle)
                     
-                    height = self.properties.get("height", 60)
+                    height = float(self.get_property("height", 60))
                     shift_local_y = -height/2 - 20 # out of the barrel
                     shift_x = -shift_local_y * math.sin(angle)
                     shift_y = shift_local_y * math.cos(angle)

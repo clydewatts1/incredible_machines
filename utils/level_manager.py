@@ -23,7 +23,8 @@ class LevelManager:
                     "x": entity.body.position.x,
                     "y": entity.body.position.y
                 },
-                "rotation": entity.body.angle
+                "rotation": entity.body.angle,
+                "overrides": entity.overrides
             }
             level_data.append(data)
             
@@ -55,6 +56,7 @@ class LevelManager:
         try:
             with open(path, "r") as f:
                 data = yaml.safe_load(f)
+                entities_data = data.get("entities", []) if data else []
                 constraints_data = data.get("constraints", []) if data else []
                 print(f"LevelManager: Successfully loaded {len(entities_data)} entities and {len(constraints_data)} constraints from {path}")
                 return entities_data, constraints_data
