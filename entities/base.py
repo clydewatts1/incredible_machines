@@ -19,6 +19,8 @@ class GamePart:
         self.overrides = {}
         self.template = self.get_property("template")
         self.is_hovered = False
+        self.to_delete = False
+        self.connected_uuids = []
         
         # Determine Body Type
         mass = float(self.get_property("mass", 1.0))
@@ -44,6 +46,33 @@ class GamePart:
             width = float(self.get_property("width", 50))
             height = float(self.get_property("height", 50))
             self.shapes = [pymunk.Poly.create_box(self.body, size=(width, height))]
+            
+            # Phase 2: Directional Sensors in Pymunk (Active Sides)
+            active_sides = list(self.get_property("active_sides", []))
+            if self.get_property("active_side"):
+                active_sides.append(self.get_property("active_side"))
+                
+            for side in active_sides:
+                side = side.lower()
+                offset = 1.0 
+                hw = width / 2.0
+                hh = height / 2.0
+                if side == "top":
+                    p1, p2 = (-hw, -hh - offset), (hw, -hh - offset)
+                elif side == "bottom":
+                    p1, p2 = (-hw, hh + offset), (hw, hh + offset)
+                elif side == "left":
+                    p1, p2 = (-hw - offset, -hh), (-hw - offset, hh)
+                elif side == "right":
+                    p1, p2 = (hw + offset, -hh), (hw + offset, hh)
+                else:
+                    continue
+                    
+                sensor_seg = pymunk.Segment(self.body, p1, p2, 2.0)
+                sensor_seg.sensor = False  # False so we can conditionally bounce!
+                sensor_seg.collision_type = 2 if self.variant_key == "basket" else (3 if self.variant_key == "cannon" else 4)
+                self.shapes.append(sensor_seg)
+
             tex_width, tex_height = width, height
             if not is_static:
                 self.body.moment = pymunk.moment_for_box(mass, (width, height))
@@ -105,19 +134,32 @@ class GamePart:
             s.elasticity = float(self.get_property("elasticity", 0.5))
             s.friction = float(self.get_property("friction", 0.5))
             self.space.add(s)
+
+        # Phase 3: Motors require explicit bracing to the static space and driving
+        if self.variant_key == "motor":
+            # Pin the dynamic motor body to the static background so it spins in place
+            pivot = pymunk.PivotJoint(self.space.static_body, self.body, self.body.position)
+            # Create the driving motor constraint
+            rate = float(self.get_property("motor_speed", 3.14))
+            direction = self.get_property("direction", "clockwise")
+            if direction == "counter-clockwise":
+                rate = -rate
+            motor = pymunk.SimpleMotor(self.space.static_body, self.body, rate)
+            self.space.add(pivot, motor)
+            self.motor_constraint = motor
         
-        # Texture Loading & Caching (Milestone 8)
-        self.base_texture = None
+        # Texture Loading & Caching (Milestone 8 & 16)
+        from utils.asset_manager import asset_manager
+        
         texture_rel_path = str(self.get_property("texture_path", ""))
-        if texture_rel_path:
-            import os
-            tex_abs_path = os.path.join(os.path.dirname(__file__), '..', texture_rel_path)
-            try:
-                img = pygame.image.load(tex_abs_path).convert_alpha()
-                self.base_texture = pygame.transform.scale(img, (int(tex_width), int(tex_height)))
-            except FileNotFoundError:
-                print(f"FAIL LOUDLY: Texture missing: {tex_abs_path}. Falling back to primitive.")
-                self.base_texture = None
+        tex_path = texture_rel_path if texture_rel_path else f"assets/sprites/{self.variant_key}.png"
+        
+        label_text = self.properties.get("label", self.variant_key)
+        self.base_texture = asset_manager.get_image(
+            tex_path, 
+            fallback_size=(int(tex_width), int(tex_height)), 
+            text_label=label_text
+        )
 
     def update_visual(self, surface):
         """
@@ -159,23 +201,10 @@ class GamePart:
 
     def draw(self, surface):
         """
-        Draws the texture if available; else draws the primitive shape.
+        Draws the sprite texture. Primitive shapes are replaced by auto-generated fallbacks.
         """
         if self.base_texture:
             self.draw_texture(surface)
-            return
-            
-        color = tuple(self.properties.get("color", [200, 200, 200]))
-        for shape in self.shapes:
-            if getattr(shape, 'sensor', False):
-                continue # Don't draw the invisible sensor!
-            if isinstance(shape, pymunk.Circle):
-                pos = int(self.body.position.x), int(self.body.position.y)
-                pygame.draw.circle(surface, color, pos, int(shape.radius))
-            elif isinstance(shape, pymunk.Poly):
-                vertices = [self.body.local_to_world(v) for v in shape.get_vertices()]
-                points = [(int(v.x), int(v.y)) for v in vertices]
-                pygame.draw.polygon(surface, color, points)
 
     def play_event_sound(self, event_type):
         """
@@ -211,6 +240,48 @@ class GamePart:
             self.shoot_timer = 0.0
             self.shoot_count = 0
             self.force_shoot = False
+        elif self.variant_key == "conveyor_belt":
+            speed = float(self.get_property("speed", 100.0))
+            direction = self.get_property("direction", "right")
+            if direction == "left":
+                speed = -speed
+            for s in self.shapes:
+                s.surface_velocity = (speed, 0)
+        elif self.variant_key == "motor":
+            if hasattr(self, 'motor_constraint'):
+                rate = float(self.get_property("motor_speed", 3.14))
+                direction = self.get_property("direction", "clockwise")
+                if direction == "counter-clockwise":
+                    rate = -rate
+                self.motor_constraint.rate = rate
+
+    def receive_signal(self, payload=None):
+        """Phase 3/17: Standard logical interface triggered by connected Sender entities."""
+        if self.variant_key == "cannon":
+            self.force_shoot = True
+        elif self.variant_key == "conveyor_belt":
+            # Toggle surface velocity
+            current_x, current_y = self.shapes[0].surface_velocity
+            if current_x == 0:
+                speed = float(self.get_property("speed", 100.0))
+                direction = self.get_property("direction", "right")
+                if direction == "left":
+                    speed = -speed
+                for s in self.shapes:
+                    s.surface_velocity = (speed, 0)
+            else:
+                for s in self.shapes:
+                    s.surface_velocity = (0, 0)
+        elif self.variant_key == "motor":
+            if hasattr(self, 'motor_constraint'):
+                if self.motor_constraint.rate == 0:
+                    rate = float(self.get_property("motor_speed", 3.14))
+                    direction = self.get_property("direction", "clockwise")
+                    if direction == "counter-clockwise":
+                        rate = -rate
+                    self.motor_constraint.rate = rate
+                else:
+                    self.motor_constraint.rate = 0.0
 
     def get_property(self, key, default=None):
         if key in self.overrides:
@@ -236,6 +307,23 @@ class GamePart:
                 shape.elasticity = float(self.get_property("elasticity", 0.3))
             if "friction" in new_dict:
                 shape.friction = float(self.get_property("friction", 0.5))
+                
+        # Phase 4: Dynamic Motor/Conveyor Speed Tuning
+        if self.variant_key == "conveyor_belt" and ("speed" in new_dict or "direction" in new_dict):
+            speed = float(self.get_property("speed", 100.0))
+            direction = self.get_property("direction", "right")
+            if direction == "left":
+                speed = -speed
+            for s in self.shapes:
+                s.surface_velocity = (speed, 0)
+                
+        if self.variant_key == "motor" and ("motor_speed" in new_dict or "direction" in new_dict):
+            if hasattr(self, 'motor_constraint'):
+                rate = float(self.get_property("motor_speed", 3.14))
+                direction = self.get_property("direction", "clockwise")
+                if direction == "counter-clockwise":
+                    rate = -rate
+                self.motor_constraint.rate = rate
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
         """
@@ -259,24 +347,43 @@ class GamePart:
                     if not force_shoot:
                         self.shoot_count += 1
                     
-                    proj_id = str(self.get_property("projectile_id", "ball"))
+                    # Phase 4: Cannon Emitter Logic
+                    proj_id = str(self.get_property("ammo_id", "bouncy_ball"))
+                    act_side = str(self.get_property("active_side", "right")).lower()
+                    vel_mag = float(self.get_property("exit_velocity", 800.0))
+                    ex_angle_deg = float(self.get_property("exit_angle", 0.0))
+                    
                     import math
-                    angle = self.body.angle
+                    base_angle = self.body.angle 
                     
-                    vel = self.get_property("shoot_velocity", [0, -500])
-                    vx = vel[0] * math.cos(angle) - vel[1] * math.sin(angle)
-                    vy = vel[0] * math.sin(angle) + vel[1] * math.cos(angle)
-                    
+                    width = float(self.get_property("width", 60))
                     height = float(self.get_property("height", 60))
-                    shift_local_y = -height/2 - 20 # out of the barrel
-                    shift_x = -shift_local_y * math.sin(angle)
-                    shift_y = shift_local_y * math.cos(angle)
+                    hw, hh = width / 2.0, height / 2.0
                     
-                    spawn_x = self.body.position.x + shift_x
-                    spawn_y = self.body.position.y + shift_y
+                    # Convert side into local unit vector
+                    if act_side == "top":
+                        local_x, local_y = 0, -hh - 15
+                        local_angle = -math.pi / 2
+                    elif act_side == "bottom":
+                        local_x, local_y = 0, hh + 15
+                        local_angle = math.pi / 2
+                    elif act_side == "left":
+                        local_x, local_y = -hw - 15, 0
+                        local_angle = math.pi
+                    else: # right
+                        local_x, local_y = hw + 15, 0
+                        local_angle = 0
+                        
+                    # Rotate local offsets by world angle
+                    spawn_x = self.body.position.x + local_x * math.cos(base_angle) - local_y * math.sin(base_angle)
+                    spawn_y = self.body.position.y + local_x * math.sin(base_angle) + local_y * math.cos(base_angle)
+                    
+                    final_angle = base_angle + local_angle + math.radians(ex_angle_deg)
+                    vx = vel_mag * math.cos(final_angle)
+                    vy = vel_mag * math.sin(final_angle)
                     
                     new_part = GamePart(self.space, spawn_x, spawn_y, proj_id)
-                    new_part.body.angle = angle
+                    new_part.body.angle = final_angle
                     new_part.body.velocity = (vx, vy)
                     self.space.reindex_shapes_for_body(new_part.body)
                     entities.append(new_part)

@@ -60,74 +60,14 @@ def set_active_tool(tool_key, state_dict):
     return callback
 
 def create_icon_surface(variant_key, variant_data):
-    """Phase 4: Generates an icon surface geometrically matching the entity template."""
-    # Create an 40x40 transparent surface for the icon
-    surf = pygame.Surface((40, 40), pygame.SRCALPHA)
+    """Phase 4: Loads an icon surface from the asset manager instead of procedural drawing."""
+    from utils.asset_manager import asset_manager
+    # Use variant_key or label for the fallback text
+    label = variant_data.get("label", variant_key)
+    icon_path = f"assets/icons/{variant_key}_button.png"
     
-    template = variant_data.get("template", "Square")
-    color = tuple(variant_data.get("color", [200, 200, 200]))
-    
-    # Calculate screen center of the surface
-    cx, cy = 20, 20
-    
-    try:
-        from utils.geometry_utils import get_diamond_vertices, get_arc_vertices
-        import math
-        
-        if template in ["Square", "Rectangle"]:
-            # For UI, we normalize the size so it fits in 60x60
-            w = min(50, variant_data.get("width", 50))
-            h = min(50, variant_data.get("height", 50))
-            rect = pygame.Rect(0, 0, w, h)
-            rect.center = (cx, cy)
-            pygame.draw.rect(surf, color, rect)
-            
-        elif template == "Circle":
-            r = min(25, variant_data.get("radius", 15))
-            pygame.draw.circle(surf, color, (cx, cy), r)
-            
-        elif template == "Diamond":
-            w = min(50, variant_data.get("width", 50))
-            h = min(50, variant_data.get("height", 50))
-            verts = get_diamond_vertices(w, h)
-            # Offset to center
-            points = [(cx + int(v[0]), cy + int(v[1])) for v in verts]
-            pygame.draw.polygon(surf, color, points)
-            
-        elif template == "Half-Circle":
-            r = min(25, variant_data.get("radius", 50))
-            segments = variant_data.get("segments", 15)
-            verts = get_arc_vertices(r, 0, math.pi, segments)
-            # Offset to center
-            points = [(cx + int(v[0]), cy + int(v[1])) for v in verts]
-            pygame.draw.polygon(surf, color, points)
-            
-        elif template == "Quarter-Circle":
-            r = min(25, variant_data.get("radius", 50))
-            segments = variant_data.get("segments", 15)
-            verts = get_arc_vertices(r, 0, math.pi/2, segments)
-            # Offset to center
-            points = [(cx + int(v[0]), cy + int(v[1])) for v in verts]
-            pygame.draw.polygon(surf, color, points)
-            
-        elif template == "UShape":
-            w = min(50, variant_data.get("width", 60))
-            h = min(50, variant_data.get("height", 60))
-            thick = min(8, w // 4)
-            # Draw a U shape (base, left, right)
-            base_rect = pygame.Rect(cx - w//2, cy + h//2 - thick, w, thick)
-            left_rect = pygame.Rect(cx - w//2, cy - h//2, thick, h)
-            right_rect = pygame.Rect(cx + w//2 - thick, cy - h//2, thick, h)
-            
-            pygame.draw.rect(surf, color, base_rect)
-            pygame.draw.rect(surf, color, left_rect)
-            pygame.draw.rect(surf, color, right_rect)
-            
-    except Exception as e:
-        print(f"Failed to generate icon for {variant_key}: {e}")
-        pygame.draw.rect(surf, (255, 0, 255), (10, 10, 40, 40)) # Missing icon fallback
-        
-    return surf
+    # We use 40x40 since that matches the current UI sizes
+    return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label=label)
 
 def main():
     pygame.init()
@@ -135,6 +75,14 @@ def main():
     env_manager.initialize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
     
     all_variants = load_all_variants()
+    
+    # Phase 1: M17 Wire Tool Hack - Inject a fake variant so it gets a button
+    if "wire_tool" not in all_variants:
+        all_variants["wire_tool"] = {
+            "label": "Wire Logic",
+            "template": "Rectangle",
+            "color": [255, 255, 0]
+        }
     
     screen = pygame.display.set_mode((constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT))
     pygame.display.set_caption("The Incredible Machine Clone - Milestone 9")
@@ -186,7 +134,7 @@ def main():
     # Level Manager
     level_manager = LevelManager()
     
-    def apply_level_data(level_data, constraints_data=None):
+    def apply_level_data(level_data, constraints_data=None, connections_data=None):
         if not level_data:
             return
             
@@ -243,13 +191,23 @@ def main():
                         max_d = c_data.get("max_dist", 100)
                         joint = pymunk.SlideJoint(body_a, body_b, tuple(anch_a), tuple(anch_b), min_d, max_d)
                         space.add(joint)
+                        
+        # Phase 4: M17 Instantiate logic connections
+        if connections_data:
+            for conn in connections_data:
+                sender_uid = conn.get("sender")
+                receiver_uid = conn.get("receiver")
+                if sender_uid in active_instances and receiver_uid in active_instances:
+                    # Wire them up immediately
+                    active_instances[sender_uid].connected_uuids.append(receiver_uid)
             
     def handle_quick_save():
         level_manager.save_level(entities)
         
     def handle_quick_load():
-        level_data, constraints_data = level_manager.load_level()
-        apply_level_data(level_data, constraints_data)
+        handle_clear()
+        level_data, constraints_data, connections_data = level_manager.load_level()
+        apply_level_data(level_data, constraints_data, connections_data)
         game_state["mode"] = "EDIT"
 
     def handle_save():
@@ -263,7 +221,7 @@ def main():
         )
         root.destroy()
         if filepath:
-            level_manager.save_level(entities, filepath)
+            level_manager.save_level(entities, filepath=filepath)
             
     def handle_load():
         root = tk.Tk()
@@ -276,8 +234,9 @@ def main():
         )
         root.destroy()
         if filepath:
-            level_data, constraints_data = level_manager.load_level(filepath)
-            apply_level_data(level_data, constraints_data)
+            handle_clear()
+            level_data, constraints_data, connections_data = level_manager.load_level(filepath)
+            apply_level_data(level_data, constraints_data, connections_data)
             game_state["mode"] = "EDIT"
 
     def handle_clear():
@@ -328,7 +287,20 @@ def main():
     right_panel_elements = []
 
     # Populate left panel
+    # Phase 1 M17: Pin Wire tool to top left
+    if "wire_tool" in all_variants:
+        icon_surf = create_icon_surface("wire_tool", all_variants["wire_tool"])
+        btn_x = (UI_SIDE_WIDTH - 60) // 2
+        btn = UIButton(
+            pygame.Rect(btn_x, left_y_offset, 60, 60), text="Wire Logic", font=small_font, 
+            icon_surface=icon_surf, callback=set_active_tool("wire_tool", game_state), 
+            click_sound="clunk_side.wav"
+        )
+        ui_manager.add_element(btn)
+        left_y_offset += 70
+
     for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+        if variant_key == "wire_tool": continue
         if i % 2 == 0:
             icon_surf = create_icon_surface(variant_key, variant_data)
             label_text = variant_data.get("label", variant_key.replace("_", " ").title())
@@ -345,6 +317,7 @@ def main():
     # Statically populate right panel once so they can be tracked
     ry = UI_TOP_HEIGHT + 10
     for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+        if variant_key == "wire_tool": continue
         if i % 2 != 0:
             icon_surf = create_icon_surface(variant_key, variant_data)
             label_text = variant_data.get("label", variant_key.replace("_", " ").title())
@@ -374,20 +347,22 @@ def main():
             if selected is None:
                 panel_scroll_offset[0] = 0
                 ry = UI_TOP_HEIGHT + 10 + panel_scroll_offset[0]
+
                 for i, (variant_key, variant_data) in enumerate(all_variants.items()):
+                    if variant_key == "wire_tool": continue
                     if i % 2 != 0:
-                        icon_surf = create_icon_surface(variant_key, variant_data)
-                        label_text = variant_data.get("label", variant_key.replace("_", " ").title())
-                        btn_x = w - UI_RIGHT_SIDE_WIDTH + (UI_RIGHT_SIDE_WIDTH - 60) // 2
-                        
-                        btn = UIButton(
-                            pygame.Rect(btn_x, ry, 60, 60), text=label_text, font=small_font, 
-                            icon_surface=icon_surf, callback=set_active_tool(variant_key, game_state), 
-                            click_sound="clunk_side.wav"
-                        )
-                        ui_manager.add_element(btn)
-                        right_panel_elements.append(btn)
-                        ry += 70
+                            icon_surf = create_icon_surface(variant_key, variant_data)
+                            label_text = variant_data.get("label", variant_key.replace("_", " ").title())
+                            btn_x = w - UI_RIGHT_SIDE_WIDTH + (UI_RIGHT_SIDE_WIDTH - 60) // 2
+                            
+                            btn = UIButton(
+                                pygame.Rect(btn_x, ry, 60, 60), text=label_text, font=small_font, 
+                                icon_surface=icon_surf, callback=set_active_tool(variant_key, game_state), 
+                                click_sound="clunk_side.wav"
+                            )
+                            ui_manager.add_element(btn)
+                            right_panel_elements.append(btn)
+                            ry += 70
             else:
                 y_off = UI_TOP_HEIGHT + 10 + panel_scroll_offset[0]
                 btn_x = w - UI_RIGHT_SIDE_WIDTH + 10
@@ -494,16 +469,41 @@ def main():
     def basket_sensor_begin(arbiter, space, data):
         shape_a, shape_b = arbiter.shapes
         target_shape = shape_a if shape_b.collision_type == 2 else shape_b
+        basket_shape = shape_b if shape_b.collision_type == 2 else shape_a
+        
+        target_entity = None
+        basket_entity = None
         
         for entity in list(entities):
-            # Check if this entity owns the target shape
-            if getattr(entity, 'shapes', None) and target_shape in entity.shapes:
-                entity.to_delete = True
-                break
-            elif getattr(entity, 'shape', None) == target_shape:
-                entity.to_delete = True
-                break
-        return False # False to ignore physical collision response
+            if getattr(entity, 'shapes', None):
+                if target_shape in entity.shapes:
+                    target_entity = entity
+                if basket_shape in entity.shapes:
+                    basket_entity = entity
+            else:
+                if getattr(entity, 'shape', None) == target_shape:
+                    target_entity = entity
+                if getattr(entity, 'shape', None) == basket_shape:
+                    basket_entity = entity
+                    
+        if target_entity and basket_entity:
+            # Phase 3: Type Filtering Logic
+            accepts = basket_entity.get_property("accepts_types", ["all"])
+            if isinstance(accepts, str):
+                accepts = [accepts]
+                
+            if "all" in accepts or target_entity.variant_key in accepts:
+                target_entity.to_delete = True
+                
+                # Phase 3: M17 Signal Queue Injection
+                if basket_entity not in signal_queue:
+                    signal_queue.append(basket_entity)
+                    
+                return False # Ingest, no physical bounce!
+            else:
+                return True # Reject, enforce physical bounce!
+                
+        return False
 
     space.on_collision(collision_type_a=2, collision_type_b=None, begin=basket_sensor_begin)
 
@@ -522,19 +522,23 @@ def main():
                 entity.to_delete = True
                 break
                 
-        # 2. Trigger the cannon to fire immediately
+        # 2. Trigger the cannon to fire immediately (or enqueue signal if it's acting as a Sender)
         for entity in list(entities):
             if getattr(entity, 'shapes', None) and cannon_shape in entity.shapes:
                 entity.force_shoot = True
+                # Phase 3: Enqueue signal if cannon was wired to another entity
+                if entity not in signal_queue:
+                    signal_queue.append(entity)
                 break
                 
         return False
 
     space.on_collision(collision_type_a=3, collision_type_b=None, begin=cannon_sensor_begin)
     
-    # Interaction State
     grabbed_body = None
     prev_mode = game_state["mode"]
+    game_state["wiring_source"] = None # Added for M17
+    signal_queue = []
 
     running = True
     while running:
@@ -578,17 +582,35 @@ def main():
                     if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
                         info = space.point_query_nearest(event.pos, 5.0, pymunk.ShapeFilter())
                         if info and info.shape and info.shape.body != space.static_body:
-                            # Grab the body
-                            grabbed_body = info.shape.body
-                            
-                            # Phase 3 Selection Logic
-                            # Find which entity owns this shape
-                            for entity in entities:
-                                if info.shape in getattr(entity, 'shapes', [entity.shape]):
-                                    game_state["selected_instance"] = entity
-                                    build_right_panel()
-                                    break
-                        elif game_state["active_tool"] is not None:
+                            # Phase 1: M17 Wire Tool Logic
+                            if game_state["active_tool"] == "wire_tool":
+                                target_entity = None
+                                for entity in entities:
+                                    if info.shape in getattr(entity, 'shapes', [entity.shape]):
+                                        target_entity = entity
+                                        break
+                                        
+                                if target_entity:
+                                    if game_state["wiring_source"] is None:
+                                        game_state["wiring_source"] = target_entity
+                                    elif game_state["wiring_source"] != target_entity:
+                                        # Link UUIDs
+                                        game_state["wiring_source"].connected_uuids.append(target_entity.uuid)
+                                        target_entity.play_event_sound("spawn_sound") # Feedback
+                                        game_state["wiring_source"] = None
+                            else:
+                                # Normal Grab/Selection Loop
+                                # Grab the body
+                                grabbed_body = info.shape.body
+                                
+                                # Phase 3 Selection Logic
+                                # Find which entity owns this shape
+                                for entity in entities:
+                                    if info.shape in getattr(entity, 'shapes', [entity.shape]):
+                                        game_state["selected_instance"] = entity
+                                        build_right_panel()
+                                        break
+                        elif game_state["active_tool"] is not None and game_state["active_tool"] != "wire_tool":
                             # Spawning logic via active tool
                             variant_key = game_state["active_tool"]
                             m_x, m_y = event.pos
@@ -597,7 +619,8 @@ def main():
                             active_instances[new_part.uuid] = new_part
                             new_part.play_event_sound("spawn_sound")
                         else:
-                            # Deselect if clicking empty space
+                            # Deselect if clicking empty space (or cancel wire tool)
+                            game_state["wiring_source"] = None
                             if game_state.get("selected_instance") is not None:
                                 game_state["selected_instance"] = None
                                 build_right_panel()
@@ -674,8 +697,20 @@ def main():
         if current_mode == "PLAY":
             space.step(constants.PHYSICS_STEP)
             
+            # Phase 3: Process Logic Signals cleanly OUTSIDE the physics step
+            while signal_queue:
+                sender = signal_queue.pop(0)
+                sender.flash_timer = 15 # Set frame flash duration
+                if hasattr(sender, 'connected_uuids'):
+                    for tgt_uuid in sender.connected_uuids:
+                        tgt = active_instances.get(tgt_uuid)
+                        if tgt and hasattr(tgt, 'receive_signal'):
+                            tgt.receive_signal(payload=sender)
+            
             # Process logic updates and ingestions
             for entity in list(entities):
+                if getattr(entity, 'flash_timer', 0) > 0:
+                    entity.flash_timer -= 1
                 if getattr(entity, 'to_delete', False):
                     # Cleanup the entity
                     if getattr(entity, 'body', None):
@@ -712,6 +747,47 @@ def main():
                     # Draw a small magenta dot/circle in the center to indicate overrides
                     pygame.draw.circle(screen, (255, 0, 255), (x, y), 5)
                     pygame.draw.circle(screen, (0, 0, 0), (x, y), 5, 1)
+
+            # Phase 2: M17 Logic Wiring Renderer
+            if current_mode in ["EDIT", "PLAY"] or game_state["active_tool"] == "wire_tool":
+                if hasattr(entity, 'connected_uuids') and entity.body:
+                    start_pos = (int(entity.body.position.x), int(entity.body.position.y))
+                    for tgt_uuid in entity.connected_uuids:
+                        tgt = active_instances.get(tgt_uuid)
+                        if tgt and tgt.body:
+                            end_pos = (int(tgt.body.position.x), int(tgt.body.position.y))
+                            
+                            flash = getattr(entity, 'flash_timer', 0)
+                            if flash > 0:
+                                wire_color = (0, 255, 255) # Cyan flash
+                                width = 3
+                            else:
+                                wire_color = (255, 255, 0)
+                                if current_mode == "PLAY":
+                                    wire_color = (255, 200, 0) # Brighter orange/yellow so it doesn't disappear against the background
+                                width = 1
+
+                            # Draw an anti-aliased logical line
+                            if width == 1:
+                                pygame.draw.aaline(screen, wire_color, start_pos, end_pos)
+                            else:
+                                pygame.draw.line(screen, wire_color, start_pos, end_pos, width) # bold for flashes
+                                
+                            # Draw an arrowhead to indicate direction (Sender -> Receiver)
+                            direction = pymunk.Vec2d(end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
+                            if direction.length > 20:
+                                direction = direction.normalized()
+                                arrow_base = (end_pos[0] - int(direction.x * 15), end_pos[1] - int(direction.y * 15))
+                                left_wing = (arrow_base[0] - int(direction.y * 5), arrow_base[1] + int(direction.x * 5))
+                                right_wing = (arrow_base[0] + int(direction.y * 5), arrow_base[1] - int(direction.x * 5))
+                                pygame.draw.polygon(screen, wire_color, [end_pos, left_wing, right_wing])
+
+        # Phase 1: M17 Active Wiring preview line
+        if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
+            src = game_state["wiring_source"]
+            if src.body:
+                start_x, start_y = int(src.body.position.x), int(src.body.position.y)
+                pygame.draw.aaline(screen, (255, 150, 0), (start_x, start_y), m_pos)
             
         # Phase 5: Ghost Cursor Preview
         if current_mode == "EDIT" and not grabbed_body and game_state["active_tool"] is not None:

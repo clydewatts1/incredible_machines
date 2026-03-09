@@ -147,23 +147,45 @@ variants:
 
 
   cannon:
-    template: "UShape"
+    template: "Rectangle"
     label: "Cannon"
     width: 60
-    height: 60
+    height: 30
     is_static: True
-    shoot_velocity: [0, -500]
+    active_side: "right"
+    exit_velocity: 800.0
+    exit_angle: 0.0
     shoot_frequency: 1.0
     max_count: 10
-    projectile_id: "bouncy_ball"
+    ammo_id: "bouncy_ball"
     texture_path: ""
 
 
   basket:
-    template: "UShape"
+    template: "Rectangle"
     label: "Basket"
     width: 80
     height: 60
     is_static: True
-    ingest_types: ["bouncy_ball"]
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball"]
     texture_path: ""
+
+  conveyor_belt:
+    template: "Rectangle"
+    label: "Conveyor Belt"
+    width: 120
+    height: 20
+    is_static: True
+    speed: 100.0
+    direction: "right"
+    color: [100, 100, 100]
+
+  motor:
+    template: "Circle"
+    label: "Motor"
+    radius: 30
+    is_static: False
+    motor_speed: 3.14
+    direction: "clockwise"
+    color: [200, 100, 50]
