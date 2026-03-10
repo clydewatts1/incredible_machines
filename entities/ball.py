@@ -19,14 +19,24 @@ class Ball(GamePart):
         # Add to space
         self.space.add(self.body, self.shape)
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         """
         Draws the ball using Pymunk physics position.
         Called strictly by GamePart.update_visual() to ensure Fail Loudly assertions run.
+        M25 Phase 2: Applies camera offset if provided.
         """
         import math
-        x = int(self.body.position.x)
-        y = int(self.body.position.y)
+        
+        # Get world-space position
+        world_x, world_y = self.body.position.x, self.body.position.y
+        
+        # Apply camera transformation if provided
+        if camera:
+            screen_x, screen_y = camera.world_to_screen(world_x, world_y)
+        else:
+            screen_x, screen_y = world_x, world_y
+        
+        x, y = int(screen_x), int(screen_y)
         pygame.draw.circle(surface, constants.COLOR_BALL, (x, y), int(self.radius))
         
         # Draw a line from center to edge to visually confirm it is rolling

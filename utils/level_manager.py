@@ -16,6 +16,8 @@ class LevelManager:
         level_data = []
         
         for entity in entities:
+            if not getattr(entity, "body", None):
+                continue
             data = {
                 "uuid": entity.uuid,
                 "entity_id": entity.variant_key,

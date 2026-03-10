@@ -55,6 +55,7 @@ variants:
   bouncy_ball:
     template: "Circle"
     label: "Bouncy Ball"
+    category: "payloads"
     key_bind: "1"
     friction: 0.3
     elasticity: 0.9
@@ -65,17 +66,19 @@ variants:
   long_ramp:
     template: "Rectangle"
     label: "Long Ramp"
+    category: "blocks"
     key_bind: "2"
     friction: 0.8
     elasticity: 0.2
-    width: 240
+    width: 100
     height: 10
     is_static: True
-    texture_path: "assets/images/wood_grain_oak.png"
 
-  red_diamond:
+
+  diamond:
     template: "Diamond"
-    label: "Red Diamond"
+    label: "Diamond"
+    category: "blocks"
     key_bind: "3"
     width: 40
     height: 40
@@ -86,6 +89,7 @@ variants:
   half_circle:
     template: "Half-Circle"
     label: "Half Circle"
+    category: "blocks"
     key_bind: "4"
     radius: 50
     segments: 15
@@ -96,6 +100,7 @@ variants:
   quarter_circle:
     template: "Quarter-Circle"
     label: "Quarter Circle"
+    category: "blocks"
     key_bind: "5"
     radius: 50
     segments: 15
@@ -106,16 +111,17 @@ variants:
   textured_rectangle:
     template: "Rectangle"
     label: "Textured Rectangle"
+    category: "blocks"
     key_bind: "6"
     width: 60
     height: 60
     is_static: True
-    texture_path: "assets/images/wood_texture.png"
 
 
   square_block:
     template: "Square"
     label: "Square Block"
+    category: "blocks"
     key_bind: "6"
     width: 20
     height: 20
@@ -124,20 +130,20 @@ variants:
     texture_path: "assets/images/wood_texture.png"
 
 
-  bounce_block:
+  spring:
     template: "Square"
-    label: "Bounce Block"
+    label: "Spring"
+    category: "blocks"
     key_bind: "6"
     width: 20
-    height: 20
+    height: 40
     is_static: True
     elasticity: 1.2
-    texture_path: "assets/images/wood_texture.png"
-
 
   shoot_block:
     template: "Square"
     label: "Shoot Block"
+    category: "blocks"
     key_bind: "7"
     width: 20
     height: 20
@@ -149,6 +155,7 @@ variants:
   cannon:
     template: "Rectangle"
     label: "Cannon"
+    category: "active"
     width: 60
     height: 30
     is_static: True
@@ -164,6 +171,7 @@ variants:
   basket:
     template: "Rectangle"
     label: "Basket"
+    category: "active"
     width: 80
     height: 60
     is_static: True
@@ -174,6 +182,7 @@ variants:
   conveyor_belt:
     template: "Rectangle"
     label: "Conveyor Belt"
+    category: "active"
     width: 120
     height: 20
     is_static: True
@@ -184,8 +193,304 @@ variants:
   motor:
     template: "Circle"
     label: "Motor"
+    category: "active"
     radius: 30
     is_static: False
     motor_speed: 3.14
     direction: "clockwise"
     color: [200, 100, 50]
+
+  logic_factory:
+    template: "Rectangle"
+    label: "Logic Factory"
+    category: "logic"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    texture_path: ""
+    engine_type: "regex"
+    cost_modifier: -10.0
+    tired_velocity: 160.0
+    instructions:
+      rules:
+        - target_field: "status"
+          pattern: "^SUCCESS$"
+          state: 100
+        - target_field: "user"
+          pattern: "^ADMIN.*"
+          state: 50
+      default_state: 0
+    routing:
+      - max_state: 0
+        angle: 45
+        velocity: 200
+        score: -20
+        desc: "Error (Heavy Damage)"
+      - max_state: 50
+        angle: 90
+        velocity: 100
+        score: -5
+        desc: "Partial Match (Light Damage)"
+      - max_state: 100
+        angle: 45
+        velocity: 100
+        score: 10
+        desc: "Success (Healing)"
+    animations:
+      OFF: "sprite_factory_off"
+      INITIALIZING: "sprite_factory_initializing"
+      IDLE: "sprite_factory_idle"
+      PROCESSING: "sprite_factory_processing"
+      EMITTING: "sprite_factory_emitting"
+      FATAL: "sprite_factory_fatal"
+      JAMMED: "sprite_factory_jammed"
+      COOLDOWN: "sprite_factory_cooldown"
+
+  data_source:
+    template: "Rectangle"
+    label: "Data Source"
+    category: "sources"
+    width: 96
+    height: 96
+    is_static: True
+    active_side: "Bottom"
+    exit_velocity: 150.0
+    exit_angle: 0.0
+    emit_interval: 2.0
+    engine_type: "null"
+    instructions: {}
+    animations:
+      OFF: "data_source_off"
+      INITIALIZING: "data_source_initializing"
+      IDLE: "data_source_idle"
+      POLLING: "data_source_polling"
+      EMITTING: "data_source_emitting"
+      EXHAUSTED: "data_source_exhausted"
+      FATAL: "data_source_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+
+  data_source_csv:
+    template: "Rectangle"
+    label: "CSV Data Source"
+    category: "sources"
+    width: 96
+    height: 96
+    is_static: True
+    active_side: "Bottom"
+    exit_velocity: 150.0
+    exit_angle: 0.0
+    emit_interval: 2.0
+    engine_type: "csv"
+    instructions:
+      filepath: "data/sample.csv"
+      loop: false
+      skip_header: true
+      delimiter: ","
+    animations:
+      OFF: "data_source_off"
+      INITIALIZING: "data_source_initializing"
+      IDLE: "data_source_idle"
+      POLLING: "data_source_polling"
+      EMITTING: "data_source_emitting"
+      EXHAUSTED: "data_source_exhausted"
+      FATAL: "data_source_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+
+  data_source_mcp:
+    template: "Rectangle"
+    label: "MCP Data Source"
+    category: "sources"
+    width: 96
+    height: 96
+    is_static: True
+    active_side: "Top"
+    exit_velocity: 120.0
+    exit_angle: 45.0
+    emit_interval: 3.0
+    engine_type: "mcp"
+    instructions:
+      transport: "sse"
+      url: "http://localhost:8000/sse"
+      tool_name: "get_incredible_machine_data"
+      timeout: 5
+    animations:
+      OFF: "data_source_off"
+      INITIALIZING: "data_source_initializing"
+      IDLE: "data_source_idle"
+      POLLING: "data_source_polling"
+      EMITTING: "data_source_emitting"
+      EXHAUSTED: "data_source_exhausted"
+      FATAL: "data_source_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+
+  data_sink:
+    template: "Rectangle"
+    label: "Data Sink"
+    category: "sinks"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball"]
+    exporter_type: "null"
+    export:
+      directory: "exports"
+      file_prefix: "sink_output"
+      max_objects: 10
+      rotation_seconds: 180
+    animations:
+      OFF: "data_sink_off"
+      INITIALIZING: "data_sink_initializing"
+      IDLE: "data_sink_idle"
+      INGESTING: "data_sink_ingesting"
+      WRITING: "data_sink_writing"
+      FATAL: "data_sink_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+
+  data_sink_csv:
+    template: "Rectangle"
+    label: "Data Sink CSV"
+    category: "sinks"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball", "data_ball"]
+    exporter_type: "csv"
+    export:
+      directory: "exports"
+      file_prefix: "sink_csv"
+      max_objects: 10
+      rotation_seconds: 180
+    animations:
+      OFF: "data_sink_off"
+      INITIALIZING: "data_sink_initializing"
+      IDLE: "data_sink_idle"
+      INGESTING: "data_sink_ingesting"
+      WRITING: "data_sink_writing"
+      FATAL: "data_sink_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+
+  data_sink_json:
+    template: "Rectangle"
+    label: "Data Sink JSON"
+    category: "sinks"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball", "data_ball"]
+    exporter_type: "json"
+    export:
+      directory: "exports"
+      file_prefix: "sink_json"
+      max_objects: 10
+      rotation_seconds: 180
+    animations:
+      OFF: "data_sink_off"
+      INITIALIZING: "data_sink_initializing"
+      IDLE: "data_sink_idle"
+      INGESTING: "data_sink_ingesting"
+      WRITING: "data_sink_writing"
+      FATAL: "data_sink_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+
+  data_sink_yaml:
+    template: "Rectangle"
+    label: "Data Sink YAML"
+    category: "sinks"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball", "data_ball"]
+    exporter_type: "yaml"
+    export:
+      directory: "exports"
+      file_prefix: "sink_yaml"
+      max_objects: 10
+      rotation_seconds: 180
+    animations:
+      OFF: "data_sink_off"
+      INITIALIZING: "data_sink_initializing"
+      IDLE: "data_sink_idle"
+      INGESTING: "data_sink_ingesting"
+      WRITING: "data_sink_writing"
+      FATAL: "data_sink_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+
+  data_sink_mcp:
+    template: "Rectangle"
+    label: "Data Sink MCP"
+    category: "sinks"
+    width: 96
+    height: 96
+    is_static: True
+    active_sides: ["top"]
+    accepts_types: ["bouncy_ball", "data_ball"]
+    exporter_type: "mcp"
+    export:
+      transport: "sse"
+      url: "http://localhost:8000/sse"
+      tool_name: "post_incredible_machine_data"
+      timeout: 5
+    animations:
+      OFF: "data_sink_off"
+      INITIALIZING: "data_sink_initializing"
+      IDLE: "data_sink_idle"
+      INGESTING: "data_sink_ingesting"
+      WRITING: "data_sink_writing"
+      FATAL: "data_sink_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null

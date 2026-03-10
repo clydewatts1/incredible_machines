@@ -119,13 +119,28 @@ class UITextArea(UITextInput):
 
 
 class UIPanel(UIElement):
-    def __init__(self, rect, color=(40, 40, 40)):
+    def __init__(self, rect, color=(40, 40, 40), alpha=220):
+        """
+        Initialize a UI panel.
+        
+        M25 Phase 5: Added alpha parameter for semi-transparent panels.
+        
+        Args:
+            rect: Pygame Rect for panel position and size
+            color: RGB color tuple
+            alpha: Alpha transparency (0-255, where 255 is opaque)
+        """
         super().__init__(rect)
         self.color = color
+        self.alpha = alpha
 
     def draw(self, surface):
         if self.is_visible:
-            pygame.draw.rect(surface, self.color, self.rect)
+            # M25 Phase 5: Create semi-transparent panel surface
+            panel_surface = pygame.Surface((self.rect.width, self.rect.height))
+            panel_surface.set_alpha(self.alpha)
+            panel_surface.fill(self.color)
+            surface.blit(panel_surface, self.rect.topleft)
 
 
 class UILabel(UIElement):
@@ -217,6 +232,82 @@ class UIButton(UIElement):
                     self.callback()
                 return True # Consumed
                 
+        return False
+
+
+class UIScrollPanel(UIPanel):
+    def __init__(self, rect, color=(40, 40, 40), alpha=220, scroll_speed=24):
+        super().__init__(rect, color=color, alpha=alpha)
+        self.children = []
+        self.content_height = 0
+        self.scroll_y = 0
+        self.scroll_speed = scroll_speed
+
+    def add_child(self, element):
+        self.children.append(element)
+        return element
+
+    def clear_children(self):
+        self.children.clear()
+        self.content_height = 0
+        self.scroll_y = 0
+
+    def _clamp_scroll(self):
+        min_scroll = min(0, self.rect.height - self.content_height)
+        if self.scroll_y > 0:
+            self.scroll_y = 0
+        if self.scroll_y < min_scroll:
+            self.scroll_y = min_scroll
+
+    def draw(self, surface):
+        if not self.is_visible:
+            return
+
+        super().draw(surface)
+
+        # CRITICAL: clip child rendering to panel bounds.
+        previous_clip = surface.get_clip()
+        surface.set_clip(self.rect)
+        try:
+            for child in self.children:
+                original_rect = child.rect.copy()
+                child.rect.y = original_rect.y + self.scroll_y
+                child.draw(surface)
+                child.rect = original_rect
+        finally:
+            # CRITICAL: restore prior clipping state after drawing children.
+            surface.set_clip(previous_clip)
+
+    def handle_event(self, event):
+        if not self.is_visible:
+            return False
+
+        mouse_pos = pygame.mouse.get_pos()
+        hovered = self.rect.collidepoint(mouse_pos)
+
+        if event.type == pygame.MOUSEWHEEL and hovered:
+            self.scroll_y += event.y * self.scroll_speed
+            self._clamp_scroll()
+            return True
+
+        if event.type in (pygame.MOUSEMOTION, pygame.MOUSEBUTTONDOWN, pygame.MOUSEBUTTONUP):
+            if not hasattr(event, "pos"):
+                return False
+
+            if not self.rect.collidepoint(event.pos):
+                return False
+
+            # CRITICAL: offset child event Y by scroll_y so hit tests align with drawn children.
+            adjusted_pos = (event.pos[0], event.pos[1] - self.scroll_y)
+            adjusted_event = pygame.event.Event(event.type, {**event.dict, "pos": adjusted_pos})
+
+            consumed = False
+            for child in reversed(self.children):
+                if child.handle_event(adjusted_event):
+                    consumed = True
+                    break
+            return consumed
+
         return False
 
 

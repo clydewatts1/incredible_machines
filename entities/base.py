@@ -2,6 +2,7 @@ import pygame
 import pymunk
 import math
 import uuid
+import constants
 from utils.config_loader import load_entity_config
 from utils.sound_manager import sound_manager
 from utils.geometry_utils import get_diamond_vertices, get_arc_vertices
@@ -21,6 +22,9 @@ class GamePart:
         self.is_hovered = False
         self.to_delete = False
         self.connected_uuids = []
+        self.payload = {}
+        self.floating = False
+        self.floating_timer = 0.0
         
         # Determine Body Type
         mass = float(self.get_property("mass", 1.0))
@@ -70,7 +74,16 @@ class GamePart:
                     
                 sensor_seg = pymunk.Segment(self.body, p1, p2, 2.0)
                 sensor_seg.sensor = False  # False so we can conditionally bounce!
-                sensor_seg.collision_type = 2 if self.variant_key == "basket" else (3 if self.variant_key == "cannon" else 4)
+                if self.variant_key == "basket":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_BASKET
+                elif self.variant_key == "cannon":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_CANNON
+                elif self.variant_key == "logic_factory" and side == "top":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
+                elif self.variant_key.startswith("data_sink") and side == "top":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_SINK_TOP
+                else:
+                    sensor_seg.collision_type = 4
                 self.shapes.append(sensor_seg)
 
             tex_width, tex_height = width, height
@@ -161,25 +174,40 @@ class GamePart:
             text_label=label_text
         )
 
-    def update_visual(self, surface):
+        # New payload defaults are primarily used by Factory processing pipelines.
+        if self.template == "Circle":
+            self.payload = {
+                "ttl": constants.DEFAULT_PAYLOAD_TTL,
+                "cost": constants.DEFAULT_PAYLOAD_COST,
+                "drop_dead_age": constants.DEFAULT_PAYLOAD_DROP_DEAD_AGE,
+                "routing_depth": 0,
+                "processing_history": [],
+            }
+
+    def update_visual(self, surface, camera=None):
         """
         Reads the Pymunk body position and rotation to render the Pygame visual.
         MUST fail loudly if physics components are missing.
+        
+        M25 Phase 2: Accepts optional camera parameter for coordinate translation.
+        If camera is provided, world coordinates are transformed to screen coordinates.
         """
         assert self.body is not None, "FAIL LOUDLY: GamePart is missing a physics body!"
         assert self.shape is not None, "FAIL LOUDLY: GamePart is missing a physics shape!"
         
         # Render the specific entity visual first
-        self.draw(surface)
+        self.draw(surface, camera=camera)
         
         # Overlay universal interaction highlight if hovered
         if self.is_hovered:
-            self.draw_highlight(surface)
+            self.draw_highlight(surface, camera=camera)
 
-    def draw_highlight(self, surface):
+    def draw_highlight(self, surface, camera=None):
         """
         Universally draws a distinct visual highlight (a yellow outline box)
         around the object using its physics bounding box.
+        
+        M25 Phase 2: Applies camera offset if provided.
         """
         assert getattr(self, "is_hovered", None) is not None, "FAIL LOUDLY: GamePart missing is_hovered state attribute!"
         
@@ -188,23 +216,36 @@ class GamePart:
         for s in self.shapes[1:]:
             bb = bb.merge(s.cache_bb())
         
-        # Pymunk's bb.bottom is the minimum Y value (visually the top in Pygame where Y goes down)
-        pad = 5
-        left = int(bb.left) - pad
-        top = int(bb.bottom) - pad
-        width = int(bb.right - bb.left) + (pad * 2)
-        height = int(bb.top - bb.bottom) + (pad * 2)
+        # Get bounding box corners in world space
+        world_left = bb.left
+        world_top = bb.bottom  # Pymunk's bb.bottom is min Y
+        world_width = bb.right - bb.left
+        world_height = bb.top - bb.bottom
         
-        rect = pygame.Rect(left, top, width, height)
+        # Apply camera transformation if provided
+        if camera:
+            screen_left, screen_top = camera.world_to_screen(world_left, world_top)
+        else:
+            screen_left, screen_top = world_left, world_top
+        
+        pad = 5
+        rect = pygame.Rect(
+            int(screen_left) - pad,
+            int(screen_top) - pad,
+            int(world_width) + (pad * 2),
+            int(world_height) + (pad * 2)
+        )
         # Draw a yellow-ish outline with 3px thickness
         pygame.draw.rect(surface, (255, 255, 100), rect, width=3)
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         """
         Draws the sprite texture. Primitive shapes are replaced by auto-generated fallbacks.
+        
+        M25 Phase 2: Applies camera offset if provided.
         """
         if self.base_texture:
-            self.draw_texture(surface)
+            self.draw_texture(surface, camera=camera)
 
     def play_event_sound(self, event_type):
         """
@@ -215,9 +256,11 @@ class GamePart:
         if sound_file:
             sound_manager.play_sound(sound_file)
 
-    def draw_texture(self, surface):
+    def draw_texture(self, surface, camera=None):
         """
         Renders the cached texture synchronized strictly with Pymunk orientation.
+        
+        M25 Phase 2: Applies camera offset if provided.
         """
         if not self.base_texture or not self.body:
             return
@@ -229,8 +272,17 @@ class GamePart:
         # 2. Re-rotate exactly once per render cycle
         rotated_surface = pygame.transform.rotate(self.base_texture, angle_degrees)
         
-        # 3. Securely center the new rect on the exact physical center of mass
-        rect = rotated_surface.get_rect(center=(int(self.body.position.x), int(self.body.position.y)))
+        # 3. Get world-space position
+        world_x, world_y = self.body.position.x, self.body.position.y
+        
+        # 4. Apply camera transformation if provided
+        if camera:
+            screen_x, screen_y = camera.world_to_screen(world_x, world_y)
+        else:
+            screen_x, screen_y = world_x, world_y
+        
+        # 5. Securely center the new rect on the screen position
+        rect = rotated_surface.get_rect(center=(int(screen_x), int(screen_y)))
         
         surface.blit(rotated_surface, rect)
 

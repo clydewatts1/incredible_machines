@@ -25,19 +25,29 @@ class Ramp(GamePart):
         # Add to space
         self.space.add(self.body, self.shape)
 
-    def draw(self, surface):
+    def draw(self, surface, camera=None):
         """
         Draws the sprite if texture loaded, else falls back to static primitive line.
+        M25 Phase 2: Applies camera offset if provided.
         """
         if self.base_texture:
-            self.draw_texture(surface)
+            self.draw_texture(surface, camera=camera)
         else:
             p1 = self.body.local_to_world(self.shape.a)
             p2 = self.body.local_to_world(self.shape.b)
+            
+            # Apply camera transformation if provided
+            if camera:
+                screen_p1 = camera.world_to_screen(p1.x, p1.y)
+                screen_p2 = camera.world_to_screen(p2.x, p2.y)
+            else:
+                screen_p1 = (p1.x, p1.y)
+                screen_p2 = (p2.x, p2.y)
+            
             pygame.draw.line(
                 surface, 
                 constants.COLOR_RAMP, 
-                (int(p1.x), int(p1.y)), 
-                (int(p2.x), int(p2.y)), 
+                (int(screen_p1[0]), int(screen_p1[1])), 
+                (int(screen_p2[0]), int(screen_p2[1])), 
                 int(self.shape.radius * 2)
             )

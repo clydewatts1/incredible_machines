@@ -1,89 +1,38 @@
 entities:
-- uuid: 5c70c2e0-6e41-4b93-a916-c6929c61e7bf
-  entity_id: bouncy_ball
+- uuid: c83a0fcb-4a09-4904-b7c7-19a0f3b69b17
+  entity_id: logic_factory
   position:
-    x: 963.5297627345808
-    y: 665.0890265977384
-  rotation: -34.33241933446349
-  overrides: {}
-- uuid: d624cbea-97cf-4bc6-84ed-8033de1f552b
-  entity_id: bouncy_ball
-  position:
-    x: 1071.496914904165
-    y: 665.0387175307579
-  rotation: -8.372913213660995
-  overrides: {}
-- uuid: 0780852c-da6b-42ef-8abf-841a43b299a7
-  entity_id: bouncy_ball
-  position:
-    x: 1015.2682608961379
-    y: 665.0856418342986
-  rotation: -16.395473351132704
-  overrides: {}
-- uuid: 92a813f7-b2e7-4289-9b02-a9afdcc20880
-  entity_id: basket
-  position:
-    x: 485.0
-    y: 378.0
+    x: 559.0
+    y: 460.0
   rotation: 0.0
   overrides: {}
-- uuid: a0618ee0-75eb-45b8-a4eb-0f201e96f982
-  entity_id: cannon
+- uuid: 7f8fcc68-3b8e-4672-ad1a-79a9c38a6d78
+  entity_id: bouncy_ball
   position:
-    x: 677.0
-    y: 383.0
-  rotation: -1.8000000000000005
+    x: 923.662611725221
+    y: 665.0675762390732
+  rotation: 34.82160919369007
+  overrides: {}
+- uuid: bf411c80-f8f4-4780-ad6e-2b99e102b9e2
+  entity_id: bouncy_ball
+  position:
+    x: 455.4741173316078
+    y: 665.0811352223803
+  rotation: 3.60904290078059
   overrides:
-    active_side: right
-    ammo_id: bouncy_ball
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    exit_angle: 0.0
-    exit_velocity: 800.0
-    friction: 0.5
-    height: 30
-    is_static: 'True'
+    collision_sound: bounce.wav
+    elasticity: 0.9
+    friction: 0.3
+    key_bind: 1
     mass: 1.0
-    max_count: 0
-    shoot_frequency: 1.0
+    radius: 15
     spawn_sound: spawn.wav
-    width: 60
-- uuid: 1c51f57a-caa7-4bd8-bc9b-df38747dcacf
+- uuid: 6bb1c6f5-a2c6-4c95-86cb-2e91b0185487
   entity_id: bouncy_ball
   position:
-    x: 917.3413636175983
-    y: 665.0800478266452
-  rotation: -58.342512230706696
-  overrides: {}
-- uuid: 111f3530-14d6-4b66-a544-435e1cbe7a7d
-  entity_id: bouncy_ball
-  position:
-    x: 831.046603846152
-    y: 665.0630474661541
-  rotation: -33.99825431121925
-  overrides: {}
-- uuid: 6a9fef6b-0c10-4dce-a9d7-d153afde8c0b
-  entity_id: bouncy_ball
-  position:
-    x: 487.0
-    y: 115.0
-  rotation: -3.800124533990505
-  overrides: {}
-- uuid: ef4ef8ca-b8d8-4199-8969-ed4f32ba36f4
-  entity_id: bouncy_ball
-  position:
-    x: 783.337469992513
-    y: 665.0388647395611
-  rotation: 27.659931930703404
-  overrides: {}
-- uuid: 8ad41882-fb34-4f1e-ab25-421ed6a7f94e
-  entity_id: bouncy_ball
-  position:
-    x: 578.9244291241498
-    y: 64.12243933757904
-  rotation: -1.8000000000000005
+    x: 565.0
+    y: 254.0
+  rotation: 0.0
   overrides: {}
 constraints: []
-connections:
-- sender: 92a813f7-b2e7-4289-9b02-a9afdcc20880
-  receiver: a0618ee0-75eb-45b8-a4eb-0f201e96f982
+connections: []

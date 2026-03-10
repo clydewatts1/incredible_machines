@@ -1,0 +1,17 @@
+entities:
+- uuid: 12e2e9b2-3889-48e5-ac6d-7903d612deb1
+  entity_id: spring
+  position:
+    x: 772.0
+    y: 411.0
+  rotation: 0.0
+  overrides: {}
+- uuid: cab7b6c2-c809-43d8-a821-2908c3e270fd
+  entity_id: bouncy_ball
+  position:
+    x: 772.0
+    y: 64.88366202377978
+  rotation: 0.0
+  overrides: {}
+constraints: []
+connections: []
