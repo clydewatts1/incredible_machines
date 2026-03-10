@@ -18,6 +18,11 @@ from typing import Optional, Dict, Any
 from abc import ABC, abstractmethod
 
 
+class GeneratorExhausted(Exception):
+    """Raised when a generator has no more data (e.g., CSV EOF with loop=false)."""
+    pass
+
+
 class BaseGenerator(ABC):
     """
     Base interface for all data generators.
@@ -129,10 +134,10 @@ class CSVEngine(BaseGenerator):
                     return dict(row)
                 except StopIteration:
                     # File is truly empty after restart (shouldn't happen)
-                    return None
+                    raise GeneratorExhausted("CSV file is empty")
             else:
-                # Exhaustion: signal via None
-                return None
+                # Exhaustion: signal via exception
+                raise GeneratorExhausted("CSV file exhausted (loop=false)")
         except Exception as e:
             raise IOError(f"Error reading CSV file: {e}") from e
     
@@ -161,8 +166,16 @@ class MCPEngine(BaseGenerator):
         self.session = None
         self.session_task = None
         self.transport = None
-        self.loop = None
         self.initialized = False
+    
+    def _get_event_loop(self):
+        """Get or create event loop for current thread."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        return loop
     
     def _run_async_init(self, instructions: Dict[str, Any]):
         """
@@ -193,15 +206,9 @@ class MCPEngine(BaseGenerator):
                 self.initialized = False
                 raise e
         
-        # Create or get event loop for this thread
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        
-        self.loop = loop
-        self.loop.run_until_complete(_init_async())
+        # Get event loop for this thread and run initialization
+        loop = self._get_event_loop()
+        loop.run_until_complete(_init_async())
     
     def fetch_next(self, instructions: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -275,11 +282,9 @@ class MCPEngine(BaseGenerator):
             except Exception as e:
                 raise e
         
-        # Run async fetch in the existing event loop
-        if self.loop:
-            return self.loop.run_until_complete(_fetch_async())
-        else:
-            raise RuntimeError("MCP event loop not available")
+        # Run async fetch in thread-local event loop
+        loop = self._get_event_loop()
+        return loop.run_until_complete(_fetch_async())
     
     def cleanup(self):
         """Gracefully close the MCP session."""
@@ -288,8 +293,8 @@ class MCPEngine(BaseGenerator):
                 async def _close_async():
                     await self.session.close()
                 
-                if self.loop:
-                    self.loop.run_until_complete(_close_async())
+                loop = self._get_event_loop()
+                loop.run_until_complete(_close_async())
             except Exception:
                 pass
             finally:

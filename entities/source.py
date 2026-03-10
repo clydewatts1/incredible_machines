@@ -21,9 +21,9 @@ import pygame
 import pymunk
 
 from entities.base import GamePart
-from utils.generators import get_generator
+from utils.generators import get_generator, GeneratorExhausted
 import constants
-from utils import asset_manager
+from utils.asset_manager import asset_manager
 
 
 class FloatingTextLabel:
@@ -61,6 +61,10 @@ class FloatingTextLabel:
                 screen_x, screen_y = self.x, self.y
             
             surface.blit(self.surface, (screen_x - self.surface.get_width() // 2, screen_y))
+    
+    def update_visual(self, surface, camera=None):
+        """Wrapper for main render loop compatibility."""
+        self.draw(surface, camera)
 
 
 class DataSource(GamePart):
@@ -178,16 +182,23 @@ class DataSource(GamePart):
             try:
                 # Fetch from generator (may block on I/O)
                 data = self.engine.fetch_next(self.instructions)
+            except GeneratorExhausted:
+                # Source exhausted (CSV EOF with loop=false)
+                data = None
+                error = None
+                exhausted = True
             except Exception as exc:
                 # Wrap error for main thread to handle
                 data = None
                 error = str(exc)
+                exhausted = False
             else:
                 error = None
+                exhausted = False
             
             # Guard: if DataSource was destroyed, silently discard result
             if not self._is_destroyed:
-                self.queue.put({"data": data, "error": error})
+                self.queue.put({"data": data, "error": error, "exhausted": exhausted})
         
         self.current_worker_thread = threading.Thread(target=_worker, daemon=True)
         self.current_worker_thread.start()
@@ -251,11 +262,17 @@ class DataSource(GamePart):
             
             error = result_data.get("error")
             data = result_data.get("data")
+            exhausted = result_data.get("exhausted", False)
             
             # Error path: network timeout, JSON parse, file error, etc.
             if error:
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, f"fatal: {error}")
+                continue
+            
+            # Exhausted path: CSV EOF with loop=false
+            if exhausted:
+                self._set_state("EXHAUSTED")
                 continue
             
             # Empty signal: MCP returned {"status": "empty"} (not an error)
