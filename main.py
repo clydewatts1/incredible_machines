@@ -97,9 +97,22 @@ def snap_to_grid(world_x, world_y):
     return (snapped_x, snapped_y)
 
 def main():
+    global UI_TOP_HEIGHT, UI_BOTTOM_HEIGHT, UI_SIDE_WIDTH, UI_RIGHT_SIDE_WIDTH
+
     pygame.init()
     sound_manager.initialize()
     env_manager.initialize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
+
+    # Environment-configurable dimensions with safe fallbacks.
+    window_width = env_manager.get_int("window_width", constants.WINDOW_WIDTH)
+    window_height = env_manager.get_int("window_height", constants.WINDOW_HEIGHT)
+    world_width = env_manager.get_int("world_width", constants.WORLD_WIDTH)
+    world_height = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
+
+    UI_TOP_HEIGHT = env_manager.get_int("ui_top_height", UI_TOP_HEIGHT)
+    UI_BOTTOM_HEIGHT = env_manager.get_int("ui_bottom_height", UI_BOTTOM_HEIGHT)
+    UI_SIDE_WIDTH = env_manager.get_int("ui_left_panel_width", UI_SIDE_WIDTH)
+    UI_RIGHT_SIDE_WIDTH = env_manager.get_int("ui_right_panel_width", UI_RIGHT_SIDE_WIDTH)
     
     all_variants = load_all_variants()
     
@@ -117,7 +130,7 @@ def main():
         for variant_data in all_variants.values()
     })
     
-    screen = pygame.display.set_mode((constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT))
+    screen = pygame.display.set_mode((window_width, window_height))
     pygame.display.set_caption("The Incredible Machine Clone - Milestone 9")
     clock = pygame.time.Clock()
 
@@ -127,7 +140,7 @@ def main():
     # Instantiate UIManager
     ui_manager = UIManager()
     
-    w, h = constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT
+    w, h = window_width, window_height
     
     # Phase 3 & 4: Construct static UI Panels
     top_panel = UIPanel(pygame.Rect(0, 0, w, UI_TOP_HEIGHT), color=(50, 50, 50))
@@ -170,6 +183,15 @@ def main():
     )
     right_scroll_panel = UIScrollPanel(right_scroll_rect, color=(45, 45, 45), alpha=220)
     ui_manager.add_element(right_scroll_panel)
+
+    left_scroll_rect = pygame.Rect(
+        left_panel.rect.x + 10,
+        left_panel.rect.y + 40,
+        left_panel.rect.width - 20,
+        left_panel.rect.height - 50,
+    )
+    left_scroll_panel = UIScrollPanel(left_scroll_rect, color=(45, 45, 45), alpha=220)
+    ui_manager.add_element(left_scroll_panel)
 
     right_panel_title = UILabel(
         pygame.Rect(right_panel.rect.x + 10, right_panel.rect.y + 8, right_panel.rect.width - 20, 24),
@@ -472,6 +494,8 @@ def main():
                 ui_manager.elements.remove(element)
         left_panel_elements.clear()
 
+        left_scroll_panel.clear_children()
+
         selected = game_state.get("selected_instance")
         x = left_panel.rect.x + 10
         y = left_panel.rect.y + 10
@@ -483,31 +507,36 @@ def main():
         y += 30
 
         if selected is None:
-            hint = UILabel(pygame.Rect(x, y, width, 24), text="Select an object", font=small_font)
-            ui_manager.add_element(hint)
-            left_panel_elements.append(hint)
+            hint = UILabel(
+                pygame.Rect(left_scroll_panel.rect.x + 4, left_scroll_panel.rect.y + 8, left_scroll_panel.rect.width - 8, 24),
+                text="Select an object",
+                font=small_font,
+            )
+            left_scroll_panel.add_child(hint)
+            left_scroll_panel.content_height = 40
             return
 
         inputs = {}
+        content_x = left_scroll_panel.rect.x + 4
+        content_y = left_scroll_panel.rect.y + 8
+        content_width = left_scroll_panel.rect.width - 8
         all_keys = set(selected.properties.keys()).union(selected.overrides.keys())
         for key in sorted(list(all_keys)):
             if key in ["visual", "template", "texture_path", "image", "label"]:
                 continue
 
-            key_label = UILabel(pygame.Rect(x, y, width, 16), text=key, font=small_font)
-            ui_manager.add_element(key_label)
-            left_panel_elements.append(key_label)
-            y += 18
+            key_label = UILabel(pygame.Rect(content_x, content_y, content_width, 16), text=key, font=small_font)
+            left_scroll_panel.add_child(key_label)
+            content_y += 18
 
             val_str = str(selected.get_property(key))
             if len(val_str) > 28 or "\n" in val_str:
-                field = UITextArea(pygame.Rect(x, y, width, 54), font=small_font, text=val_str)
-                y += 58
+                field = UITextArea(pygame.Rect(content_x, content_y, content_width, 54), font=small_font, text=val_str)
+                content_y += 58
             else:
-                field = UITextInput(pygame.Rect(x, y, width, 22), font=small_font, text=val_str)
-                y += 28
-            ui_manager.add_element(field)
-            left_panel_elements.append(field)
+                field = UITextInput(pygame.Rect(content_x, content_y, content_width, 22), font=small_font, text=val_str)
+                content_y += 28
+            left_scroll_panel.add_child(field)
             inputs[key] = field
 
         def apply_props():
@@ -539,12 +568,19 @@ def main():
             game_state["selected_instance"] = None
             build_left_inspector()
 
-        y += 4
+        content_y += 4
         for text, callback in [("Save", apply_props), ("Reset", reset_props), ("Cancel", cancel_props)]:
-            btn = UIButton(pygame.Rect(x, y, width, 26), text=text, font=small_font, callback=callback)
-            ui_manager.add_element(btn)
-            left_panel_elements.append(btn)
-            y += 30
+            btn = UIButton(
+                pygame.Rect(content_x, content_y, content_width, 26),
+                text=text,
+                font=small_font,
+                callback=callback,
+            )
+            left_scroll_panel.add_child(btn)
+            content_y += 30
+
+        left_scroll_panel.content_height = (content_y - left_scroll_panel.rect.y) + 8
+        left_scroll_panel._clamp_scroll()
 
     build_top_panel()
     build_category_tabs()
@@ -559,14 +595,14 @@ def main():
     # Initialize Pymunk Physics
     space = pymunk.Space()
     space.gravity = constants.GRAVITY
-    create_boundaries(space, constants.WORLD_WIDTH, constants.WORLD_HEIGHT)
+    create_boundaries(space, world_width, world_height)
     
     # M25 Phase 2: Initialize Camera for infinite canvas
     camera = Camera(
-        world_width=constants.WORLD_WIDTH,
-        world_height=constants.WORLD_HEIGHT,
-        screen_width=constants.WINDOW_WIDTH,
-        screen_height=constants.WINDOW_HEIGHT
+        world_width=world_width,
+        world_height=world_height,
+        screen_width=window_width,
+        screen_height=window_height
     )
 
     entities = []
@@ -1035,24 +1071,48 @@ def main():
             grid_origin_y = -(camera.offset_y % constants.GRID_SIZE)
             
             # Create a semi-transparent surface for the grid
-            grid_surface = pygame.Surface((constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT))
+            grid_surface = pygame.Surface((window_width, window_height))
             grid_surface.set_alpha(constants.GRID_ALPHA)
             grid_surface.fill((0, 0, 0))  # Fill with black (will be made transparent)
             grid_surface.set_colorkey((0, 0, 0))  # Make black transparent
             
             # Draw vertical lines
             x = grid_origin_x
-            while x < constants.WINDOW_WIDTH:
-                pygame.draw.line(grid_surface, constants.GRID_COLOR, (int(x), 0), (int(x), constants.WINDOW_HEIGHT), 1)
+            while x < window_width:
+                pygame.draw.line(grid_surface, constants.GRID_COLOR, (int(x), 0), (int(x), window_height), 1)
                 x += constants.GRID_SIZE
             
             # Draw horizontal lines
             y = grid_origin_y
-            while y < constants.WINDOW_HEIGHT:
-                pygame.draw.line(grid_surface, constants.GRID_COLOR, (0, int(y)), (constants.WINDOW_WIDTH, int(y)), 1)
+            while y < window_height:
+                pygame.draw.line(grid_surface, constants.GRID_COLOR, (0, int(y)), (window_width, int(y)), 1)
                 y += constants.GRID_SIZE
             
             screen.blit(grid_surface, (0, 0))
+
+        # Grey out any visible area that lies outside the configured world bounds.
+        world_screen_left = int(-camera.offset_x)
+        world_screen_top = int(-camera.offset_y)
+        world_screen_right = int(world_width - camera.offset_x)
+        world_screen_bottom = int(world_height - camera.offset_y)
+        void_color = (85, 85, 85)
+
+        if world_screen_left > 0:
+            pygame.draw.rect(screen, void_color, pygame.Rect(0, 0, world_screen_left, window_height))
+        if world_screen_top > 0:
+            pygame.draw.rect(screen, void_color, pygame.Rect(0, 0, window_width, world_screen_top))
+        if world_screen_right < window_width:
+            pygame.draw.rect(
+                screen,
+                void_color,
+                pygame.Rect(world_screen_right, 0, window_width - world_screen_right, window_height)
+            )
+        if world_screen_bottom < window_height:
+            pygame.draw.rect(
+                screen,
+                void_color,
+                pygame.Rect(0, world_screen_bottom, window_width, window_height - world_screen_bottom)
+            )
         
         # ───────────────────────────────────────────────────────────────
         # LAYER 2: World Entities (Camera Offset Applied)

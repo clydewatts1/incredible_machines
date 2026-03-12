@@ -10,6 +10,7 @@ queued to the main Pygame thread via thread-safe queue.Queue().
 
 import csv
 import json
+import os
 import queue
 import threading
 import asyncio
@@ -79,9 +80,16 @@ class CSVEngine(BaseGenerator):
         self.file_handle = None
         self.reader = None
         self.filepath = None
+        self.resolved_filepath = None
         self.loop = False
         self.skip_header = True
         self.delimiter = ","
+        self.debug = False
+        self.rows_read = 0
+
+    def _debug_log(self, message: str):
+        if self.debug:
+            print(f"[CSVEngine] {message}")
     
     def fetch_next(self, instructions: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
@@ -98,9 +106,16 @@ class CSVEngine(BaseGenerator):
         # Initialize on first call
         if self.reader is None:
             self.filepath = instructions.get("filepath", "data.csv")
+            self.resolved_filepath = os.path.abspath(self.filepath)
             self.loop = instructions.get("loop", False)
             self.skip_header = instructions.get("skip_header", True)
             self.delimiter = instructions.get("delimiter", ",")
+            self.debug = bool(instructions.get("debug", False))
+
+            self._debug_log(
+                f"Initializing CSV source: filepath={self.filepath}, resolved={self.resolved_filepath}, "
+                f"exists={os.path.exists(self.resolved_filepath)}, delimiter={self.delimiter!r}, loop={self.loop}"
+            )
             
             try:
                 self.file_handle = open(self.filepath, 'r', encoding='utf-8')
@@ -108,21 +123,35 @@ class CSVEngine(BaseGenerator):
                     self.file_handle,
                     delimiter=self.delimiter
                 )
+                self._debug_log(f"Opened CSV successfully. Fieldnames={self.reader.fieldnames}")
                 # Skip header if configured
                 if self.skip_header and self.reader.fieldnames:
                     pass  # DictReader automatically uses first row as fieldnames
             except FileNotFoundError as e:
-                raise IOError(f"CSV file not found: {self.filepath}") from e
+                parent_dir = os.path.dirname(self.resolved_filepath) or os.getcwd()
+                nearby_files = []
+                if os.path.isdir(parent_dir):
+                    try:
+                        nearby_files = sorted(os.listdir(parent_dir))
+                    except OSError:
+                        nearby_files = []
+                raise IOError(
+                    f"CSV file not found: {self.filepath} "
+                    f"(resolved: {self.resolved_filepath}; cwd: {os.getcwd()}; nearby files: {nearby_files})"
+                ) from e
             except Exception as e:
                 raise IOError(f"Failed to open CSV file {self.filepath}: {e}") from e
         
         try:
             # Try to read next row
             row = next(self.reader)
+            self.rows_read += 1
+            self._debug_log(f"Read row #{self.rows_read}: {dict(row)}")
             return dict(row)
         except StopIteration:
             # EOF reached
             if self.loop:
+                self._debug_log("Reached EOF, rewinding to start because loop=true")
                 # Restart from top
                 self.file_handle.seek(0)
                 self.reader = csv.DictReader(
@@ -131,12 +160,16 @@ class CSVEngine(BaseGenerator):
                 )
                 try:
                     row = next(self.reader)
+                    self.rows_read += 1
+                    self._debug_log(f"Read row #{self.rows_read} after rewind: {dict(row)}")
                     return dict(row)
                 except StopIteration:
                     # File is truly empty after restart (shouldn't happen)
+                    self._debug_log("CSV is empty after rewind")
                     raise GeneratorExhausted("CSV file is empty")
             else:
                 # Exhaustion: signal via exception
+                self._debug_log("Reached EOF and loop=false; marking generator exhausted")
                 raise GeneratorExhausted("CSV file exhausted (loop=false)")
         except Exception as e:
             raise IOError(f"Error reading CSV file: {e}") from e
@@ -148,6 +181,7 @@ class CSVEngine(BaseGenerator):
                 self.file_handle.close()
             except Exception:
                 pass
+            self._debug_log(f"Closed CSV file handle for {self.resolved_filepath or self.filepath}")
             self.file_handle = None
             self.reader = None
 

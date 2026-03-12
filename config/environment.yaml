@@ -1,3 +1,12 @@
+window_width: 1280
+window_height: 720
+world_width: 1000
+world_height: 600
+ui_top_height: 50
+ui_bottom_height: 40
+ui_left_panel_width: 260
+ui_right_panel_width: 320
+
 background_image: "assets\\images\\yorkie_pink_bg.jpeg"
 fallback_color: [50, 50, 50]
 edit_mode_color: [255, 200, 0]

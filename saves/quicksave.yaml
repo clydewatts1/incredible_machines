@@ -1,37 +1,100 @@
 entities:
-- uuid: c83a0fcb-4a09-4904-b7c7-19a0f3b69b17
-  entity_id: logic_factory
+- uuid: 0208b6d8-d899-4741-b06b-051d97c1786e
+  entity_id: data_sink_csv
   position:
-    x: 559.0
-    y: 460.0
+    x: 383.0
+    y: 538.0
   rotation: 0.0
   overrides: {}
-- uuid: 7f8fcc68-3b8e-4672-ad1a-79a9c38a6d78
-  entity_id: bouncy_ball
+- uuid: a40690e1-3148-4074-a19b-6e7b65a7b1b4
+  entity_id: data_source_csv
   position:
-    x: 923.662611725221
-    y: 665.0675762390732
-  rotation: 34.82160919369007
+    x: 852.0
+    y: 201.0
+  rotation: 0.0
   overrides: {}
-- uuid: bf411c80-f8f4-4780-ad6e-2b99e102b9e2
+- uuid: 1638c095-4240-4cad-9717-6f205195805c
   entity_id: bouncy_ball
   position:
-    x: 455.4741173316078
-    y: 665.0811352223803
-  rotation: 3.60904290078059
-  overrides:
-    collision_sound: bounce.wav
-    elasticity: 0.9
-    friction: 0.3
-    key_bind: 1
-    mass: 1.0
-    radius: 15
-    spawn_sound: spawn.wav
-- uuid: 6bb1c6f5-a2c6-4c95-86cb-2e91b0185487
+    x: 935.351524713169
+    y: 581.0521674128165
+  rotation: 33.82832561238047
+  overrides: {}
+- uuid: c13cbbb3-52a7-4446-ab9e-74e141788760
   entity_id: bouncy_ball
   position:
-    x: 565.0
-    y: 254.0
+    x: 898.5653573282291
+    y: 581.0713445441805
+  rotation: 30.83393942060139
+  overrides: {}
+- uuid: c2dadd39-9e53-455e-976a-cd64c0b91906
+  entity_id: bouncy_ball
+  position:
+    x: 858.4196958173085
+    y: 581.0521291448226
+  rotation: 28.71134593846385
+  overrides: {}
+- uuid: 72e55def-d040-4934-a894-c83e41939db9
+  entity_id: bouncy_ball
+  position:
+    x: 966.7775999378116
+    y: 581.0302853951513
+  rotation: 16.647489288279807
+  overrides: {}
+- uuid: bbb0df07-633e-4fed-9e88-7f61c704f728
+  entity_id: bouncy_ball
+  position:
+    x: 825.2893218813447
+    y: 581.0145923827911
+  rotation: 0.0
+  overrides: {}
+- uuid: a86f359b-d2b9-46a9-bcca-4e5db550aeae
+  entity_id: box
+  position:
+    x: 606.0
+    y: 357.0
+  rotation: 0.0
+  overrides: {}
+- uuid: dd0c1d9b-358d-4fa3-b6f9-43c2159e1d99
+  entity_id: logic_factory
+  position:
+    x: 712.0
+    y: 332.0
+  rotation: 0.0
+  overrides: {}
+- uuid: b2fd33a1-2815-43de-b9f6-3b0020bed4e0
+  entity_id: logic_factory
+  position:
+    x: 571.0
+    y: 421.0
+  rotation: 0.0
+  overrides: {}
+- uuid: a2f72c6c-53a8-4e7c-9190-ead208921543
+  entity_id: long_ramp
+  position:
+    x: 784.0
+    y: 273.0
+  rotation: -0.5
+  overrides: {}
+- uuid: f5f9b2fc-c639-4bec-8fca-29c8dd546811
+  entity_id: long_ramp
+  position:
+    x: 645.0
+    y: 400.0
+  rotation: -0.5
+  overrides: {}
+- uuid: 0297179c-7bc9-4321-b8df-aafebfaf82ef
+  entity_id: bouncy_ball
+  position:
+    x: 699.972042044891
+    y: 223.5277860652576
+  rotation: 0.0
+  overrides: {}
+- uuid: cc53dc8a-9cd5-408d-941e-1cd7b45f7937
+  entity_id: half_circle
+  position:
+    x: 494.0
+    y: 272.0
   rotation: 0.0
   overrides: {}
 constraints: []

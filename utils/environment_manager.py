@@ -15,7 +15,11 @@ class EnvironmentManager:
         
         # Load YAML configuration
         with open(config_path, 'r') as f:
-            self.config = yaml.safe_load(f)
+            self.config = yaml.safe_load(f) or {}
+
+        # Allow environment.yaml to override window size.
+        self.window_width = self._to_int(self.config.get("window_width"), screen_width)
+        self.window_height = self._to_int(self.config.get("window_height"), screen_height)
             
         self.fallback_color = tuple(self.config.get("fallback_color", [50, 50, 50]))
         self.edit_mode_color = tuple(self.config.get("edit_mode_color", [255, 200, 0]))
@@ -28,11 +32,27 @@ class EnvironmentManager:
         
         try:
             image = pygame.image.load(bg_path_absolute)
-            self.background_image = pygame.transform.smoothscale(image, (screen_width, screen_height))
+            self.background_image = pygame.transform.smoothscale(
+                image,
+                (self.window_width, self.window_height)
+            )
         except FileNotFoundError:
             print(f"FAIL LOUDLY: Background image not found at {bg_path_absolute}. Falling back to solid color.")
         except Exception as e:
             print(f"FAIL LOUDLY: Failed to load background image {bg_path_absolute}: {e}. Falling back to solid color.")
+
+    def _to_int(self, value, default):
+        """Safely convert YAML values to int with fallback."""
+        try:
+            if value is None:
+                return int(default)
+            return int(value)
+        except (TypeError, ValueError):
+            return int(default)
+
+    def get_int(self, key, default):
+        """Get an integer config value from environment.yaml."""
+        return self._to_int(self.config.get(key), default)
 
     def draw_background(self, surface):
         if self.background_image:

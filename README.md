@@ -50,6 +50,23 @@ Welcome to **Incredible Machines**, a vibe-coded 2D physics-based puzzle sandbox
 
 ---
 
+## 🧪 Data Source Output Type
+`data_source`, `data_source_csv`, and `data_source_mcp` variants support an `output_variant` property in `config/entities.yaml`.
+
+Example:
+
+```yaml
+data_source_csv:
+	engine_type: "csv"
+	output_variant: "bouncy_ball"
+```
+
+- `output_variant` controls which entity variant the DataSource emits.
+- If `output_variant` is omitted, it defaults to `bouncy_ball`.
+- If `output_variant` is invalid, DataSource enters `FATAL` and shows a floating diagnostic label instead of crashing.
+
+---
+
 ## 📂 Project Structure
 *   `main.py`: The heart of the game loop, UI management, and event handling.
 *   `entities/`: Contains `base.py` for part logic and specific entity implementations.

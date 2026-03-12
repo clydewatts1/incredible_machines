@@ -111,6 +111,13 @@ class DataSource(GamePart):
         # Animation & sound
         self._animation_textures = {}
         self._load_animation_textures()
+
+    def _debug_enabled(self) -> bool:
+        return bool(self.instructions.get("debug", False))
+
+    def _debug_log(self, message: str):
+        if self._debug_enabled():
+            print(f"[DataSource:{self.variant_key}:{self.uuid[:8]}] {message}")
     
     def _load_animation_textures(self):
         """
@@ -146,6 +153,7 @@ class DataSource(GamePart):
         """
         old_state = self.visual_state
         self.visual_state = new_state
+        self._debug_log(f"State change: {old_state} -> {new_state}")
         
         # Play state transition sound (if configured)
         sounds = self.get_property("sounds", {})
@@ -167,10 +175,13 @@ class DataSource(GamePart):
         """
         self._set_state("INITIALIZING")
         try:
+            self._debug_log(f"Initializing engine type={self.engine_type} with instructions={self.instructions}")
             self.engine = get_generator(self.engine_type, self.instructions)
+            self._debug_log(f"Engine initialized: {type(self.engine).__name__}")
         except Exception as e:
             # Engine initialization failure → FATAL
             self._set_state("FATAL")
+            self._debug_log(f"Engine initialization failed: {e}")
             raise RuntimeError(f"Failed to initialize {self.engine_type} engine: {e}") from e
     
     def _start_worker(self):
@@ -181,27 +192,33 @@ class DataSource(GamePart):
         def _worker():
             try:
                 # Fetch from generator (may block on I/O)
+                self._debug_log("Worker started fetch_next()")
                 data = self.engine.fetch_next(self.instructions)
             except GeneratorExhausted:
                 # Source exhausted (CSV EOF with loop=false)
                 data = None
                 error = None
                 exhausted = True
+                self._debug_log("Worker marked source exhausted")
             except Exception as exc:
                 # Wrap error for main thread to handle
                 data = None
                 error = str(exc)
                 exhausted = False
+                self._debug_log(f"Worker captured error: {error}")
             else:
                 error = None
                 exhausted = False
+                self._debug_log(f"Worker fetched data: keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
             
             # Guard: if DataSource was destroyed, silently discard result
             if not self._is_destroyed:
                 self.queue.put({"data": data, "error": error, "exhausted": exhausted})
+                self._debug_log(f"Worker queued result: exhausted={exhausted}, has_error={bool(error)}, has_data={data is not None}")
         
         self.current_worker_thread = threading.Thread(target=_worker, daemon=True)
         self.current_worker_thread.start()
+        self._debug_log(f"Spawned worker thread: {self.current_worker_thread.name}")
     
     def cleanup(self):
         """
@@ -263,25 +280,30 @@ class DataSource(GamePart):
             error = result_data.get("error")
             data = result_data.get("data")
             exhausted = result_data.get("exhausted", False)
+            self._debug_log(f"Processing queue result: exhausted={exhausted}, error={error}, has_data={data is not None}")
             
             # Error path: network timeout, JSON parse, file error, etc.
             if error:
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, f"fatal: {error}")
+                self._debug_log(f"Entered FATAL due to error: {error}")
                 continue
             
             # Exhausted path: CSV EOF with loop=false
             if exhausted:
                 self._set_state("EXHAUSTED")
+                self._debug_log("Entered EXHAUSTED state")
                 continue
             
             # Empty signal: MCP returned {"status": "empty"} (not an error)
             if data is None:
                 self._set_state("IDLE")
+                self._debug_log("Received empty result; returning to IDLE")
                 continue
             
             # Success: construct payload and emit ball
             payload = self._construct_payload(data)
+            self._debug_log(f"Constructed payload with data keys={list(data.keys()) if isinstance(data, dict) else []}")
             self._emit_ball(payload, entities, active_instances)
     
     def _construct_payload(self, raw_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -394,8 +416,15 @@ class DataSource(GamePart):
         else:  # Right
             port_x, port_y = fx + half_w, fy
         
-        # 2. Create physics ball (bouncy_ball variant)
-        ball = GamePart(self.body.space, port_x, port_y, "bouncy_ball")
+        # 2. Create physics ball (configurable output variant)
+        output_variant = self.get_property("output_variant", "bouncy_ball")
+        try:
+            ball = GamePart(self.body.space, port_x, port_y, output_variant)
+        except Exception as exc:
+            self._set_state("FATAL")
+            self._spawn_fatal_label(entities, f"fatal: invalid output_variant '{output_variant}'")
+            self._debug_log(f"Failed to emit output_variant={output_variant}: {exc}")
+            return
         ball.payload = payload
         
         # 3. Apply calculated velocity

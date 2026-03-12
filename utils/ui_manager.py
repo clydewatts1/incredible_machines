@@ -252,6 +252,17 @@ class UIScrollPanel(UIPanel):
         self.content_height = 0
         self.scroll_y = 0
 
+    def get_active_child(self):
+        for child in self.children:
+            if isinstance(child, (UITextInput, UITextArea)) and child.is_active:
+                return child
+        return None
+
+    def deactivate_text_children(self):
+        for child in self.children:
+            if isinstance(child, (UITextInput, UITextArea)):
+                child.is_active = False
+
     def _clamp_scroll(self):
         min_scroll = min(0, self.rect.height - self.content_height)
         if self.scroll_y > 0:
@@ -285,6 +296,12 @@ class UIScrollPanel(UIPanel):
         mouse_pos = pygame.mouse.get_pos()
         hovered = self.rect.collidepoint(mouse_pos)
 
+        if event.type in (pygame.KEYDOWN, pygame.KEYUP):
+            active_child = self.get_active_child()
+            if active_child:
+                return active_child.handle_event(event)
+            return False
+
         if event.type == pygame.MOUSEWHEEL and hovered:
             self.scroll_y += event.y * self.scroll_speed
             self._clamp_scroll()
@@ -306,6 +323,9 @@ class UIScrollPanel(UIPanel):
                 if child.handle_event(adjusted_event):
                     consumed = True
                     break
+
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1 and not consumed:
+                self.deactivate_text_children()
             return consumed
 
         return False
@@ -343,6 +363,11 @@ class UIManager:
                     if self.focused_element and self.focused_element != element:
                         self.focused_element.is_active = False
                     self.focused_element = element if element.is_active else None
+                elif isinstance(element, UIScrollPanel) and event.type == pygame.MOUSEBUTTONDOWN:
+                    active_child = element.get_active_child()
+                    if self.focused_element and self.focused_element != active_child:
+                        self.focused_element.is_active = False
+                    self.focused_element = active_child
                 break
                 
         # Handle clicking outside any text input to unfocus
@@ -356,7 +381,8 @@ class UIManager:
             return True
                 
         # If it wasn't a button click, we should still prevent clicking *through* a UIPanel
-        if not consumed and event.type == pygame.MOUSEBUTTONDOWN:
+        # Only consume left mouse button (button 1) - allow middle/right buttons for camera panning
+        if not consumed and event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for element in self.elements:
                 if isinstance(element, UIPanel) and element.rect.collidepoint(event.pos):
                     # We clicked on a background panel, consume the click
