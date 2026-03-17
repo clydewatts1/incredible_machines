@@ -32,6 +32,7 @@ entities:
       delimiter: ','
     is_static: 'True'
     mass: 1.0
+    spawn_variant: payload_ball
     output_variant: payload_ball
     payload: {}
     sounds:

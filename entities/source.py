@@ -60,7 +60,7 @@ class FloatingTextLabel:
             else:
                 screen_x, screen_y = self.x, self.y
             
-            surface.blit(self.surface, (screen_x - self.surface.get_width() // 2, screen_y))
+            surface.blit(self.surface, (int(screen_x - self.surface.get_width() // 2), int(screen_y)))
     
     def update_visual(self, surface, camera=None):
         """Wrapper for main render loop compatibility."""
@@ -74,7 +74,7 @@ class DataSource(GamePart):
     Pulls data from external sources (CSV, MCP) via background worker threads,
     packages payloads, and spawns physics projectiles.
     
-    State Machine: OFF → INITIALIZING → IDLE → POLLING → EMITTING → IDLE (repeat)
+    State Machine: OFF -> INITIALIZING -> IDLE -> POLLING -> EMITTING -> IDLE (repeat)
                    or EXHAUSTED (source empty) or FATAL (error)
     """
     
@@ -179,7 +179,7 @@ class DataSource(GamePart):
             self.engine = get_generator(self.engine_type, self.instructions)
             self._debug_log(f"Engine initialized: {type(self.engine).__name__}")
         except Exception as e:
-            # Engine initialization failure → FATAL
+            # Engine initialization failure -> FATAL
             self._set_state("FATAL")
             self._debug_log(f"Engine initialization failed: {e}")
             raise RuntimeError(f"Failed to initialize {self.engine_type} engine: {e}") from e
@@ -311,7 +311,7 @@ class DataSource(GamePart):
         Build the full payload dict from raw generator data.
         
         Payload MUST include:
-        - data: Raw fetched content
+        - Flat data mapping (CSV columns directly mapped to payload keys)
         - score: 100 (initialization)
         - cost: Default energy value
         - start_time: Current timestamp
@@ -328,16 +328,21 @@ class DataSource(GamePart):
         """
         now_secs = time.time()
         
-        payload = {
-            "data": raw_data,
-            "score": constants.DEFAULT_PAYLOAD_SCORE,  # 100
-            "cost": constants.DEFAULT_PAYLOAD_COST,  # 100
-            "start_time": now_secs,
-            "routing_depth": 0,
-            "ttl": constants.DEFAULT_PAYLOAD_TTL,  # 50
-            "drop_dead_age": constants.DEFAULT_PAYLOAD_DROP_DEAD_AGE,  # 10.0
-            "processing_history": [],
-        }
+        # FIX: Spread the raw CSV data directly into the root of the payload
+        # This allows Factory Regex Engines to find fields like "status" immediately!
+        if isinstance(raw_data, dict):
+            payload = copy.deepcopy(raw_data)
+        else:
+            payload = {"data": raw_data}
+        
+        # Add required tracking fields, but don't overwrite if the CSV explicitly provided them
+        payload.setdefault("score", constants.DEFAULT_PAYLOAD_SCORE)
+        payload.setdefault("cost", constants.DEFAULT_PAYLOAD_COST)
+        payload.setdefault("start_time", now_secs)
+        payload.setdefault("routing_depth", 0)
+        payload.setdefault("ttl", constants.DEFAULT_PAYLOAD_TTL)
+        payload.setdefault("drop_dead_age", constants.DEFAULT_PAYLOAD_DROP_DEAD_AGE)
+        payload.setdefault("processing_history", [])
         
         return payload
     
@@ -416,15 +421,18 @@ class DataSource(GamePart):
         else:  # Right
             port_x, port_y = fx + half_w, fy
         
-        # 2. Create physics ball (configurable output variant)
+        # 2. Create physics ball using the main router so Custom Parts work
         output_variant = self.get_property("output_variant", "bouncy_ball")
         try:
-            ball = GamePart(self.body.space, port_x, port_y, output_variant)
+            from main import create_part
+            ball = create_part(self.body.space, port_x, port_y, output_variant)
         except Exception as exc:
             self._set_state("FATAL")
             self._spawn_fatal_label(entities, f"fatal: invalid output_variant '{output_variant}'")
             self._debug_log(f"Failed to emit output_variant={output_variant}: {exc}")
             return
+            
+        # Bind the flattened payload directly to the newly created ball
         ball.payload = payload
         
         # 3. Apply calculated velocity
@@ -480,12 +488,12 @@ class DataSource(GamePart):
         Update DataSource state and drive the emit interval.
         
         State Transitions:
-        - OFF → INITIALIZING (on first update).
-        - INITIALIZING → IDLE (on success).
-        - IDLE → POLLING (every emit_interval seconds).
-        - POLLING → EMITTING or IDLE (on poll_results, handled in poll_results).
-        - EMITTING → IDLE (after brief emission time).
-        - EXHAUSTED, FATAL → dormant (no more polling).
+        - OFF -> INITIALIZING (on first update).
+        - INITIALIZING -> IDLE (on success).
+        - IDLE -> POLLING (every emit_interval seconds).
+        - POLLING -> EMITTING or IDLE (on poll_results, handled in poll_results).
+        - EMITTING -> IDLE (after brief emission time).
+        - EXHAUSTED, FATAL -> dormant (no more polling).
         
         Args:
             dt: Delta time (seconds).

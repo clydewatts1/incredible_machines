@@ -346,7 +346,7 @@ variants:
     height: 96
     is_static: True
     active_sides: ["top"]
-    accepts_types: ["bouncy_ball"]
+    accepts_types: ["bouncy_ball","payload_ball"]
     exporter_type: "null"
     export:
       directory: "exports"
@@ -376,7 +376,7 @@ variants:
     height: 96
     is_static: True
     active_sides: ["top"]
-    accepts_types: ["bouncy_ball", "data_ball"]
+    accepts_types: ["bouncy_ball", "payload_ball"]
     exporter_type: "csv"
     export:
       directory: "exports"
@@ -406,7 +406,7 @@ variants:
     height: 96
     is_static: True
     active_sides: ["top"]
-    accepts_types: ["bouncy_ball", "data_ball"]
+    accepts_types: ["bouncy_ball", "payload_ball"]
     exporter_type: "json"
     export:
       directory: "exports"
@@ -436,7 +436,7 @@ variants:
     height: 96
     is_static: True
     active_sides: ["top"]
-    accepts_types: ["bouncy_ball", "data_ball"]
+    accepts_types: ["bouncy_ball", "payload_ball"]
     exporter_type: "yaml"
     export:
       directory: "exports"
@@ -466,7 +466,7 @@ variants:
     height: 96
     is_static: True
     active_sides: ["top"]
-    accepts_types: ["bouncy_ball", "data_ball"]
+    accepts_types: ["bouncy_ball", "payload_ball"]
     exporter_type: "mcp"
     export:
       transport: "sse"
@@ -475,11 +475,11 @@ variants:
       timeout: 5
     animations:
       OFF: "data_sink_off_mcp"
-      INITIALIZING: "data_sink_initializing"
-      IDLE: "data_sink_idle"
-      INGESTING: "data_sink_ingesting"
-      WRITING: "data_sink_writing"
-      FATAL: "data_sink_fatal"
+      INITIALIZING: "data_sink_initializing_mcp"
+      IDLE: "data_sink_idle_mcp"
+      INGESTING: "data_sink_ingesting_mcp"
+      WRITING: "data_sink_writing_mcp"
+      FATAL: "data_sink_fatal_mcp"
       
     sounds:
       OFF: null
@@ -555,7 +555,7 @@ variants:
     label: "Payload"
     category: "basic"
     template: "Circle"
-    radius: 15
+    radius: 10
     mass: 1.0
     score: 100
     payload: {"score": 100}

@@ -2,6 +2,8 @@ import os
 import pygame
 from entities.base import GamePart
 
+BALL_DEFAULT_RADIUS = 10
+
 class PayloadBallPart(GamePart):
     """A dynamic ball that visually changes color based on its payload score."""
 
@@ -16,9 +18,9 @@ class PayloadBallPart(GamePart):
             icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
             
             # Draw a default shiny blue ball for the icon
-            pygame.draw.circle(icon_surf, (0, 0, 255), (20, 20), 16)
+            pygame.draw.circle(icon_surf, (0, 0, 255), (20, 20), BALL_DEFAULT_RADIUS)
             pygame.draw.circle(icon_surf, (255, 255, 255), (14, 14), 5) # Highlight
-            pygame.draw.circle(icon_surf, (0, 0, 0), (20, 20), 16, 1)   # Outline
+            pygame.draw.circle(icon_surf, (0, 0, 0), (20, 20), BALL_DEFAULT_RADIUS, 1)   # Outline
             
             try:
                 pygame.image.save(icon_surf, icon_path)
@@ -71,9 +73,10 @@ class PayloadBallPart(GamePart):
         else:
             # Fallback to direct property if the payload dict isn't fully populated
             score = self.get_property('score', 100)
-
+        print(f"PayloadBall at ({screen_x}, {screen_y}) has score: {score}")
         color = self.get_color_for_score(score)
-        radius = float(self.get_property('radius', 15.0))
+        print(f"Calculated color for score {score}: {color}")
+        radius = float(self.get_property('radius', BALL_DEFAULT_RADIUS))
 
         # 1. Draw the main colored circle (No background)
         pygame.draw.circle(surface, color, (int(screen_x), int(screen_y)), int(radius))
