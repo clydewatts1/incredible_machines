@@ -32,6 +32,7 @@ class RegexEngine(BaseEngine):
         return True
 
     def process(self, payload: Any, instructions: Dict[str, Any]) -> Any:
+        print(f"🎯 [RegexEngine] Processing payload '{payload}' with instructions {instructions}")
         rules = instructions.get("rules", [])
         default_state = int(instructions.get("default_state", 0))
 
@@ -44,19 +45,26 @@ class RegexEngine(BaseEngine):
 
             pattern = str(rule.get("pattern", ""))
             state = int(rule.get("state", default_state))
+            print(f"🎯 [RegexEngine] Evaluating rule: pattern='{pattern}', state={state}")
 
             if isinstance(payload, dict):
                 target_field = rule.get("target_field")
+                print(f"🎯 [RegexEngine] Extracting target field '{target_field}' from payload")
                 if not target_field:
                     return "fatal: missing target_field for dictionary payload"
                 candidate_value = payload.get(str(target_field), "")
-            else:
-                candidate_value = payload
-
+                if candidate_value == "":
+                    # get the data field in payload - check if it is a dict and has the target_field as key
+                    data_field = payload.get("data", {})
+                    if isinstance(data_field, dict):
+                        candidate_value = data_field.get(str(target_field), "")
+                        
+            print(f"🎯 [RegexEngine] Candidate value for regex matching: '{candidate_value}'")
             candidate_text = "" if candidate_value is None else str(candidate_value)
 
             try:
                 if re.search(pattern, candidate_text):
+                    print(f"🎯 [RegexEngine] Pattern matched! Returning state {state}")
                     return state
             except re.error as exc:
                 return f"fatal: regex syntax error: {exc}"

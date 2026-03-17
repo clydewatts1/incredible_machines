@@ -1,0 +1,5 @@
+number,status,user
+1,SUCCESS,alice
+2,FAILURE,bob
+3,SUCCESS,charlie
+4,SUCCESS,ADMIN

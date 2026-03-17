@@ -184,7 +184,7 @@ class GamePart:
                 "processing_history": [],
             }
 
-    def update_visual(self, surface, camera=None):
+    def update_visual(self, surface, camera=None, **kwargs):
         """
         Reads the Pymunk body position and rotation to render the Pygame visual.
         MUST fail loudly if physics components are missing.
@@ -196,7 +196,7 @@ class GamePart:
         assert self.shape is not None, "FAIL LOUDLY: GamePart is missing a physics shape!"
         
         # Render the specific entity visual first
-        self.draw(surface, camera=camera)
+        self.draw(surface, camera=camera, **kwargs)
         
         # Overlay universal interaction highlight if hovered
         if self.is_hovered:
@@ -238,7 +238,7 @@ class GamePart:
         # Draw a yellow-ish outline with 3px thickness
         pygame.draw.rect(surface, (255, 255, 100), rect, width=3)
 
-    def draw(self, surface, camera=None):
+    def draw(self, surface, camera=None, **kwargs):
         """
         Draws the sprite texture. Primitive shapes are replaced by auto-generated fallbacks.
         

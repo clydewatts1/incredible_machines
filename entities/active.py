@@ -37,7 +37,7 @@ class FloatingTextLabel:
         if self.elapsed >= self.lifetime:
             self.to_delete = True
 
-    def update_visual(self, surface, camera=None):
+    def update_visual(self, surface, camera=None, **kwargs):
         alpha_ratio = max(0.0, 1.0 - (self.elapsed / max(self.lifetime, 0.001)))
         alpha = int(255 * alpha_ratio)
         font = pygame.font.SysFont(None, 18)
@@ -65,13 +65,9 @@ class FactoryPart(GamePart):
         self.cooldown_timer = 0.0
         self.current_payload_uuid: Optional[str] = None
 
-        self.engine_type = str(self.get_property("engine_type", "regex"))
-        self.instructions = copy.deepcopy(self.get_property("instructions", {}))
-        self.routing = copy.deepcopy(self.get_property("routing", []))
-        self.cost_modifier = float(self.get_property("cost_modifier", -10.0))
-        self.tired_velocity = float(self.get_property("tired_velocity", 150.0))
+        # REMOVED cached properties (self.instructions, self.routing, etc.)
+        # so the factory is forced to dynamically fetch the live YAML/Saved Overrides!
 
-        self.engine = create_engine(self.engine_type, {"variant_key": self.variant_key})
         self._animation_textures = {}
         self._load_animation_textures()
         self.visual_state = "INITIALIZING"
@@ -134,7 +130,9 @@ class FactoryPart(GamePart):
         now_secs = pygame.time.get_ticks() / 1000.0
         payload["age"] = max(0.0, now_secs - float(payload.get("start_time", now_secs)))
 
-        payload["cost"] = float(payload.get("cost", constants.DEFAULT_PAYLOAD_COST)) + self.cost_modifier
+        # Dynamically fetch cost_modifier
+        cost_modifier = float(self.get_property("cost_modifier", -10.0))
+        payload["cost"] = float(payload.get("cost", constants.DEFAULT_PAYLOAD_COST)) + cost_modifier
 
         if payload.get("cost", 0.0) <= 0.0:
             return "bottom"
@@ -152,12 +150,26 @@ class FactoryPart(GamePart):
 
     def _start_worker(self, payload_entity: GamePart):
         payload_copy = copy.deepcopy(payload_entity.payload)
-        instructions_copy = copy.deepcopy(self.instructions)
+        
+        # === AUTO-SANITIZER ===
+        # Clean the payload to prevent CSV whitespace from breaking regex matching
+        for k, v in list(payload_copy.items()):
+            clean_k = k.strip() if isinstance(k, str) else k
+            clean_v = v.strip() if isinstance(v, str) else v
+            if clean_k != k:
+                del payload_copy[k]
+            payload_copy[clean_k] = clean_v
+            
+        # Dynamically fetch latest instructions and engine_type!
+        instructions_copy = copy.deepcopy(self.get_property("instructions", {}))
+        engine_type = str(self.get_property("engine_type", "regex"))
+        engine = create_engine(engine_type, {"variant_key": self.variant_key})
+        
         payload_uuid = payload_entity.uuid
 
         def _worker():
             try:
-                result = self.engine.process(payload_copy, instructions_copy)
+                result = engine.process(payload_copy, instructions_copy)
             except Exception as exc:
                 result = f"fatal: {exc}"
 
@@ -195,10 +207,13 @@ class FactoryPart(GamePart):
         return True
 
     def _find_route(self, state_value: float) -> Optional[Dict[str, Any]]:
-        if not isinstance(self.routing, list):
+        # Dynamically fetch the latest routing list!
+        routing_list = self.get_property("routing", [])
+        
+        if not isinstance(routing_list, list):
             return None
 
-        for rule in self.routing:
+        for rule in routing_list:
             if not isinstance(rule, dict):
                 continue
             try:
@@ -230,31 +245,89 @@ class FactoryPart(GamePart):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
 
-    def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False):
+    def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False, entities: Optional[List[GamePart]] = None):
+        """Ejects the processed payload, applying targeting calculations if applicable."""
         width = float(self.get_property("width", 96))
         height = float(self.get_property("height", 96))
         half_w = width / 2.0
         half_h = height / 2.0
         margin = 12.0
+        
+        # Dynamically fetch tired_velocity
+        tired_velocity = float(self.get_property("tired_velocity", 150.0))
 
         fx = self.body.position.x
         fy = self.body.position.y
 
         if edge == "bottom":
             payload_entity.body.position = (fx, fy + half_h + margin)
-            payload_entity.body.velocity = (0.0, abs(self.tired_velocity))
+            payload_entity.body.velocity = (0.0, abs(tired_velocity))
         elif edge == "top":
             payload_entity.body.position = (fx, fy - half_h - margin)
-            payload_entity.body.velocity = (0.0, -abs(self.tired_velocity))
+            payload_entity.body.velocity = (0.0, -abs(tired_velocity))
             payload_entity.floating = floating
             payload_entity.floating_timer = constants.FLOATING_TIMEOUT_SECONDS if floating else 0.0
         else:
-            angle_deg = float((route_rule or {}).get("angle", 45.0))
-            vel = float((route_rule or {}).get("velocity", 120.0))
-            world_angle = math.radians(180.0 - angle_deg)
-            vx = vel * math.cos(world_angle)
-            vy = -vel * math.sin(world_angle)
-            payload_entity.body.position = (fx - half_w - margin, fy)
+            # === TARGETING LOGIC ===
+            eject_x = fx - half_w - margin
+            eject_y = fy
+            payload_entity.body.position = (eject_x, eject_y)
+
+            # Look for target in route_rule first, then fallback to Factory properties
+            target_val = (route_rule or {}).get("target", self.get_property("target", None))
+            
+            # Allow payload to dictate its own target dynamically
+            if not target_val and hasattr(payload_entity, 'payload') and isinstance(payload_entity.payload, dict):
+                target_val = payload_entity.payload.get("target", None)
+                
+            target_pos = None
+            if target_val:
+                # Type A: Coordinate string (e.g., "500, 300")
+                if isinstance(target_val, str) and "," in target_val:
+                    try:
+                        parts = target_val.split(",")
+                        target_pos = (float(parts[0].strip()), float(parts[1].strip()))
+                    except ValueError:
+                        pass
+                # Type B: Find Entity by UUID or Name (requires entities list)
+                elif entities is not None:
+                    for ent in entities:
+                        if ent.uuid == target_val or ent.get_property("name") == target_val:
+                            target_pos = ent.body.position
+                            break
+            
+            if target_pos:
+                print(f"🎯 [Factory Debug] Overriding angle. Shooting at Target: {target_val}")
+                # Vector math to shoot directly at the target
+                dx = target_pos[0] - eject_x
+                dy = target_pos[1] - eject_y
+                dist = math.hypot(dx, dy)
+                
+                if dist > 0:
+                    # Prefer the route velocity, fallback to factory shoot_speed, fallback to 300
+                    speed = float((route_rule or {}).get("velocity", self.get_property("shoot_speed", 300.0)))
+                    vx = (dx / dist) * speed
+                    vy = (dy / dist) * speed
+                else:
+                    vx, vy = 0.0, 0.0
+            else:
+                # Default angle-based logic (if no target is found or set)
+                print(f"🔍 [Factory Debug] RAW ROUTE RULE DICT: {route_rule}")
+                
+                # Check for angle in route rule, fallback to factory property, fallback to 45.0
+                route_angle = (route_rule or {}).get("angle")
+                if route_angle is None:
+                    angle_deg = float(self.get_property("angle", 45.0))
+                else:
+                    angle_deg = float(route_angle)
+                    
+                vel = float((route_rule or {}).get("velocity", 120.0))
+                print(f"📐 [Factory Debug] Shooting at Angle: {angle_deg} degrees with Velocity: {vel}")
+                
+                world_angle = math.radians(180.0 - angle_deg)
+                vx = vel * math.cos(world_angle)
+                vy = -vel * math.sin(world_angle)
+                
             payload_entity.body.velocity = (vx, vy)
 
         payload = payload_entity.payload
@@ -300,6 +373,7 @@ class FactoryPart(GamePart):
 
             try:
                 state_value = float(result)
+                print(f"🏭 [Factory Debug] Engine evaluated payload to state: {state_value}")
             except (TypeError, ValueError):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, f"fatal: non-numeric state {result}")
@@ -309,10 +383,15 @@ class FactoryPart(GamePart):
             if route_rule is None:
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, "fatal: no matching routing rule")
+                print(f"🏭 [Factory Debug] NO ROUTE matched for state: {state_value}")
                 continue
 
+            print(f"🏭 [Factory Debug] Matched Route: {route_rule.get('desc', 'Unnamed Route')} (Max State: {route_rule.get('max_state')})")
+            
             self._apply_score_modifier(payload_entity, route_rule)
-            self._eject_payload(payload_entity, edge="left", route_rule=route_rule)
+            
+            # Pass the entities list into the ejection logic so it can resolve Name/UUID targets
+            self._eject_payload(payload_entity, edge="left", route_rule=route_rule, entities=entities)
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
         if game_state.get("mode") != "PLAY":

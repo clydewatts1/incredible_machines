@@ -1,0 +1,45 @@
+entities:
+- uuid: 5e6aefdb-ee99-40bd-afde-572e7899a1fa
+  entity_id: data_source_csv
+  position:
+    x: 801.0
+    y: 148.0
+  rotation: 0.0
+  overrides: {}
+- uuid: e2d3cc5f-5bc3-4873-ad79-1ac81ebdf8a5
+  entity_id: bouncy_ball
+  position:
+    x: 199.16751701374557
+    y: 581.065551750462
+  rotation: -31.08794386779632
+  overrides: {}
+- uuid: 952a6082-4504-4326-948a-c914342e3f1a
+  entity_id: bouncy_ball
+  position:
+    x: 166.58299270833658
+    y: 581.065551750462
+  rotation: -33.26024548815692
+  overrides: {}
+- uuid: 1db59e80-2da6-4bfb-bf75-0fa6e110404d
+  entity_id: logic_factory
+  position:
+    x: 630.0
+    y: 250.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 5d1e3f02-3af4-4969-8a34-bce97d465a16
+  entity_id: data_sink_csv
+  position:
+    x: 425.0
+    y: 472.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 6e36f13e-351b-482a-bdc9-ef6dd0f2cdd7
+  entity_id: data_sink_csv
+  position:
+    x: 782.0
+    y: 456.0
+  rotation: 0.0
+  overrides: {}
+constraints: []
+connections: []
