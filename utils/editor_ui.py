@@ -38,15 +38,11 @@ from entities.data_pipe import DataPipePart, get_pipe_curve_point
 from utils.sound_manager import sound_manager
 from utils.environment_manager import env_manager
 from utils.config_loader import load_all_variants
-from utils.ui_manager import UIManager, UIPanel, UIButton, UILabel, UIScrollPanel, UITextInput, UITextArea
 from utils.level_manager import LevelManager
 from utils.camera import Camera
 from utils.physics_events import CollisionManager
+from utils.editor_ui import EditorUI, create_icon_surface
 
-UI_TOP_HEIGHT = 50
-UI_BOTTOM_HEIGHT = 40
-UI_SIDE_WIDTH = 260
-UI_RIGHT_SIDE_WIDTH = 320
 
 def create_boundaries(space, playable_rect):
     static_body = space.static_body
@@ -74,31 +70,6 @@ def dummy_action(feature_name):
     def callback():
         print(f"Not Implemented: {feature_name}")
     return callback
-
-def set_mode(new_mode, state_dict):
-    def callback():
-        state_dict["mode"] = new_mode
-    return callback
-
-def set_active_tool(tool_key, state_dict):
-    def callback():
-        state_dict["active_tool"] = tool_key
-    return callback
-
-def create_icon_surface(variant_key, variant_data):
-    # Try to use the new IconManager, fallback if not fully linked
-    try:
-        from utils.icon_manager import icon_manager
-        label = variant_data.get("label", variant_key.replace("_", " ").title())
-        return icon_manager.get_icon(variant_key, label)
-    except ImportError:
-        from utils.asset_manager import asset_manager
-        label = variant_data.get("label", variant_key.replace("_", " ").title())
-        icon_path = f"assets/icons/{variant_key}_button.png"
-        
-        if variant_data.get("template") == "Circle" and not os.path.exists(icon_path):
-            return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label="⚙")
-        return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label=label)
 
 def create_part(space, x, y, variant_key):
     if variant_key == "logic_factory":
@@ -170,9 +141,8 @@ def snap_to_grid(world_x, world_y):
     snapped_y = round(world_y / constants.GRID_SIZE) * constants.GRID_SIZE
     return (snapped_x, snapped_y)
 
-def main():
-    global UI_TOP_HEIGHT, UI_BOTTOM_HEIGHT, UI_SIDE_WIDTH, UI_RIGHT_SIDE_WIDTH
 
+def main():
     pygame.init()
     sound_manager.initialize()
     env_manager.initialize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
@@ -181,12 +151,9 @@ def main():
     window_height = env_manager.get_int("window_height", constants.WINDOW_HEIGHT)
     world_width = env_manager.get_int("world_width", constants.WORLD_WIDTH)
     world_height = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
-
-    UI_TOP_HEIGHT = env_manager.get_int("ui_top_height", UI_TOP_HEIGHT)
-    UI_BOTTOM_HEIGHT = env_manager.get_int("ui_bottom_height", UI_BOTTOM_HEIGHT)
-    UI_SIDE_WIDTH = env_manager.get_int("ui_left_panel_width", UI_SIDE_WIDTH)
-    UI_RIGHT_SIDE_WIDTH = env_manager.get_int("ui_right_panel_width", UI_RIGHT_SIDE_WIDTH)
     
+    w, h = window_width, window_height
+
     all_variants = load_all_variants()
     
     if "wire_tool" not in all_variants:
@@ -203,7 +170,6 @@ def main():
             "template": "Rectangle",
             "color": [60, 60, 60]
         }
-    # === ADD THE DATA PIPE TO THE PALETTE ===
     if "pipe_tool" not in all_variants:
         all_variants["pipe_tool"] = {
             "label": "Data Pipe",
@@ -218,32 +184,8 @@ def main():
     })
     
     screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
-    pygame.display.set_caption("The Incredible Machine Clone - Milestone 24")
+    pygame.display.set_caption("The Incredible Machine Clone - Milestone 27")
     clock = pygame.time.Clock()
-
-    font = pygame.font.SysFont(None, 24)
-    small_font = pygame.font.SysFont(None, 16)
-
-    ui_manager = UIManager()
-    
-    w, h = window_width, window_height
-    
-    top_panel = UIPanel(pygame.Rect(0, 0, w, UI_TOP_HEIGHT), color=(50, 50, 50))
-    bottom_panel = UIPanel(pygame.Rect(0, h - UI_BOTTOM_HEIGHT, w, UI_BOTTOM_HEIGHT), color=(50, 50, 50))
-    left_panel = UIPanel(pygame.Rect(0, UI_TOP_HEIGHT, UI_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
-    right_panel = UIPanel(pygame.Rect(w - UI_RIGHT_SIDE_WIDTH, UI_TOP_HEIGHT, UI_RIGHT_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
-
-    playable_rect = pygame.Rect(
-        left_panel.rect.right,
-        top_panel.rect.bottom,
-        right_panel.rect.left - left_panel.rect.right,
-        bottom_panel.rect.top - top_panel.rect.bottom,
-    )
-    
-    ui_manager.add_element(top_panel)
-    ui_manager.add_element(bottom_panel)
-    ui_manager.add_element(left_panel)
-    ui_manager.add_element(right_panel)
     
     game_state = {
         "mode": "EDIT",
@@ -255,65 +197,11 @@ def main():
         "selected_category": "all",
         "wiring_source": None,
         "belt_source": None,
-        "pipe_source": None,  # ADD STATE FOR PIPE DRAWING
+        "pipe_source": None,
     }
 
-    top_bar_elements = []
-    left_panel_elements = []
-    category_tab_elements = []
-
-    right_scroll_rect = pygame.Rect(
-        right_panel.rect.x + 10,
-        right_panel.rect.y + 76,
-        right_panel.rect.width - 20,
-        right_panel.rect.height - 86,
-    )
-    right_scroll_panel = UIScrollPanel(right_scroll_rect, color=(45, 45, 45), alpha=220)
-    ui_manager.add_element(right_scroll_panel)
-
-    left_scroll_rect = pygame.Rect(
-        left_panel.rect.x + 10,
-        left_panel.rect.y + 40,
-        left_panel.rect.width - 20,
-        left_panel.rect.height - 50,
-    )
-    left_scroll_panel = UIScrollPanel(left_scroll_rect, color=(45, 45, 45), alpha=220)
-    ui_manager.add_element(left_scroll_panel)
-
-    right_panel_title = UILabel(
-        pygame.Rect(right_panel.rect.x + 10, right_panel.rect.y + 8, right_panel.rect.width - 20, 24),
-        text="Palette",
-        font=font,
-    )
-    ui_manager.add_element(right_panel_title)
-
-    def clear_top_bar():
-        for element in top_bar_elements:
-            if element in ui_manager.elements:
-                ui_manager.elements.remove(element)
-        top_bar_elements.clear()
-
-    def clear_category_tabs():
-        for element in category_tab_elements:
-            if element in ui_manager.elements:
-                ui_manager.elements.remove(element)
-        category_tab_elements.clear()
-
-    def add_top_btn_at(x, text, callback):
-        # Increased padding slightly to ensure labels like "Trace: OFF" fit perfectly
-        btn_w = max(86, font.size(text)[0] + 24)
-        btn = UIButton(
-            pygame.Rect(int(x), 10, btn_w, 30),
-            text=text,
-            font=font,
-            callback=callback,
-            click_sound="clunk_top.wav",
-        )
-        ui_manager.add_element(btn)
-        top_bar_elements.append(btn)
-        return btn_w
-
     level_manager = LevelManager()
+    editor_ui = None  # Forward declaration for callbacks
     
     def apply_level_data(level_data, constraints_data=None, connections_data=None):
         if not level_data:
@@ -390,7 +278,7 @@ def main():
         level_data, constraints_data, connections_data = level_manager.load_level()
         apply_level_data(level_data, constraints_data, connections_data)
         game_state["mode"] = "EDIT"
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
 
     def handle_save():
         root = tk.Tk()
@@ -420,7 +308,7 @@ def main():
             level_data, constraints_data, connections_data = level_manager.load_level(filepath)
             apply_level_data(level_data, constraints_data, connections_data)
             game_state["mode"] = "EDIT"
-            build_top_panel()
+            editor_ui.rebuild_top_panel()
 
     def handle_clear():
         for entity in list(entities):
@@ -444,269 +332,66 @@ def main():
         for entity in entities:
             if hasattr(entity, 'reset_logic'):
                 entity.reset_logic()
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
 
     def handle_pause():
         if game_state["mode"] == "PLAY":
             game_state["mode"] = "PAUSE"
         elif game_state["mode"] == "PAUSE":
             game_state["mode"] = "PLAY"
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
 
     def handle_edit():
         game_state["mode"] = "EDIT"
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
         
     def handle_quit():
         pygame.event.post(pygame.event.Event(pygame.QUIT))
     
     def toggle_snap_to_grid():
         game_state["snap_to_grid"] = not game_state.get("snap_to_grid", False)
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
 
     def toggle_traces():
         game_state["show_traces"] = not game_state.get("show_traces", False)
-        build_top_panel()
+        editor_ui.rebuild_top_panel()
 
-    def build_top_panel():
-        clear_top_bar()
+    callbacks = {
+        "play": handle_play,
+        "pause": handle_pause,
+        "edit": handle_edit,
+        "clear": handle_clear,
+        "snap": toggle_snap_to_grid,
+        "trace": toggle_traces,
+        "q_save": handle_quick_save,
+        "q_load": handle_quick_load,
+        "save": handle_save,
+        "load": handle_load,
+        "quit": handle_quit,
+        "challenges": dummy_action("Challenges"),
+        "help": dummy_action("Help"),
+        "options": dummy_action("Options")
+    }
 
-        snap_enabled = game_state.get("snap_to_grid", False)
-        snap_label = "Snap: ON" if snap_enabled else "Snap: OFF"
-        pause_label = "Resume" if game_state.get("mode") == "PAUSE" else "Pause"
-        trace_label = "Trace: ON" if game_state.get("show_traces", False) else "Trace: OFF"
+    env_settings = {
+        "ui_top_height": env_manager.get_int("ui_top_height", 50),
+        "ui_bottom_height": env_manager.get_int("ui_bottom_height", 40),
+        "ui_left_panel_width": env_manager.get_int("ui_left_panel_width", 260),
+        "ui_right_panel_width": env_manager.get_int("ui_right_panel_width", 320)
+    }
 
-        # Left-aligned cluster: modes and toggles.
-        left_x = 10
-        for text, callback in [
-            ("Play", handle_play),
-            (pause_label, handle_pause),
-            ("Edit", handle_edit),
-            ("Clear", handle_clear),
-            (snap_label, toggle_snap_to_grid),
-            (trace_label, toggle_traces), 
-        ]:
-            left_x += add_top_btn_at(left_x, text, callback) + 8
-
-        # Right-aligned cluster: file ops and meta
-        right_buttons = [
-            ("Q.Save", handle_quick_save),
-            ("Q.Load", handle_quick_load),
-            ("Save", handle_save),
-            ("Load", handle_load),
-            ("Challenges", dummy_action("Challenges")),
-            ("Help", dummy_action("Help")),
-            ("Quit", handle_quit),
-        ]
-        right_gap = 8
-        right_width = sum(max(86, font.size(t)[0] + 24) for t, _ in right_buttons) + right_gap * (len(right_buttons) - 1)
-        right_x = w - right_width - 10
-        
-        for text, callback in right_buttons:
-            right_x += add_top_btn_at(right_x, text, callback) + right_gap
-
-    def build_category_tabs():
-        clear_category_tabs()
-
-        selected_category = game_state.get("selected_category", "all")
-        tab_area_left = right_panel.rect.x + 10
-        tab_area_right = right_panel.rect.right - 10
-        tab_y = right_panel.rect.y + 38
-        tab_x = tab_area_left
-        tab_gap = 6
-        row_gap = 4
-        tab_height = 24
-        row_count = 1
-
-        tab_entries = ["all"] + categories
-        for category_name in tab_entries:
-            label = category_name.title()
-            tab_width = max(52, small_font.size(label)[0] + 14)
-            is_selected = category_name == selected_category
-
-            if tab_x + tab_width > tab_area_right and tab_x > tab_area_left:
-                tab_x = tab_area_left
-                tab_y += tab_height + row_gap
-                row_count += 1
-
-            def make_callback(cat):
-                def _callback():
-                    game_state["selected_category"] = cat
-                    build_category_tabs()
-                    build_right_palette()
-                return _callback
-
-            tab_btn = UIButton(
-                pygame.Rect(tab_x, tab_y, tab_width, tab_height),
-                text=label,
-                font=small_font,
-                callback=make_callback(category_name),
-                bg_color=(90, 130, 90) if is_selected else (70, 70, 70),
-                hover_color=(120, 170, 120) if is_selected else (100, 100, 100),
-                click_sound="clunk_side.wav",
-            )
-            ui_manager.add_element(tab_btn)
-            category_tab_elements.append(tab_btn)
-            tab_x += tab_width + tab_gap
-
-        tabs_bottom = right_panel.rect.y + 38 + row_count * tab_height + max(0, row_count - 1) * row_gap
-        right_scroll_panel.rect.y = tabs_bottom + 8
-        right_scroll_panel.rect.height = max(60, right_panel.rect.bottom - 10 - right_scroll_panel.rect.y)
-
-    def build_right_palette():
-        right_scroll_panel.clear_children()
-
-        padding = 10
-        gap_x = 8
-        gap_y = 8
-        button_height = 70
-        button_width = (right_scroll_panel.rect.width - (padding * 2) - (gap_x * 2)) // 3
-
-        selected_category = game_state.get("selected_category", "all")
-        palette_variants = [
-            (k, v)
-            for k, v in all_variants.items()
-            if selected_category == "all" or str(v.get("category", "other")).lower() == selected_category
-        ]
-        for index, (variant_key, variant_data) in enumerate(palette_variants):
-            col = index % 3
-            row = index // 3
-            btn_x = right_scroll_panel.rect.x + padding + col * (button_width + gap_x)
-            btn_y = right_scroll_panel.rect.y + padding + row * (button_height + gap_y)
-            icon_surf = create_icon_surface(variant_key, variant_data)
-            label_text = variant_data.get("label", variant_key.replace("_", " ").title())
-            btn = UIButton(
-                pygame.Rect(btn_x, btn_y, button_width, button_height),
-                text=label_text,
-                font=small_font,
-                icon_surface=icon_surf,
-                callback=set_active_tool(variant_key, game_state),
-                click_sound="clunk_side.wav",
-            )
-            right_scroll_panel.add_child(btn)
-
-        rows = (len(palette_variants) + 2) // 3
-        right_scroll_panel.content_height = padding * 2 + rows * button_height + max(0, rows - 1) * gap_y
-        right_scroll_panel._clamp_scroll()
-
-    def build_left_inspector():
-        for element in left_panel_elements:
-            if element in ui_manager.elements:
-                ui_manager.elements.remove(element)
-        left_panel_elements.clear()
-
-        left_scroll_panel.clear_children()
-
-        selected = game_state.get("selected_instance")
-        x = left_panel.rect.x + 10
-        y = left_panel.rect.y + 10
-        width = left_panel.rect.width - 20
-
-        title = UILabel(pygame.Rect(x, y, width, 24), text="Inspector", font=font)
-        ui_manager.add_element(title)
-        left_panel_elements.append(title)
-        y += 30
-
-        if selected is None:
-            hint = UILabel(
-                pygame.Rect(left_scroll_panel.rect.x + 4, left_scroll_panel.rect.y + 8, left_scroll_panel.rect.width - 8, 24),
-                text="Select an object",
-                font=small_font,
-            )
-            left_scroll_panel.add_child(hint)
-            left_scroll_panel.content_height = 40
-            return
-
-        inputs = {}
-        content_x = left_scroll_panel.rect.x + 4
-        content_y = left_scroll_panel.rect.y + 8
-        content_width = left_scroll_panel.rect.width - 8
-        all_keys = set(selected.properties.keys()).union(selected.overrides.keys())
-        
-        if hasattr(selected, 'payload') and 'payload' not in all_keys:
-            all_keys.add('payload')
-            
-        for key in sorted(list(all_keys)):
-            if key in ["visual", "template", "texture_path", "image", "label"]:
-                continue
-
-            key_label = UILabel(pygame.Rect(content_x, content_y, content_width, 16), text=key, font=small_font)
-            left_scroll_panel.add_child(key_label)
-            content_y += 18
-
-            if key == 'payload' and not (key in selected.properties or key in selected.overrides):
-                val_str = str(getattr(selected, 'payload', ''))
-            else:
-                val_str = str(selected.get_property(key))
-
-            if len(val_str) > 28 or "\n" in val_str:
-                field = UITextArea(pygame.Rect(content_x, content_y, content_width, 54), font=small_font, text=val_str)
-                content_y += 58
-            else:
-                field = UITextInput(pygame.Rect(content_x, content_y, content_width, 22), font=small_font, text=val_str)
-                content_y += 28
-            left_scroll_panel.add_child(field)
-            inputs[key] = field
-
-        def apply_props():
-            import ast
-            new_dict = {}
-            for key, field in inputs.items():
-                text = field.text
-                try:
-                    if text.startswith("[") or text.startswith("{"):
-                        new_dict[key] = ast.literal_eval(text)
-                    elif "." in text:
-                        new_dict[key] = float(text)
-                    else:
-                        new_dict[key] = int(text)
-                except (ValueError, SyntaxError):
-                        new_dict[key] = text
-            
-            if 'payload' in new_dict:
-                selected.payload = new_dict['payload']
-                
-            selected.apply_draft_overrides(new_dict)
-            game_state["selected_instance"] = None
-            build_left_inspector()
-
-        def reset_props():
-            if hasattr(selected, "overrides"):
-                selected.overrides.clear()
-                selected.apply_draft_overrides({})
-            game_state["selected_instance"] = None
-            build_left_inspector()
-
-        def cancel_props():
-            game_state["selected_instance"] = None
-            build_left_inspector()
-
-        content_y += 4
-        for text, callback in [("Save", apply_props), ("Reset", reset_props), ("Cancel", cancel_props)]:
-            btn = UIButton(
-                pygame.Rect(content_x, content_y, content_width, 26),
-                text=text,
-                font=small_font,
-                callback=callback,
-            )
-            left_scroll_panel.add_child(btn)
-            content_y += 30
-
-        left_scroll_panel.content_height = (content_y - left_scroll_panel.rect.y) + 8
-        left_scroll_panel._clamp_scroll()
-
-    build_top_panel()
-    build_category_tabs()
-    build_right_palette()
-    build_left_inspector()
-        
-    ui_manager.add_element(UILabel(pygame.Rect(10, h - UI_BOTTOM_HEIGHT + 5, 200, 30), text="Score: 0", font=font))
-    ui_manager.add_element(UILabel(pygame.Rect(w - 210, h - UI_BOTTOM_HEIGHT + 5, 200, 30), text="Timer: 00:00", font=font))
-    ui_manager.add_element(UIButton(pygame.Rect(w - 320, h - UI_BOTTOM_HEIGHT + 5, 100, 30), text="Options", font=font, callback=dummy_action("Options"), click_sound="clunk_bottom.wav"))
+    editor_ui = EditorUI(
+        window_width, window_height, env_settings, 
+        all_variants, categories, game_state, callbacks
+    )
+    editor_ui.rebuild_top_panel()
+    editor_ui.rebuild_category_tabs()
+    editor_ui.rebuild_right_palette()
+    editor_ui.rebuild_left_inspector()
     
     space = pymunk.Space()
     space.gravity = constants.GRAVITY
-    create_boundaries(space, playable_rect)
+    create_boundaries(space, editor_ui.playable_rect)
     
     camera = Camera(
         world_width=world_width,
@@ -725,14 +410,11 @@ def main():
     
     grabbed_body = None
     prev_mode = game_state["mode"]
-    game_state["wiring_source"] = None
-    game_state["belt_source"] = None 
-    game_state["pipe_source"] = None
     
     trash_can_visible = False
     trash_can_rect = pygame.Rect(w // 2 - 40, h - 100, 80, 80)
     cursor_over_trash = False
-    
+
     def handle_tool_click(world_click_pos):
         """Helper to manage interaction with the tools based on world position."""
         nonlocal grabbed_body, trash_can_visible
@@ -804,7 +486,7 @@ def main():
                 grabbed_body = info.shape.body
                 trash_can_visible = True
                 game_state["selected_instance"] = target_entity
-                build_left_inspector()
+                editor_ui.rebuild_left_inspector()
                 
         elif active_tool is not None and active_tool not in ("wire_tool", "belt_tool", "pipe_tool"):
             # Spawn a new part into the world
@@ -824,7 +506,7 @@ def main():
             game_state["pipe_source"] = None
             if game_state.get("selected_instance") is not None:
                 game_state["selected_instance"] = None
-                build_left_inspector()
+                editor_ui.rebuild_left_inspector()
 
     running = True
     while running:
@@ -844,7 +526,7 @@ def main():
         world_m_pos = camera.screen_to_world(m_pos[0], m_pos[1])
         
         if current_mode == "EDIT" and not grabbed_body:
-            if playable_rect.collidepoint(m_pos):
+            if editor_ui.playable_rect.collidepoint(m_pos):
                 info = space.point_query_nearest(world_m_pos, 5.0, pymunk.ShapeFilter())
                 if info and info.shape and info.shape.body != space.static_body:
                     for entity in entities:
@@ -856,7 +538,7 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 
-            if ui_manager.process_event(event):
+            if editor_ui.process_event(event):
                 continue
                 
             if event.type == pygame.KEYDOWN:
@@ -892,7 +574,7 @@ def main():
                             trash_can_visible = False
                             
                         game_state["selected_instance"] = None
-                        build_left_inspector()
+                        editor_ui.rebuild_left_inspector()
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 camera.begin_pan(event.pos[0], event.pos[1])
@@ -905,7 +587,7 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 try:
                     world_click_pos = camera.screen_to_world(event.pos[0], event.pos[1])
-                    if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
+                    if editor_ui.playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
                         handle_tool_click(world_click_pos)
                 except Exception as e:
                     import traceback
@@ -915,7 +597,7 @@ def main():
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
                 world_click_pos = camera.screen_to_world(event.pos[0], event.pos[1])
                 
-                if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
+                if editor_ui.playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
                     info = space.point_query_nearest(world_click_pos, 5.0, pymunk.ShapeFilter())
                     if info and info.shape and info.shape.body != space.static_body:
                         for entity in list(entities):
@@ -1006,7 +688,7 @@ def main():
                         target.angle += event.y * 0.1
                         space.reindex_shapes_for_body(target)
 
-        if current_mode == "EDIT" and grabbed_body and not ui_manager.focused_element:
+        if current_mode == "EDIT" and grabbed_body and not editor_ui.focused_element:
             keys = pygame.key.get_pressed()
             rotated = False
             if keys[pygame.K_q]:
@@ -1018,7 +700,7 @@ def main():
             if rotated:
                 space.reindex_shapes_for_body(grabbed_body)
         
-        if not ui_manager.focused_element:
+        if not editor_ui.focused_element:
             keys = pygame.key.get_pressed()
             dt = clock.get_time() / 1000.0  
             camera.handle_keyboard_pan(keys, constants.CAMERA_PAN_SPEED, dt)
@@ -1296,9 +978,9 @@ def main():
             screen.blit(preview_surf, preview_rect)
 
         border_color = env_manager.edit_mode_color if current_mode == "EDIT" else env_manager.play_mode_color
-        pygame.draw.rect(screen, border_color, playable_rect, 5)
+        pygame.draw.rect(screen, border_color, editor_ui.playable_rect, 5)
 
-        ui_manager.draw(screen)
+        editor_ui.draw(screen)
         
         if trash_can_visible and current_mode == "EDIT":
             trash_bg_color = (150, 50, 50) if cursor_over_trash else (80, 80, 80)

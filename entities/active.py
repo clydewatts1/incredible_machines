@@ -1,5 +1,4 @@
 import copy
-import math
 import queue
 import threading
 import uuid
@@ -9,6 +8,7 @@ import pygame
 
 import constants
 from entities.base import GamePart
+from utils.routing import calculate_ejection_kinematics, find_route
 from utils.engines import create_engine
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
@@ -204,23 +204,6 @@ class FactoryPart(GamePart):
         self._start_worker(payload_entity)
         return True
 
-    def _find_route(self, state_value: float) -> Optional[Dict[str, Any]]:
-        # Dynamically fetch the latest routing list!
-        routing_list = self.get_property("routing", [])
-        
-        if not isinstance(routing_list, list):
-            return None
-
-        for rule in routing_list:
-            if not isinstance(rule, dict):
-                continue
-            try:
-                if float(state_value) <= float(rule.get("max_state")):
-                    return rule
-            except (TypeError, ValueError):
-                continue
-        return None
-
     def _apply_score_modifier(self, payload_entity: GamePart, route_rule: Dict[str, Any]):
         payload = payload_entity.payload
         if "score" not in payload:
@@ -263,88 +246,54 @@ class FactoryPart(GamePart):
 
     def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False, entities: Optional[List[GamePart]] = None):
         """Ejects the processed payload, applying targeting calculations if applicable."""
-        width = float(self.get_property("width", 96))
-        height = float(self.get_property("height", 96))
-        half_w = width / 2.0
-        half_h = height / 2.0
-        margin = 12.0
-        
-        # Dynamically fetch tired_velocity
+        default_angles = {
+            "right": 0.0,
+            "top": 90.0,
+            "left": 180.0,
+            "bottom": 270.0,
+        }
+        default_angle = default_angles.get(edge, 0.0)
         tired_velocity = float(self.get_property("tired_velocity", 150.0))
 
-        fx = self.body.position.x
-        fy = self.body.position.y
-
         if edge == "bottom":
-            payload_entity.body.position = (fx, fy + half_h + margin)
-            payload_entity.body.velocity = (0.0, abs(tired_velocity))
+            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+                self,
+                edge,
+                route_rule,
+                tired_velocity,
+                default_angle,
+                entities,
+            )
         elif edge == "top":
-            payload_entity.body.position = (fx, fy - half_h - margin)
-            payload_entity.body.velocity = (0.0, -abs(tired_velocity))
+            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+                self,
+                edge,
+                route_rule,
+                tired_velocity,
+                default_angle,
+                entities,
+            )
             payload_entity.floating = floating
             payload_entity.floating_timer = constants.FLOATING_TIMEOUT_SECONDS if floating else 0.0
         else:
-            # === TARGETING LOGIC ===
-            eject_x = fx - half_w - margin
-            eject_y = fy
-            payload_entity.body.position = (eject_x, eject_y)
+            effective_route_rule = dict(route_rule or {})
+            if not effective_route_rule.get("target") and hasattr(payload_entity, 'payload') and isinstance(payload_entity.payload, dict):
+                payload_target = payload_entity.payload.get("target", None)
+                if payload_target:
+                    effective_route_rule["target"] = payload_target
+            shoot_speed = float(self.get_property("shoot_speed", 300.0))
+            fallback_angle = float(self.get_property("angle", default_angle))
+            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+                self,
+                edge,
+                effective_route_rule,
+                shoot_speed,
+                fallback_angle,
+                entities,
+            )
 
-            # Look for target in route_rule first, then fallback to Factory properties
-            target_val = (route_rule or {}).get("target", self.get_property("target", None))
-            
-            # Allow payload to dictate its own target dynamically
-            if not target_val and hasattr(payload_entity, 'payload') and isinstance(payload_entity.payload, dict):
-                target_val = payload_entity.payload.get("target", None)
-                
-            target_pos = None
-            if target_val:
-                # Type A: Coordinate string (e.g., "500, 300")
-                if isinstance(target_val, str) and "," in target_val:
-                    try:
-                        parts = target_val.split(",")
-                        target_pos = (float(parts[0].strip()), float(parts[1].strip()))
-                    except ValueError:
-                        pass
-                # Type B: Find Entity by UUID or Name (requires entities list)
-                elif entities is not None:
-                    for ent in entities:
-                        if ent.uuid == target_val or ent.get_property("name") == target_val:
-                            target_pos = ent.body.position
-                            break
-            
-            if target_pos:
-                print(f"🎯 [Factory Debug] Overriding angle. Shooting at Target: {target_val}")
-                # Vector math to shoot directly at the target
-                dx = target_pos[0] - eject_x
-                dy = target_pos[1] - eject_y
-                dist = math.hypot(dx, dy)
-                
-                if dist > 0:
-                    # Prefer the route velocity, fallback to factory shoot_speed, fallback to 300
-                    speed = float((route_rule or {}).get("velocity", self.get_property("shoot_speed", 300.0)))
-                    vx = (dx / dist) * speed
-                    vy = (dy / dist) * speed
-                else:
-                    vx, vy = 0.0, 0.0
-            else:
-                # Default angle-based logic (if no target is found or set)
-                print(f"🔍 [Factory Debug] RAW ROUTE RULE DICT: {route_rule}")
-                
-                # Check for angle in route rule, fallback to factory property, fallback to 45.0
-                route_angle = (route_rule or {}).get("angle")
-                if route_angle is None:
-                    angle_deg = float(self.get_property("angle", 45.0))
-                else:
-                    angle_deg = float(route_angle)
-                    
-                vel = float((route_rule or {}).get("velocity", 120.0))
-                print(f"📐 [Factory Debug] Shooting at Angle: {angle_deg} degrees with Velocity: {vel}")
-                
-                world_angle = math.radians(180.0 - angle_deg)
-                vx = vel * math.cos(world_angle)
-                vy = -vel * math.sin(world_angle)
-                
-            payload_entity.body.velocity = (vx, vy)
+        payload_entity.body.position = (eject_x, eject_y)
+        payload_entity.body.velocity = (vx, vy)
 
         payload = payload_entity.payload
         payload["ttl"] = int(payload.get("ttl", constants.DEFAULT_PAYLOAD_TTL)) - 1
@@ -397,7 +346,7 @@ class FactoryPart(GamePart):
                 self.current_payload_uuid = None
                 continue
 
-            route_rule = self._find_route(state_value)
+            route_rule = find_route(state_value, self.get_property("routing", []))
             if route_rule is None:
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, "fatal: no matching routing rule")

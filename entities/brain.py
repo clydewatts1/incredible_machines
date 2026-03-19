@@ -1,5 +1,4 @@
 import copy
-import math
 import queue
 import threading
 import uuid
@@ -12,6 +11,7 @@ import constants
 from entities.base import GamePart
 from entities.active import FloatingTextLabel
 from utils.asset_manager import asset_manager
+from utils.routing import calculate_ejection_kinematics, find_route
 from utils.sound_manager import sound_manager
 from utils.sprite_manager import sprite_manager
 
@@ -263,18 +263,6 @@ class BrainPart(GamePart):
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
 
-    def _find_route(self, state_value: float) -> Optional[Dict[str, Any]]:
-        routing_list = self.get_property("routing", [])
-        if not isinstance(routing_list, list): return None
-        for rule in routing_list:
-            if not isinstance(rule, dict): continue
-            try:
-                if float(state_value) <= float(rule.get("max_state")):
-                    return rule
-            except (TypeError, ValueError):
-                continue
-        return None
-
     def _spawn_fatal_label(self, entities: List[GamePart], reason: str):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
@@ -298,71 +286,39 @@ class BrainPart(GamePart):
         return None
 
     def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, entities: Optional[List[GamePart]] = None):
-        width = float(self.get_property("width", 96))
-        height = float(self.get_property("height", 96))
-        half_w = width / 2.0
-        half_h = height / 2.0
-        margin = 25.0 
-        
-        fx, fy = self.body.position.x, self.body.position.y
-        
-        if edge == "bottom":
-            eject_x, eject_y = fx, fy + half_h + margin
-        elif edge == "top":
-            eject_x, eject_y = fx, fy - half_h - margin
-        elif edge == "left":
-            eject_x, eject_y = fx - half_w - margin, fy
-        elif edge == "right":
-            eject_x, eject_y = fx + half_w + margin, fy
-        else:
-            eject_x, eject_y = fx, fy
-            
-        payload_entity.body.position = (eject_x, eject_y)
-
+        default_angles = {
+            "right": 0.0,
+            "top": 90.0,
+            "left": 180.0,
+            "bottom": 270.0,
+        }
+        default_angle = default_angles.get(edge, 0.0)
         if edge == "bottom":
             tired_velocity = float(self.get_property("tired_velocity", 150.0))
-            payload_entity.body.velocity = (0.0, abs(tired_velocity))
+            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+                self,
+                edge,
+                route_rule,
+                tired_velocity,
+                default_angle,
+                entities,
+            )
         else:
-            target_val = (route_rule or {}).get("target", self.get_property("target", None))
-            target_pos = None
-            
-            # --- NEW UX FEATURE ---
-            # If no explicit target is typed in the properties, but the user wired this Brain 
-            # to another object, automatically aim and shoot the balls at the wired object!
-            if not target_val and self.connected_uuids:
-                target_val = self.connected_uuids[0]
-                
-            if target_val and entities is not None:
-                for ent in entities:
-                    if ent.uuid == target_val or ent.get_property("name") == target_val:
-                        target_pos = ent.body.position
-                        break
-                        
-            if target_pos:
-                dx, dy = target_pos[0] - eject_x, target_pos[1] - eject_y
-                dist = math.hypot(dx, dy)
-                if dist > 0:
-                    speed = float((route_rule or {}).get("velocity", self.get_property("shoot_speed", 250.0)))
-                    vx, vy = (dx / dist) * speed, (dy / dist) * speed
-                else:
-                    vx, vy = 0.0, 0.0
-            else:
-                default_angles = {
-                    "right": 0.0,
-                    "top": 90.0,
-                    "left": 180.0,
-                    "bottom": 270.0
-                }
-                fallback_angle = default_angles.get(edge, 0.0)
-                
-                angle_deg = float((route_rule or {}).get("angle", fallback_angle))
-                vel = float((route_rule or {}).get("velocity", 200.0))
-                
-                world_angle = math.radians(angle_deg)
-                vx = vel * math.cos(world_angle)
-                vy = vel * -math.sin(world_angle) 
-                
-            payload_entity.body.velocity = (vx, vy)
+            effective_route_rule = dict(route_rule or {})
+            if not effective_route_rule.get("target") and self.connected_uuids:
+                effective_route_rule["target"] = self.connected_uuids[0]
+            shoot_speed = float(self.get_property("shoot_speed", 250.0))
+            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+                self,
+                edge,
+                effective_route_rule,
+                shoot_speed,
+                default_angle,
+                entities,
+            )
+
+        payload_entity.body.position = (eject_x, eject_y)
+        payload_entity.body.velocity = (vx, vy)
             
         self._set_state("WRITING")
 
@@ -421,7 +377,7 @@ class BrainPart(GamePart):
                     payload_entity.payload["data"] = {}
                 payload_entity.payload["data"].update(injected_data)
 
-            route_rule = self._find_route(route_state)
+            route_rule = find_route(route_state, self.get_property("routing", []))
             
             if route_rule is None:
                 self._set_state("FATAL")
