@@ -243,6 +243,24 @@ class FactoryPart(GamePart):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
 
+    def _find_matching_pipe_for_state(self, entities: List[GamePart], state_value: float):
+        for entity in entities:
+            if getattr(entity, "variant_key", "") != "data_pipe":
+                continue
+
+            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
+                continue
+
+            try:
+                pipe_state = float(entity.get_property("route_state", 10.0))
+            except (TypeError, ValueError):
+                continue
+
+            if abs(pipe_state - float(state_value)) <= 1e-6:
+                return entity
+
+        return None
+
     def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False, entities: Optional[List[GamePart]] = None):
         """Ejects the processed payload, applying targeting calculations if applicable."""
         width = float(self.get_property("width", 96))
@@ -359,14 +377,15 @@ class FactoryPart(GamePart):
             result = result_data.get("result")
 
             payload_entity = active_instances.get(payload_uuid)
-            self.current_payload_uuid = None
 
             if payload_entity is None or getattr(payload_entity, "to_delete", False):
+                self.current_payload_uuid = None
                 continue
 
             if isinstance(result, str) and result.lower().startswith("fatal"):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, result)
+                self.current_payload_uuid = None
                 continue
 
             try:
@@ -375,6 +394,7 @@ class FactoryPart(GamePart):
             except (TypeError, ValueError):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, f"fatal: non-numeric state {result}")
+                self.current_payload_uuid = None
                 continue
 
             route_rule = self._find_route(state_value)
@@ -382,13 +402,30 @@ class FactoryPart(GamePart):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, "fatal: no matching routing rule")
                 print(f"🏭 [Factory Debug] NO ROUTE matched for state: {state_value}")
+                self.current_payload_uuid = None
                 continue
 
             print(f"🏭 [Factory Debug] Matched Route: {route_rule.get('desc', 'Unnamed Route')} (Max State: {route_rule.get('max_state')})")
-            
-            self._apply_score_modifier(payload_entity, route_rule)
-            
-            # Pass the entities list into the ejection logic so it can resolve Name/UUID targets
+
+            if not bool(result_data.get("_score_applied", False)):
+                self._apply_score_modifier(payload_entity, route_rule)
+                result_data["_score_applied"] = True
+
+            matching_pipe = self._find_matching_pipe_for_state(entities, state_value)
+            if matching_pipe is not None:
+                accepted = bool(matching_pipe.ingest_payload(payload_entity))
+                if accepted:
+                    self.current_payload_uuid = None
+                    self._set_state("IDLE")
+                    continue
+
+                self._set_state("JAMMED")
+                self.current_payload_uuid = payload_entity.uuid
+                self.queue.put(result_data)
+                break
+
+            # No matching pipe: fallback to legacy physics ejection.
+            self.current_payload_uuid = None
             self._eject_payload(payload_entity, edge="left", route_rule=route_rule, entities=entities)
 
     def update_logic(self, dt, game_state, entities, active_instances=None):

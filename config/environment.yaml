@@ -7,7 +7,7 @@ ui_bottom_height: 40
 ui_left_panel_width: 260
 ui_right_panel_width: 320
 
-background_image: "assets\\images\\yorkie_pink_bg.jpeg"
+background_image: "assets\\images\\yorkie_grey_bg.jpeg"
 fallback_color: [50, 50, 50]
 edit_mode_color: [255, 200, 0]
 play_mode_color: [0, 255, 0]

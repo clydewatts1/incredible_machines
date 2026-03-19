@@ -279,6 +279,24 @@ class BrainPart(GamePart):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
 
+    def _find_matching_pipe_for_state(self, entities: List[GamePart], route_state: float):
+        for entity in entities:
+            if getattr(entity, "variant_key", "") != "data_pipe":
+                continue
+
+            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
+                continue
+
+            try:
+                pipe_state = float(entity.get_property("route_state", 10.0))
+            except (TypeError, ValueError):
+                continue
+
+            if abs(pipe_state - float(route_state)) <= 1e-6:
+                return entity
+
+        return None
+
     def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, entities: Optional[List[GamePart]] = None):
         width = float(self.get_property("width", 96))
         height = float(self.get_property("height", 96))
@@ -382,15 +400,16 @@ class BrainPart(GamePart):
             result_data = self.queue.get()
             payload_uuid = result_data.get("payload_uuid")
             payload_entity = active_instances.get(payload_uuid)
-            self.current_payload_uuid = None
 
             if payload_entity is None or getattr(payload_entity, "to_delete", False):
+                self.current_payload_uuid = None
                 continue
 
             error_msg = result_data.get("result", "")
             if isinstance(error_msg, str) and error_msg.startswith("fatal"):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, error_msg)
+                self.current_payload_uuid = None
                 self._eject_payload(payload_entity, edge="bottom", entities=entities)
                 continue
 
@@ -407,10 +426,25 @@ class BrainPart(GamePart):
             if route_rule is None:
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, f"fatal: no route for state {route_state}")
+                self.current_payload_uuid = None
                 self._eject_payload(payload_entity, edge="bottom", entities=entities)
                 continue
+
+            matching_pipe = self._find_matching_pipe_for_state(entities, route_state)
+            if matching_pipe is not None:
+                accepted = bool(matching_pipe.ingest_payload(payload_entity))
+                if accepted:
+                    self.current_payload_uuid = None
+                    self._set_state("IDLE")
+                    continue
+
+                self._set_state("JAMMED")
+                self.current_payload_uuid = payload_entity.uuid
+                self.queue.put(result_data)
+                break
             
             output_side = str(route_rule.get("output_side", self.get_property("output_side", "right"))).lower()
+            self.current_payload_uuid = None
             self._eject_payload(payload_entity, edge=output_side, route_rule=route_rule, entities=entities)
 
     def update_logic(self, dt, game_state, entities, active_instances=None):

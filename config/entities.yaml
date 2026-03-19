@@ -553,7 +553,7 @@ variants:
 
   payload_ball:
     label: "Payload"
-    category: "basic"
+    category: "payloads"
     template: "Circle"
     radius: 10
     mass: 1.0
@@ -615,3 +615,16 @@ variants:
     width: 64
     height: 64
     is_static: True
+
+# Added in 2026-03-19 - data pipe
+  data_pipe:
+    name: "Data Pipe"
+    category: "logic"
+    template: "Rectangle"
+    width: 20
+    height: 20
+    color: [100, 200, 255]
+    properties:
+      capacity: 5             # Maximum number of balls the pipe can hold at once
+      transit_time: 2.0       # How many seconds it takes to travel from source to target
+    route_state: 10         # The routing state this pipe listens for from the Brain

@@ -7,7 +7,6 @@ import tkinter as tk
 from tkinter import filedialog
 
 import constants
-import utils.icon_manager as icon_manager
 
 # --- Register Collision Types Dynamically if missing ---
 if not hasattr(constants, 'COLLISION_TYPE_WAREHOUSE'):
@@ -16,6 +15,7 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
+
 # Ensure this matches your local engine import
 try:
     from agent_engine import FactoryPart 
@@ -30,6 +30,11 @@ from entities.brain import BrainPart
 from entities.warehouse import WarehousePart
 from entities.portal import PortalPart
 from entities.payloadball import PayloadBallPart
+from entities.textbox import TextBoxPart
+
+# Import the new Data Pipe!
+from entities.data_pipe import DataPipePart, get_pipe_curve_point
+
 from utils.sound_manager import sound_manager
 from utils.environment_manager import env_manager
 from utils.config_loader import load_all_variants
@@ -42,20 +47,21 @@ UI_BOTTOM_HEIGHT = 40
 UI_SIDE_WIDTH = 260
 UI_RIGHT_SIDE_WIDTH = 320
 
-def create_boundaries(space, world_width, world_height):
+def create_boundaries(space, playable_rect):
     static_body = space.static_body
-    thickness = 4.0
+    thickness = 50.0  # Thick walls prevent high-speed balls from tunneling through
 
-    left = 0
-    right = world_width
-    top = 0
-    bottom = world_height
+    left = playable_rect.left
+    right = playable_rect.right
+    top = playable_rect.top
+    bottom = playable_rect.bottom
     
+    # Offset the segments by 'thickness' so their inner edges align perfectly with the green box
     segments = [
-        pymunk.Segment(static_body, (left, bottom), (right, bottom), thickness), 
-        pymunk.Segment(static_body, (left, top), (left, bottom), thickness), 
-        pymunk.Segment(static_body, (right, top), (right, bottom), thickness), 
-        pymunk.Segment(static_body, (left, top), (right, top), thickness)  
+        pymunk.Segment(static_body, (left, bottom + thickness), (right, bottom + thickness), thickness), 
+        pymunk.Segment(static_body, (left - thickness, top), (left - thickness, bottom), thickness), 
+        pymunk.Segment(static_body, (right + thickness, top), (right + thickness, bottom), thickness), 
+        pymunk.Segment(static_body, (left, top - thickness), (right, top - thickness), thickness)  
     ]
     
     for s in segments:
@@ -79,9 +85,19 @@ def set_active_tool(tool_key, state_dict):
     return callback
 
 def create_icon_surface(variant_key, variant_data):
-    from utils.icon_manager import icon_manager
-    label = variant_data.get("label", variant_key)
-    return icon_manager.get_icon(variant_key, label)
+    # Try to use the new IconManager, fallback if not fully linked
+    try:
+        from utils.icon_manager import icon_manager
+        label = variant_data.get("label", variant_key.replace("_", " ").title())
+        return icon_manager.get_icon(variant_key, label)
+    except ImportError:
+        from utils.asset_manager import asset_manager
+        label = variant_data.get("label", variant_key.replace("_", " ").title())
+        icon_path = f"assets/icons/{variant_key}_button.png"
+        
+        if variant_data.get("template") == "Circle" and not os.path.exists(icon_path):
+            return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label="⚙")
+        return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label=label)
 
 def create_part(space, x, y, variant_key):
     if variant_key == "logic_factory":
@@ -114,8 +130,12 @@ def create_part(space, x, y, variant_key):
         return MechanicalPart(space, x, y, variant_key) 
     elif variant_key == "axle":
         return AxlePart(space, x, y, variant_key)
+    elif variant_key == "data_pipe":
+        return DataPipePart(space, x, y, variant_key)
+    elif variant_key == "text_box":
+        return TextBoxPart(space, x, y, variant_key)
+        
     return GamePart(space, x, y, variant_key)
-
 
 def get_wire_curve_point(start_pos, end_pos, t):
     """Calculates a point along an elegant S-Curve Bezier for logic wires, with a gentle wind sway."""
@@ -182,6 +202,14 @@ def main():
             "template": "Rectangle",
             "color": [60, 60, 60]
         }
+    # === ADD THE DATA PIPE TO THE PALETTE ===
+    if "pipe_tool" not in all_variants:
+        all_variants["pipe_tool"] = {
+            "label": "Data Pipe",
+            "category": "logic",
+            "template": "Rectangle",
+            "color": [100, 200, 255]
+        }
 
     categories = sorted({
         str(variant_data.get("category", "other")).lower()
@@ -189,7 +217,7 @@ def main():
     })
     
     screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
-    pygame.display.set_caption("The Incredible Machine Clone - Milestone 9")
+    pygame.display.set_caption("The Incredible Machine Clone - Milestone 24")
     clock = pygame.time.Clock()
 
     font = pygame.font.SysFont(None, 24)
@@ -226,6 +254,7 @@ def main():
         "selected_category": "all",
         "wiring_source": None,
         "belt_source": None,
+        "pipe_source": None,  # ADD STATE FOR PIPE DRAWING
     }
 
     top_bar_elements = []
@@ -422,6 +451,10 @@ def main():
         game_state["mode"] = "EDIT"
         build_top_panel()
     
+    def handle_quit():
+        # Cleanly tells the main event loop to shut down the game
+        pygame.event.post(pygame.event.Event(pygame.QUIT))
+
     def toggle_snap_to_grid():
         game_state["snap_to_grid"] = not game_state.get("snap_to_grid", False)
         build_top_panel()
@@ -450,7 +483,7 @@ def main():
         ]:
             left_x += add_top_btn_at(left_x, text, callback) + 8
 
-        # Right-aligned cluster: file ops and meta (Removed Level Settings to save space!)
+        # Right-aligned cluster: file ops and meta
         right_buttons = [
             ("Q.Save", handle_quick_save),
             ("Q.Load", handle_quick_load),
@@ -458,6 +491,7 @@ def main():
             ("Load", handle_load),
             ("Challenges", dummy_action("Challenges")),
             ("Help", dummy_action("Help")),
+            ("Quit", handle_quit),
         ]
         right_gap = 8
         right_width = sum(max(86, font.size(t)[0] + 24) for t, _ in right_buttons) + right_gap * (len(right_buttons) - 1)
@@ -667,7 +701,7 @@ def main():
     
     space = pymunk.Space()
     space.gravity = constants.GRAVITY
-    create_boundaries(space, world_width, world_height)
+    create_boundaries(space, playable_rect)
     
     camera = Camera(
         world_width=world_width,
@@ -893,6 +927,7 @@ def main():
     prev_mode = game_state["mode"]
     game_state["wiring_source"] = None
     game_state["belt_source"] = None 
+    game_state["pipe_source"] = None
     signal_queue = []
     active_signals = [] 
     
@@ -930,11 +965,43 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 
-            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
-                pygame.display.toggle_fullscreen()
-                
             if ui_manager.process_event(event):
                 continue
+                
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_F11:
+                    pygame.display.toggle_fullscreen()
+                elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE) and current_mode == "EDIT":
+                    entity_to_delete = game_state.get("selected_instance")
+                    if entity_to_delete:
+                        if hasattr(entity_to_delete, 'cleanup'):
+                            entity_to_delete.cleanup()
+                        
+                        if hasattr(entity_to_delete, 'uuid') and entity_to_delete.uuid in active_instances:
+                            del active_instances[entity_to_delete.uuid]
+                        
+                        if entity_to_delete in entities:
+                            entities.remove(entity_to_delete)
+                        
+                        if hasattr(entity_to_delete, 'body') and entity_to_delete.body:
+                            for constraint in list(entity_to_delete.body.constraints):
+                                if constraint in space.constraints:
+                                    space.remove(constraint)
+                                    
+                        for shape in getattr(entity_to_delete, 'shapes', [getattr(entity_to_delete, 'shape', None)]):
+                            if shape and shape in space.shapes:
+                                space.remove(shape)
+                                
+                        if hasattr(entity_to_delete, 'body') and entity_to_delete.body:
+                            if entity_to_delete.body != space.static_body and entity_to_delete.body in space.bodies:
+                                space.remove(entity_to_delete.body)
+                                    
+                        if grabbed_body and hasattr(entity_to_delete, 'body') and grabbed_body == entity_to_delete.body:
+                            grabbed_body = None
+                            trash_can_visible = False
+                            
+                        game_state["selected_instance"] = None
+                        build_left_inspector()
             
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 camera.begin_pan(event.pos[0], event.pos[1])
@@ -965,7 +1032,38 @@ def main():
                                         game_state["wiring_source"].connected_uuids.append(target_entity.uuid)
                                         target_entity.play_event_sound("spawn_sound")
                                         game_state["wiring_source"] = None
-                            
+
+                            # === NEW: PIPE TOOL LOGIC ===
+                            elif game_state["active_tool"] == "pipe_tool":
+                                target_entity = None
+                                for entity in entities:
+                                    if info.shape in getattr(entity, 'shapes', [entity.shape]):
+                                        target_entity = entity
+                                        break
+                                        
+                                if target_entity:
+                                    if game_state["pipe_source"] is None:
+                                        game_state["pipe_source"] = target_entity
+                                        target_entity.play_event_sound("spawn_sound")
+                                    elif game_state["pipe_source"] != target_entity:
+                                        src = game_state["pipe_source"]
+                                        tgt = target_entity
+                                        
+                                        # Snap new pipe node at the midpoint between the two connected objects
+                                        mid_x = (src.body.position.x + tgt.body.position.x) / 2
+                                        mid_y = (src.body.position.y + tgt.body.position.y) / 2
+                                        
+                                        new_pipe = create_part(space, mid_x, mid_y, "data_pipe")
+                                        new_pipe.properties["source_uuid"] = src.uuid
+                                        new_pipe.properties["target_uuid"] = tgt.uuid
+                                        
+                                        entities.append(new_pipe)
+                                        active_instances[new_pipe.uuid] = new_pipe
+                                        target_entity.play_event_sound("spawn_sound")
+                                        game_state["pipe_source"] = None
+                                    else:
+                                        game_state["pipe_source"] = None
+
                             elif game_state["active_tool"] == "belt_tool":
                                 target_axle = None
                                 for entity in entities:
@@ -997,7 +1095,7 @@ def main():
                                         build_left_inspector()
                                         break
                                         
-                        elif game_state["active_tool"] is not None and game_state["active_tool"] not in ("wire_tool", "belt_tool"):
+                        elif game_state["active_tool"] is not None and game_state["active_tool"] not in ("wire_tool", "belt_tool", "pipe_tool"):
                             variant_key = game_state["active_tool"]
                             spawn_x, spawn_y = world_click_pos
                             
@@ -1011,6 +1109,7 @@ def main():
                         else:
                             game_state["wiring_source"] = None
                             game_state["belt_source"] = None
+                            game_state["pipe_source"] = None
                             if game_state.get("selected_instance") is not None:
                                 game_state["selected_instance"] = None
                                 build_left_inspector()
@@ -1034,9 +1133,14 @@ def main():
                                         if constraint in space.constraints:
                                             space.remove(constraint)
                                         
-                                space.remove(*entity.shape.body.shapes)
-                                if entity.shape.body != space.static_body:
-                                    space.remove(entity.shape.body)
+                                for shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
+                                    if shape and shape in space.shapes:
+                                        space.remove(shape)
+                                        
+                                if hasattr(entity, 'body') and entity.body:
+                                    if entity.body != space.static_body and entity.body in space.bodies:
+                                        space.remove(entity.body)
+                                        
                                 entities.remove(entity)
                                 if entity.uuid in active_instances:
                                     del active_instances[entity.uuid]
@@ -1083,10 +1187,14 @@ def main():
                             for constraint in list(entity_to_delete.body.constraints):
                                 if constraint in space.constraints:
                                     space.remove(constraint)
-                            if hasattr(entity_to_delete, 'shape') and entity_to_delete.shape:
-                                if entity_to_delete.shape.body and entity_to_delete.shape.body != space.static_body:
-                                    space.remove(*entity_to_delete.shape.body.shapes)
-                                    space.remove(entity_to_delete.shape.body)
+                                    
+                        for shape in getattr(entity_to_delete, 'shapes', [getattr(entity_to_delete, 'shape', None)]):
+                            if shape and shape in space.shapes:
+                                space.remove(shape)
+                                
+                        if hasattr(entity_to_delete, 'body') and entity_to_delete.body:
+                            if entity_to_delete.body != space.static_body and entity_to_delete.body in space.bodies:
+                                space.remove(entity_to_delete.body)
                 
                 grabbed_body = None
                 trash_can_visible = False
@@ -1355,6 +1463,7 @@ def main():
                 pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) 
                 pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) 
 
+        # === EDIT MODE: TOOL PREVIEWS ===
         if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
             src = game_state["wiring_source"]
             if src.body:
@@ -1365,6 +1474,23 @@ def main():
                 points = [get_wire_curve_point((start_x, start_y), m_pos, i / 25.0) for i in range(26)]
                 int_points = [(int(p.x), int(p.y)) for p in points]
                 pygame.draw.aalines(screen, (255, 150, 0), False, int_points)
+
+        # --- PREVIEW FOR THE NEW DATA PIPE TOOL ---
+        if current_mode == "EDIT" and game_state["active_tool"] == "pipe_tool" and game_state.get("pipe_source"):
+            src = game_state["pipe_source"]
+            if src.body:
+                world_start_x, world_start_y = src.body.position.x, src.body.position.y
+                screen_start = camera.world_to_screen(world_start_x, world_start_y)
+                start_x, start_y = int(screen_start[0]), int(screen_start[1])
+                
+                points = [get_pipe_curve_point((start_x, start_y), m_pos, i / 20.0) for i in range(21)]
+                int_points = [(int(p.x), int(p.y)) for p in points]
+                
+                # Draw thick translucent tube for preview
+                preview_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
+                pygame.draw.lines(preview_surf, (100, 200, 255, 80), False, int_points, 18)
+                pygame.draw.lines(preview_surf, (150, 230, 255, 200), False, int_points, 6)
+                screen.blit(preview_surf, (0, 0))
 
         if current_mode == "EDIT" and game_state.get("active_tool") == "belt_tool" and game_state.get("belt_source"):
             src = game_state["belt_source"]

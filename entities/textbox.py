@@ -13,19 +13,21 @@ class TextBoxPart(GamePart):
             # Making it a sensor lets physical objects pass right through it
             self.shape.sensor = True
             
-            # NOTE: We intentionally do NOT set mask=0x0 here. 
-            # If we do, the mouse-click raycast won't find the shape, 
-            # and you wouldn't be able to select it to edit the text!
+        if self.body:
+            # CRITICAL FIX: Make the body kinematic so gravity doesn't pull it through the floor!
+            self.body.body_type = pymunk.Body.KINEMATIC
 
     def draw(self, surface, camera=None):
-        if not self.body:
-            return
-
-        pos = self.body.position
-        if camera:
-            screen_x, screen_y = camera.world_to_screen(pos.x, pos.y)
+        # Safe fallback if the object is missing its physics body
+        if self.body:
+            pos_x, pos_y = self.body.position.x, self.body.position.y
         else:
-            screen_x, screen_y = pos.x, pos.y
+            pos_x, pos_y = getattr(self, 'x', 0), getattr(self, 'y', 0)
+
+        if camera:
+            screen_x, screen_y = camera.world_to_screen(pos_x, pos_y)
+        else:
+            screen_x, screen_y = pos_x, pos_y
 
         # Fetch visual properties
         text = str(self.get_property("text", "Comment..."))
