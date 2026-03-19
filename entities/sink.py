@@ -19,6 +19,7 @@ import constants
 from entities.active import FloatingTextLabel
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
+from utils.sprite_manager import sprite_manager
 from utils.exporters import get_exporter
 from utils.sound_manager import sound_manager
 
@@ -80,15 +81,9 @@ class DataSink(GamePart):
         height = int(float(self.get_property("height", 96)))
 
         for state_name, sprite_name in animations.items():
-            sprite_rel = f"assets/sprites/{sprite_name}.png"
-            try:
-                self._animation_textures[state_name] = asset_manager.get_image(
-                    sprite_rel,
-                    fallback_size=(width, height),
-                    text_label=f"DataSink:{state_name}",
-                )
-            except Exception:
-                pass
+            self._animation_textures[state_name] = sprite_manager.get_sprite(
+                sprite_name, width, height, label=f"DataSink {state_name}"
+            )
 
     def _set_state(self, new_state: str) -> None:
         if new_state not in self.VALID_STATES:

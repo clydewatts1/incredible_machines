@@ -78,17 +78,6 @@ class PortalPart(GamePart):
         
         surf = self._generate_state_sprite("UNLINKED", width, height)
         self.base_texture = surf
-        
-        icon_path = f"assets/icons/{self.variant_key}_button.png"
-        if not os.path.exists(icon_path):
-            os.makedirs("assets/icons", exist_ok=True)
-            icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            scaled_frame = pygame.transform.smoothscale(surf, (36, 36))
-            icon_surf.blit(scaled_frame, (2, 2))
-            try:
-                pygame.image.save(icon_surf, icon_path)
-            except Exception:
-                pass
 
     def _load_animation_textures(self):
         width = int(float(self.get_property("width", 64)))

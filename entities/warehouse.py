@@ -1,6 +1,5 @@
 import copy
 import math
-import os
 from typing import Any, Dict, List, Optional
 
 import pygame
@@ -9,6 +8,7 @@ import pymunk
 import constants
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
+from utils.sprite_manager import sprite_manager
 
 
 class WarehousePart(GamePart):
@@ -44,26 +44,7 @@ class WarehousePart(GamePart):
     def _create_default_visuals(self):
         width = int(float(self.get_property("width", 96)))
         height = int(float(self.get_property("height", 96)))
-        
-        surf = pygame.Surface((width, height), pygame.SRCALPHA)
-        points = [(0, 0), (width, 0), (width // 2, height)]
-        pygame.draw.polygon(surf, (50, 60, 80), points)
-        pygame.draw.polygon(surf, (100, 150, 255), points, 4)
-        pygame.draw.line(surf, (100, 150, 255), (width // 4, height // 2), (3 * width // 4, height // 2), 2)
-        pygame.draw.line(surf, (100, 150, 255), (width // 3, 3 * height // 4), (2 * width // 3, 3 * height // 4), 2)
-
-        self.base_texture = surf
-        
-        icon_path = f"assets/icons/{self.variant_key}_button.png"
-        if not os.path.exists(icon_path):
-            os.makedirs("assets/icons", exist_ok=True)
-            icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            scaled_frame = pygame.transform.smoothscale(surf, (36, 36))
-            icon_surf.blit(scaled_frame, (2, 2))
-            try:
-                pygame.image.save(icon_surf, icon_path)
-            except Exception:
-                pass
+        self.base_texture = sprite_manager.get_sprite(self.variant_key, width, height)
 
     def receive_signal(self, payload):
         # Extract standardized logic signal, or fallback to the sender's visual state

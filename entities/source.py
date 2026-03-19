@@ -24,6 +24,7 @@ from entities.base import GamePart
 from utils.generators import get_generator, GeneratorExhausted
 import constants
 from utils.asset_manager import asset_manager
+from utils.sprite_manager import sprite_manager
 
 
 class FloatingTextLabel:
@@ -157,17 +158,10 @@ class DataSource(GamePart):
         height = int(float(self.get_property("height", 96)))
         
         for state_name, sprite_name in animations.items():
-            sprite_rel = f"assets/sprites/{sprite_name}.png"
-            try:
-                self._animation_textures[state_name] = asset_manager.get_image(
-                    sprite_rel,
-                    fallback_size=(width, height),
-                    text_label=f"DataSource:{state_name}",
-                )
-            except Exception:
-                # Silent fail: missing animation texture is non-fatal
-                pass
-    
+            self._animation_textures[state_name] = sprite_manager.get_sprite(
+                sprite_name, width, height, label=f"DataSource {state_name}"
+            )
+
     def _set_state(self, new_state: str):
         """
         Transition to a new state.

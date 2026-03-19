@@ -16,8 +16,8 @@ class IconManager:
         Loads the icon from the environment-configured directory.
         If it does not exist, generates a 40x40 icon with the name inside.
         """
-        # 2. Icon directory is specified in the environment configuration
-        icon_dir = env_manager.get_string("icon_dir", "assets/icons")
+        # Icon directory, with fallback to assets/icons
+        icon_dir = getattr(env_manager, 'config', {}).get("icon_dir", "assets/icons")
         
         # Ensure the directory exists
         os.makedirs(icon_dir, exist_ok=True)

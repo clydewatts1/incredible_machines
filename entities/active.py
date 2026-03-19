@@ -11,6 +11,7 @@ import constants
 from entities.base import GamePart
 from utils.engines import create_engine
 from utils.asset_manager import asset_manager
+from utils.sprite_manager import sprite_manager
 
 
 class FloatingTextLabel:
@@ -81,11 +82,8 @@ class FactoryPart(GamePart):
         width = int(float(self.get_property("width", 96)))
         height = int(float(self.get_property("height", 96)))
         for state_name, base_name in animations.items():
-            sprite_rel = f"assets/sprites/{base_name}.png"
-            self._animation_textures[state_name] = asset_manager.get_image(
-                sprite_rel,
-                fallback_size=(width, height),
-                text_label=f"Factory:{state_name}",
+            self._animation_textures[state_name] = sprite_manager.get_sprite(
+                base_name, width, height, label=f"Factory {state_name}"
             )
 
     def _set_state(self, new_state: str):

@@ -1,6 +1,5 @@
 import pygame
 import pymunk
-import os
 
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
@@ -34,18 +33,6 @@ class PayloadBallPart(GamePart):
             self.shape.friction = 0.5
             space.add(self.body, self.shape)
         
-        # Generate default icon if it doesn't exist
-        icon_path = f"assets/icons/{self.variant_key}_button.png"
-        if not os.path.exists(icon_path):
-            os.makedirs("assets/icons", exist_ok=True)
-            icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            pygame.draw.circle(icon_surf, (0, 255, 255), (20, 20), 15)
-            pygame.draw.circle(icon_surf, (255, 255, 255), (20, 20), 15, 2)
-            try:
-                pygame.image.save(icon_surf, icon_path)
-            except Exception:
-                pass
-
     def get_color_for_score(self, score: int):
         """Map score to a smooth color gradient."""
         if score >= 100:

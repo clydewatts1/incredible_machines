@@ -5,7 +5,6 @@ from entities.base import GamePart
 import constants
 from utils.asset_manager import asset_manager
 from typing import Dict, List
-import os
 
 class ConveyorBeltPart(GamePart):
     """A conveyor belt that moves objects along its surface using Pymunk's surface_velocity, with animated visuals."""
@@ -23,21 +22,6 @@ class ConveyorBeltPart(GamePart):
         width = float(self.get_property("width", 120.0))
         height = float(self.get_property("height", 20.0))
         self.frames = self._generate_belt_frames(width, height)
-
-        # Generate default icon if it doesn't exist
-        icon_path = f"assets/icons/{self.variant_key}_button.png"
-        if not os.path.exists(icon_path):
-            os.makedirs("assets/icons", exist_ok=True)
-            icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            # Scale the first frame to fit inside the 40x40 icon
-            scale_factor = min(36 / width, 36 / height)
-            scaled_w, scaled_h = int(width * scale_factor), int(height * scale_factor)
-            scaled_frame = pygame.transform.scale(self.frames[0], (scaled_w, scaled_h))
-            icon_surf.blit(scaled_frame, (20 - scaled_w // 2, 20 - scaled_h // 2))
-            try:
-                pygame.image.save(icon_surf, icon_path)
-            except Exception as e:
-                print(f"Warning: Could not save icon for conveyor: {e}")
 
     def _generate_belt_frames(self, width: float, height: float) -> List[pygame.Surface]:
         """Generates a sequence of images to animate the conveyor belt."""

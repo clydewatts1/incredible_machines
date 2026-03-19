@@ -79,14 +79,9 @@ def set_active_tool(tool_key, state_dict):
     return callback
 
 def create_icon_surface(variant_key, variant_data):
-    from utils.asset_manager import asset_manager
+    from utils.icon_manager import icon_manager
     label = variant_data.get("label", variant_key)
-    icon_path = f"assets/icons/{variant_key}_button.png"
-    
-    if variant_data.get("template") == "Circle" and not os.path.exists(icon_path):
-        return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label="⚙")
-    
-    return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label=label)
+    return icon_manager.get_icon(variant_key, label)
 
 def create_part(space, x, y, variant_key):
     if variant_key == "logic_factory":

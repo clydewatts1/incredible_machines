@@ -1,6 +1,5 @@
 import copy
 import math
-import os
 import queue
 import threading
 import uuid
@@ -14,6 +13,7 @@ from entities.base import GamePart
 from entities.active import FloatingTextLabel
 from utils.asset_manager import asset_manager
 from utils.sound_manager import sound_manager
+from utils.sprite_manager import sprite_manager
 
 # --- AI Dependencies ---
 try:
@@ -74,19 +74,7 @@ class BrainPart(GamePart):
 
     def _create_default_visuals(self):
         """Creates a fallback UI icon if missing, but respects existing realistic sprites."""
-        width = int(float(self.get_property("width", 96)))
-        height = int(float(self.get_property("height", 96)))
-        
-        icon_path = f"assets/icons/{self.variant_key}_button.png"
-        if not os.path.exists(icon_path):
-            os.makedirs("assets/icons", exist_ok=True)
-            icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            pygame.draw.circle(icon_surf, (255, 105, 180), (20, 20), 16)
-            pygame.draw.circle(icon_surf, (0, 0, 0), (20, 20), 16, 2)
-            try:
-                pygame.image.save(icon_surf, icon_path)
-            except Exception:
-                pass
+        pass
 
     def _load_animation_textures(self):
         """Loads animation frames, gracefully falling back to the IDLE sprite if missing."""
@@ -107,30 +95,11 @@ class BrainPart(GamePart):
 
         width = int(float(self.get_property("width", 96)))
         height = int(float(self.get_property("height", 96)))
-        
-        # Locate the base IDLE sprite to use as a fallback for missing states
-        idle_basename = animations.get("IDLE", "ai_brain_idle")
-        idle_path = f"assets/sprites/{idle_basename}.png"
-        
-        os.makedirs("assets/sprites", exist_ok=True)
-        
+
         for state_name, base_name in animations.items():
-            sprite_rel = f"assets/sprites/{base_name}.png"
-            
-            if os.path.exists(sprite_rel):
-                self._animation_textures[state_name] = asset_manager.get_image(
-                    sprite_rel,
-                    fallback_size=(width, height),
-                    text_label=f"Brain:{state_name}",
-                )
-            else:
-                # User requested to keep old sprites! 
-                # Instead of dynamically generating a cartoon brain, we fallback to the realistic IDLE sprite.
-                self._animation_textures[state_name] = asset_manager.get_image(
-                    idle_path,
-                    fallback_size=(width, height),
-                    text_label=f"Brain:{state_name}",
-                )
+            self._animation_textures[state_name] = sprite_manager.get_sprite(
+                base_name, width, height, label=f"Brain {state_name}"
+            )
 
     def receive_signal(self, payload):
         """Called by the main loop when another object (like a Warehouse) sends a logic pulse."""
