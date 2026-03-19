@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 import constants
+import utils.icon_manager as icon_manager
 
 # --- Register Collision Types Dynamically if missing ---
 if not hasattr(constants, 'COLLISION_TYPE_WAREHOUSE'):
@@ -15,7 +16,12 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
-from entities.active import FactoryPart
+# Ensure this matches your local engine import
+try:
+    from agent_engine import FactoryPart 
+except ImportError:
+    from entities.active import FactoryPart
+
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
 from entities.sink import DataSink
@@ -37,7 +43,6 @@ UI_SIDE_WIDTH = 260
 UI_RIGHT_SIDE_WIDTH = 320
 
 def create_boundaries(space, world_width, world_height):
-    """Create static boundaries for the full world canvas."""
     static_body = space.static_body
     thickness = 4.0
 
@@ -47,10 +52,10 @@ def create_boundaries(space, world_width, world_height):
     bottom = world_height
     
     segments = [
-        pymunk.Segment(static_body, (left, bottom), (right, bottom), thickness), # Bottom
-        pymunk.Segment(static_body, (left, top), (left, bottom), thickness), # Left
-        pymunk.Segment(static_body, (right, top), (right, bottom), thickness), # Right
-        pymunk.Segment(static_body, (left, top), (right, top), thickness)  # Top
+        pymunk.Segment(static_body, (left, bottom), (right, bottom), thickness), 
+        pymunk.Segment(static_body, (left, top), (left, bottom), thickness), 
+        pymunk.Segment(static_body, (right, top), (right, bottom), thickness), 
+        pymunk.Segment(static_body, (left, top), (right, top), thickness)  
     ]
     
     for s in segments:
@@ -78,14 +83,12 @@ def create_icon_surface(variant_key, variant_data):
     label = variant_data.get("label", variant_key)
     icon_path = f"assets/icons/{variant_key}_button.png"
     
-    # If it's a gear and we want a simple circle/gear fallback
     if variant_data.get("template") == "Circle" and not os.path.exists(icon_path):
         return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label="⚙")
     
     return asset_manager.get_image(icon_path, fallback_size=(40, 40), text_label=label)
 
 def create_part(space, x, y, variant_key):
-    """Route entity construction through specialized classes when required."""
     if variant_key == "logic_factory":
         part = FactoryPart(space, x, y, variant_key)
         if hasattr(part, 'shape') and part.shape:
@@ -128,19 +131,13 @@ def get_wire_curve_point(start_pos, end_pos, t):
     dy = p3.y - p0.y
     dist = p0.distance_to(p3)
     
-    # Gentle wind sway effect
     time_sec = pygame.time.get_ticks() / 1000.0
-    # Phase shift based on position so every wire waves slightly differently
     phase = (p0.x + p0.y) * 0.01 
-    
-    # Scale the magnitude of the sway by the wire's distance so short wires don't wiggle wildly
     max_sway = min(25.0, dist * 0.15)
     
-    # Calculate two slightly offset sine waves for the Bezier control points
     sway1 = math.sin(time_sec * 2.0 + phase) * max_sway
     sway2 = math.sin(time_sec * 2.5 + phase + 1.0) * max_sway
     
-    # Create horizontal or vertical flow S-curves depending on offset
     if abs(dx) > abs(dy):
         p1 = p0 + pygame.math.Vector2(dx * 0.5, sway1)
         p2 = p0 + pygame.math.Vector2(dx * 0.5, dy + sway2)
@@ -153,9 +150,6 @@ def get_wire_curve_point(start_pos, end_pos, t):
 
 
 def snap_to_grid(world_x, world_y):
-    """
-    M25 Phase 4: Snap world coordinates to the nearest grid intersection.
-    """
     snapped_x = round(world_x / constants.GRID_SIZE) * constants.GRID_SIZE
     snapped_y = round(world_y / constants.GRID_SIZE) * constants.GRID_SIZE
     return (snapped_x, snapped_y)
@@ -167,7 +161,6 @@ def main():
     sound_manager.initialize()
     env_manager.initialize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
 
-    # Environment-configurable dimensions with safe fallbacks.
     window_width = env_manager.get_int("window_width", constants.WINDOW_WIDTH)
     window_height = env_manager.get_int("window_height", constants.WINDOW_HEIGHT)
     world_width = env_manager.get_int("world_width", constants.WORLD_WIDTH)
@@ -180,7 +173,6 @@ def main():
     
     all_variants = load_all_variants()
     
-    # Hack - Inject a fake variant so tools get a button if missing in yaml
     if "wire_tool" not in all_variants:
         all_variants["wire_tool"] = {
             "label": "Wire Logic",
@@ -201,26 +193,22 @@ def main():
         for variant_data in all_variants.values()
     })
     
-    # Added pygame.RESIZABLE and pygame.SCALED to allow maximizing the window!
     screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
     pygame.display.set_caption("The Incredible Machine Clone - Milestone 9")
     clock = pygame.time.Clock()
 
     font = pygame.font.SysFont(None, 24)
-    small_font = pygame.font.SysFont(None, 16) # For Palette labels
+    small_font = pygame.font.SysFont(None, 16)
 
-    # Instantiate UIManager
     ui_manager = UIManager()
     
     w, h = window_width, window_height
     
-    # Phase 3 & 4: Construct static UI Panels
     top_panel = UIPanel(pygame.Rect(0, 0, w, UI_TOP_HEIGHT), color=(50, 50, 50))
     bottom_panel = UIPanel(pygame.Rect(0, h - UI_BOTTOM_HEIGHT, w, UI_BOTTOM_HEIGHT), color=(50, 50, 50))
     left_panel = UIPanel(pygame.Rect(0, UI_TOP_HEIGHT, UI_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
     right_panel = UIPanel(pygame.Rect(w - UI_RIGHT_SIDE_WIDTH, UI_TOP_HEIGHT, UI_RIGHT_SIDE_WIDTH, h - UI_TOP_HEIGHT - UI_BOTTOM_HEIGHT), color=(40, 40, 40))
 
-    # M25 UI polish: playable area is strictly framed by panel edges.
     playable_rect = pygame.Rect(
         left_panel.rect.right,
         top_panel.rect.bottom,
@@ -238,13 +226,13 @@ def main():
         "active_tool": None,
         "snap_to_grid": False,
         "show_grid": True,
+        "show_traces": False,
         "selected_instance": None,
         "selected_category": "all",
         "wiring_source": None,
         "belt_source": None,
     }
 
-    # Track UI groups so panel rebuilds do not remove unrelated elements.
     top_bar_elements = []
     left_panel_elements = []
     category_tab_elements = []
@@ -287,7 +275,8 @@ def main():
         category_tab_elements.clear()
 
     def add_top_btn_at(x, text, callback):
-        btn_w = max(80, font.size(text)[0] + 20)
+        # Increased padding slightly to ensure labels like "Trace: OFF" fit perfectly
+        btn_w = max(86, font.size(text)[0] + 24)
         btn = UIButton(
             pygame.Rect(int(x), 10, btn_w, 30),
             text=text,
@@ -299,14 +288,12 @@ def main():
         top_bar_elements.append(btn)
         return btn_w
 
-    # Level Manager
     level_manager = LevelManager()
     
     def apply_level_data(level_data, constraints_data=None, connections_data=None):
         if not level_data:
             return
             
-        # Clean current space
         for entity in list(entities):
             if hasattr(entity, 'cleanup'):
                 entity.cleanup()
@@ -321,7 +308,6 @@ def main():
         entities.clear()
         active_instances.clear()
         
-        # Instantiate parts based on level data
         for data in level_data:
             variant_key = data.get("entity_id")
             pos = data.get("position", {"x": 0, "y": 0})
@@ -337,7 +323,6 @@ def main():
             entities.append(new_part)
             active_instances[new_part.uuid] = new_part
             
-        # Pass 2: Instantiate Constraints
         if constraints_data:
             for c_data in constraints_data:
                 c_type = c_data.get("type")
@@ -362,13 +347,11 @@ def main():
                         joint = pymunk.SlideJoint(body_a, body_b, tuple(anch_a), tuple(anch_b), min_d, max_d)
                         space.add(joint)
                         
-        # Phase 4: M17 Instantiate logic connections
         if connections_data:
             for conn in connections_data:
                 sender_uid = conn.get("sender")
                 receiver_uid = conn.get("receiver")
                 if sender_uid in active_instances and receiver_uid in active_instances:
-                    # Wire them up immediately
                     active_instances[sender_uid].connected_uuids.append(receiver_uid)
             
     def handle_quick_save():
@@ -448,14 +431,19 @@ def main():
         game_state["snap_to_grid"] = not game_state.get("snap_to_grid", False)
         build_top_panel()
 
+    def toggle_traces():
+        game_state["show_traces"] = not game_state.get("show_traces", False)
+        build_top_panel()
+
     def build_top_panel():
         clear_top_bar()
 
         snap_enabled = game_state.get("snap_to_grid", False)
         snap_label = "Snap: ON" if snap_enabled else "Snap: OFF"
         pause_label = "Resume" if game_state.get("mode") == "PAUSE" else "Pause"
+        trace_label = "Trace: ON" if game_state.get("show_traces", False) else "Trace: OFF"
 
-        # Left-aligned cluster: modes.
+        # Left-aligned cluster: modes and toggles.
         left_x = 10
         for text, callback in [
             ("Play", handle_play),
@@ -463,32 +451,24 @@ def main():
             ("Edit", handle_edit),
             ("Clear", handle_clear),
             (snap_label, toggle_snap_to_grid),
+            (trace_label, toggle_traces), 
         ]:
             left_x += add_top_btn_at(left_x, text, callback) + 8
 
-        # Center-aligned cluster: file ops.
-        center_buttons = [
+        # Right-aligned cluster: file ops and meta (Removed Level Settings to save space!)
+        right_buttons = [
             ("Q.Save", handle_quick_save),
             ("Q.Load", handle_quick_load),
             ("Save", handle_save),
             ("Load", handle_load),
-        ]
-        center_gap = 8
-        center_width = sum(max(80, font.size(t)[0] + 20) for t, _ in center_buttons) + center_gap * (len(center_buttons) - 1)
-        center_x = (w - center_width) // 2
-        for text, callback in center_buttons:
-            center_x += add_top_btn_at(center_x, text, callback) + center_gap
-
-        # Right-aligned cluster: meta.
-        meta_buttons = [
             ("Challenges", dummy_action("Challenges")),
             ("Help", dummy_action("Help")),
-            ("Level Settings", dummy_action("Level Settings")),
         ]
         right_gap = 8
-        right_width = sum(max(80, font.size(t)[0] + 20) for t, _ in meta_buttons) + right_gap * (len(meta_buttons) - 1)
+        right_width = sum(max(86, font.size(t)[0] + 24) for t, _ in right_buttons) + right_gap * (len(right_buttons) - 1)
         right_x = w - right_width - 10
-        for text, callback in meta_buttons:
+        
+        for text, callback in right_buttons:
             right_x += add_top_btn_at(right_x, text, callback) + right_gap
 
     def build_category_tabs():
@@ -609,7 +589,6 @@ def main():
         content_width = left_scroll_panel.rect.width - 8
         all_keys = set(selected.properties.keys()).union(selected.overrides.keys())
         
-        # M25: Expose dynamic payload if it exists
         if hasattr(selected, 'payload') and 'payload' not in all_keys:
             all_keys.add('payload')
             
@@ -687,17 +666,14 @@ def main():
     build_right_palette()
     build_left_inspector()
         
-    # Bottom Panel Labels and Dummy Button for bottom layer sounds
     ui_manager.add_element(UILabel(pygame.Rect(10, h - UI_BOTTOM_HEIGHT + 5, 200, 30), text="Score: 0", font=font))
     ui_manager.add_element(UILabel(pygame.Rect(w - 210, h - UI_BOTTOM_HEIGHT + 5, 200, 30), text="Timer: 00:00", font=font))
     ui_manager.add_element(UIButton(pygame.Rect(w - 320, h - UI_BOTTOM_HEIGHT + 5, 100, 30), text="Options", font=font, callback=dummy_action("Options"), click_sound="clunk_bottom.wav"))
     
-    # Initialize Pymunk Physics
     space = pymunk.Space()
     space.gravity = constants.GRAVITY
     create_boundaries(space, world_width, world_height)
     
-    # M25 Phase 2: Initialize Camera for infinite canvas
     camera = Camera(
         world_width=world_width,
         world_height=world_height,
@@ -709,7 +685,6 @@ def main():
     active_instances = {}
     
     def post_solve(arbiter, space, data):
-        # Calculate collision magnitude
         if arbiter.total_impulse.length > 200:
             shape_a, shape_b = arbiter.shapes
             for entity in entities:
@@ -735,43 +710,34 @@ def main():
                 basket_entity = entity
                     
         if target_entity and basket_entity:
-            # Phase 3: Type Filtering Logic
             accepts = basket_entity.get_property("accepts_types", ["all"])
             if isinstance(accepts, str):
                 accepts = [accepts]
                 
             if "all" in accepts or target_entity.variant_key in accepts:
                 target_entity.to_delete = True
-                
-                # Phase 3: M17 Signal Queue Injection
                 if basket_entity not in signal_queue:
                     signal_queue.append(basket_entity)
-                    
-                return False # Ingest, no physical bounce!
+                return False
             else:
-                return True # Reject, enforce physical bounce!
-                
+                return True
         return False
 
     space.on_collision(collision_type_a=constants.COLLISION_TYPE_BASKET, collision_type_b=None, begin=basket_sensor_begin)
 
     def cannon_sensor_begin(arbiter, space, data):
         shape_a, shape_b = arbiter.shapes
-        # One shape is the cannon sensor (type 3), the other is the incoming object
         target_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_CANNON else shape_b
         cannon_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_CANNON else shape_a
         
-        # 1. Ingest (delete) the incoming projectile
         for entity in list(entities):
             if getattr(entity, 'shape', None) == target_shape or target_shape in getattr(entity, 'shapes', []):
                 entity.to_delete = True
                 break
                 
-        # 2. Trigger the cannon to fire immediately (or enqueue signal if it's acting as a Sender)
         for entity in list(entities):
             if getattr(entity, 'shape', None) == cannon_shape or cannon_shape in getattr(entity, 'shapes', []):
                 entity.force_shoot = True
-                # Phase 3: Enqueue signal if cannon was wired to another entity
                 if entity not in signal_queue:
                     signal_queue.append(entity)
                 break
@@ -788,7 +754,6 @@ def main():
         incoming_entity = None
         factory_entity = None
 
-        # --- FIX: Ensure we cleanly lookup entities even if they don't explicitly define `self.shapes` list!
         for entity in list(entities):
             if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
                 incoming_entity = entity
@@ -804,25 +769,17 @@ def main():
         if incoming_entity.uuid == factory_entity.uuid:
             return True
 
-        # If this specific ball is currently being processed, ignore physical collision
         if getattr(factory_entity, 'current_payload_uuid', None) == incoming_entity.uuid:
             return False
 
-        # During cooldown the edge behaves as a solid wall.
         if getattr(factory_entity, 'cooldown_timer', 0.0) > 0.0:
             return True
 
         accepted = factory_entity.ingest_payload(incoming_entity)
-        
         if accepted:
-            # === CRITICAL BUG FIX ===
-            # WARNING: Never mutate body.position or body.velocity inside a pre_solve callback! 
-            # Doing so corrupts Pymunk's rigid body solver and locks/freezes the object permanently.
-            # We simply return False here to let it pass inside. The main PLAY loop handles safely 
-            # suspending it in the center!
             return False 
             
-        return True # Act as a solid wall if rejected
+        return True 
 
     space.on_collision(
         collision_type_a=constants.COLLISION_TYPE_FACTORY_TOP,
@@ -838,7 +795,6 @@ def main():
         incoming_entity = None
         warehouse_entity = None
 
-        # --- BULLETPROOF FIX: Explicit shape lookup avoiding empty list traps ---
         for entity in list(entities):
             if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
                 incoming_entity = entity
@@ -891,7 +847,6 @@ def main():
         if incoming_entity.uuid == portal_entity.uuid:
             return True
 
-        # Prevent a ball from triggering the portal if it's already in the transit queue
         for item in getattr(portal_entity, 'transit_queue', []):
             if item.get("payload_uuid") == incoming_entity.uuid:
                 return False
@@ -944,9 +899,8 @@ def main():
     game_state["wiring_source"] = None
     game_state["belt_source"] = None 
     signal_queue = []
-    active_signals = [] # Added for visualizing animated pulses along logic wires!
+    active_signals = [] 
     
-    # M25 Phase 6: Drag-to-Trash UX
     trash_can_visible = False
     trash_can_rect = pygame.Rect(w // 2 - 40, h - 100, 80, 80)
     cursor_over_trash = False
@@ -955,24 +909,19 @@ def main():
     while running:
         current_mode = game_state["mode"]
         
-        # Handle Mode Switch cleanups
         if current_mode != prev_mode:
             if current_mode == "PLAY":
                 grabbed_body = None
                 space.reindex_static()
-                active_signals.clear() # Reset active visual signals
+                active_signals.clear()
             prev_mode = current_mode
 
-        # 1. Reset hover state for all entities
         for entity in entities:
             entity.is_hovered = False
             
         m_pos = pygame.mouse.get_pos()
-        
-        # M25 Phase 3: Convert mouse position to world space for physics queries
         world_m_pos = camera.screen_to_world(m_pos[0], m_pos[1])
         
-        # 2. Detect hover in EDIT mode if not currently dragging something
         if current_mode == "EDIT" and not grabbed_body:
             if playable_rect.collidepoint(m_pos):
                 info = space.point_query_nearest(world_m_pos, 5.0, pymunk.ShapeFilter())
@@ -986,16 +935,12 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
                 
-            # Toggle fullscreen with F11
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
                 pygame.display.toggle_fullscreen()
                 
-            # Phase 4 & 5: Pass events to UIManager first
             if ui_manager.process_event(event):
-                # UI Consumed the event, skip physics interactions
                 continue
             
-            # M25 Phase 3: Middle Mouse Button Camera Panning
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
                 camera.begin_pan(event.pos[0], event.pos[1])
                 continue
@@ -1006,14 +951,11 @@ def main():
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 try:
-                    # M25 Phase 3: Convert click position to world space
                     world_click_pos = camera.screen_to_world(event.pos[0], event.pos[1])
                     
-                    # Check if click is inside the playable rect before interacting with the world
                     if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
                         info = space.point_query_nearest(world_click_pos, 5.0, pymunk.ShapeFilter())
                         if info and info.shape and info.shape.body != space.static_body:
-                            # Phase 1: M17 Wire Tool Logic
                             if game_state["active_tool"] == "wire_tool":
                                 target_entity = None
                                 for entity in entities:
@@ -1025,12 +967,10 @@ def main():
                                     if game_state["wiring_source"] is None:
                                         game_state["wiring_source"] = target_entity
                                     elif game_state["wiring_source"] != target_entity:
-                                        # Link UUIDs
                                         game_state["wiring_source"].connected_uuids.append(target_entity.uuid)
-                                        target_entity.play_event_sound("spawn_sound") # Feedback
+                                        target_entity.play_event_sound("spawn_sound")
                                         game_state["wiring_source"] = None
                             
-                            # Belt Tool Logic
                             elif game_state["active_tool"] == "belt_tool":
                                 target_axle = None
                                 for entity in entities:
@@ -1053,11 +993,9 @@ def main():
                                     game_state["belt_source"] = None
 
                             else:
-                                # Normal Grab/Selection Loop
                                 grabbed_body = info.shape.body
                                 trash_can_visible = True
                                 
-                                # Phase 3 Selection Logic
                                 for entity in entities:
                                     if info.shape in getattr(entity, 'shapes', [entity.shape]):
                                         game_state["selected_instance"] = entity
@@ -1065,7 +1003,6 @@ def main():
                                         break
                                         
                         elif game_state["active_tool"] is not None and game_state["active_tool"] not in ("wire_tool", "belt_tool"):
-                            # M25 Phase 3: Spawning logic uses world-space position
                             variant_key = game_state["active_tool"]
                             spawn_x, spawn_y = world_click_pos
                             
@@ -1077,7 +1014,6 @@ def main():
                             active_instances[new_part.uuid] = new_part
                             new_part.play_event_sound("spawn_sound")
                         else:
-                            # Deselect if clicking empty space (or cancel tools)
                             game_state["wiring_source"] = None
                             game_state["belt_source"] = None
                             if game_state.get("selected_instance") is not None:
@@ -1089,10 +1025,8 @@ def main():
                     print(f"CRASH IN CLICK LOOP: {e}")
             
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 3:
-                # M25 Phase 3: Right-click deletion with world-space coordinates
                 world_click_pos = camera.screen_to_world(event.pos[0], event.pos[1])
                 
-                # Right-click deletion
                 if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
                     info = space.point_query_nearest(world_click_pos, 5.0, pymunk.ShapeFilter())
                     if info and info.shape and info.shape.body != space.static_body:
@@ -1114,15 +1048,12 @@ def main():
                                 break
             
             elif event.type == pygame.MOUSEMOTION:
-                # M25 Phase 3: Update camera pan if middle mouse button dragging
                 if camera.is_panning:
                     camera.update_pan(event.pos[0], event.pos[1])
                 
-                # M25 Phase 6: Update cursor over trash state
                 if trash_can_visible:
                     cursor_over_trash = trash_can_rect.collidepoint(event.pos[0], event.pos[1])
                 
-                # M25 Phase 3: Dragging with world-space coordinates
                 if current_mode == "EDIT" and grabbed_body:
                     world_drag_pos = camera.screen_to_world(event.pos[0], event.pos[1])
                     
@@ -1136,16 +1067,13 @@ def main():
                     space.reindex_shapes_for_body(grabbed_body)
             
             elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                # M25 Phase 6: Check if releasing over trash can
                 if grabbed_body and cursor_over_trash and current_mode == "EDIT":
-                    # Find entity associated with grabbed_body
                     entity_to_delete = None
                     for entity in entities:
                         if hasattr(entity, 'body') and entity.body == grabbed_body:
                             entity_to_delete = entity
                             break
                     
-                    # Safe deletion
                     if entity_to_delete:
                         if hasattr(entity_to_delete, 'cleanup'):
                             entity_to_delete.cleanup()
@@ -1181,7 +1109,6 @@ def main():
                         target.angle += event.y * 0.1
                         space.reindex_shapes_for_body(target)
 
-        # Continuous rotation checks while in edit mode
         if current_mode == "EDIT" and grabbed_body and not ui_manager.focused_element:
             keys = pygame.key.get_pressed()
             rotated = False
@@ -1194,17 +1121,14 @@ def main():
             if rotated:
                 space.reindex_shapes_for_body(grabbed_body)
         
-        # M25 Phase 3: Keyboard-based camera panning
         if not ui_manager.focused_element:
             keys = pygame.key.get_pressed()
             dt = clock.get_time() / 1000.0  
             camera.handle_keyboard_pan(keys, constants.CAMERA_PAN_SPEED, dt)
 
-        # Game State Engine
         if current_mode == "PLAY":
             space.step(constants.PHYSICS_STEP)
             
-            # Phase 3: Process Logic Signals cleanly OUTSIDE the physics step
             while signal_queue:
                 sender = signal_queue.pop(0)
                 sender.flash_timer = 15 
@@ -1212,7 +1136,6 @@ def main():
                     for tgt_uuid in sender.connected_uuids:
                         tgt = active_instances.get(tgt_uuid)
                         if tgt:
-                            # Only render visual pulses for LOGIC signals, not physical Portal wormholes!
                             if not getattr(sender, 'variant_key', '').startswith('portal'):
                                 active_signals.append({
                                     "sender_uuid": sender.uuid,
@@ -1222,34 +1145,28 @@ def main():
                             if hasattr(tgt, 'receive_signal'):
                                 tgt.receive_signal(payload=sender)
             
-            # Update signal pulses progress
             alive_signals = []
             for sig in active_signals:
-                sig["progress"] += constants.PHYSICS_STEP * 3.0 # Speed of pulse (takes ~0.33s to cross wire)
+                sig["progress"] += constants.PHYSICS_STEP * 3.0 
                 if sig["progress"] < 1.0:
                     alive_signals.append(sig)
             active_signals = alive_signals
             
-            # Reset visibility flag for all entities
             for entity in entities:
                 entity.is_hidden = False
             
-            # Process logic updates and ingestions
             for entity in list(entities):
                 if getattr(entity, 'flash_timer', 0) > 0:
                     entity.flash_timer -= 1
 
-                # === NEW: Hold payloads inside processing machines ===
                 if getattr(entity, 'current_payload_uuid', None):
                     payload = active_instances.get(entity.current_payload_uuid)
                     if payload and hasattr(payload, 'body') and payload.body:
                         payload.body.position = entity.body.position
                         payload.body.velocity = (0, 0)
                         payload.body.angular_velocity = 0
-                        # HIDE the graphic of the ball while it's inside so the machine sprite is fully visible!
                         payload.is_hidden = True
                         
-                # === NEW WAREHOUSE HOLD LOGIC ===
                 if hasattr(entity, 'stored_payload_uuids'):
                     for puuid in entity.stored_payload_uuids:
                         payload = active_instances.get(puuid)
@@ -1295,16 +1212,8 @@ def main():
                 if hasattr(entity, 'update_logic'):
                     entity.update_logic(constants.PHYSICS_STEP, game_state, entities, active_instances)
                     
-        # ═══════════════════════════════════════════════════════════════
-        # M25 PHASE 2: THREE-LAYER RENDER SYSTEM
-        # ═══════════════════════════════════════════════════════════════
-        
-        # ───────────────────────────────────────────────────────────────
-        # LAYER 1: Background & Grid (Camera Offset Applied)
-        # ───────────────────────────────────────────────────────────────
         env_manager.draw_background(screen)
         
-        # M25 Phase 4: Draw grid overlay in EDIT mode
         if current_mode == "EDIT" and game_state.get("show_grid", True):
             grid_origin_x = -(camera.offset_x % constants.GRID_SIZE)
             grid_origin_y = -(camera.offset_y % constants.GRID_SIZE)
@@ -1326,7 +1235,6 @@ def main():
             
             screen.blit(grid_surface, (0, 0))
 
-        # Grey out boundaries
         world_screen_left = int(-camera.offset_x)
         world_screen_top = int(-camera.offset_y)
         world_screen_right = int(world_width - camera.offset_x)
@@ -1342,13 +1250,7 @@ def main():
         if world_screen_bottom < window_height:
             pygame.draw.rect(screen, void_color, pygame.Rect(0, world_screen_bottom, window_width, window_height - world_screen_bottom))
         
-        # ───────────────────────────────────────────────────────────────
-        # LAYER 2: World Entities (Camera Offset Applied)
-        # ───────────────────────────────────────────────────────────────
-        
-        # Draw all entities with camera translation
         for entity in entities:
-            # Determine world position (support both PyMunk bodies and lightweight visual objects)
             if hasattr(entity, 'body') and entity.body:
                 world_x, world_y = entity.body.position.x, entity.body.position.y
             elif hasattr(entity, 'x') and hasattr(entity, 'y'):
@@ -1361,9 +1263,7 @@ def main():
             if (-100 < screen_x < constants.WINDOW_WIDTH + 100 and 
                 -100 < screen_y < constants.WINDOW_HEIGHT + 100):
                 
-                # ONLY draw the visual sprite if the entity is not currently hidden inside a machine
                 if not getattr(entity, 'is_hidden', False):
-                    # Pass active_instances to mechanical parts if they support belts
                     if hasattr(entity, 'connected_belts'):
                         entity.update_visual(screen, camera=camera, active_instances=active_instances)
                     else:
@@ -1374,22 +1274,28 @@ def main():
                         pygame.draw.circle(screen, (255, 0, 255), (sx, sy), 5)
                         pygame.draw.circle(screen, (0, 0, 0), (sx, sy), 5, 1)
 
-                # ALWAYS draw the payload data label above the entity (Even if the ball is hidden!)
+                # === STIGMERGIC TRACE PAYLOAD LABEL ===
                 if hasattr(entity, 'payload') and entity.payload:
-                    payload_str = str(entity.payload)
-                    if len(payload_str) > 20:
-                        payload_str = payload_str[:17] + "..."
+                    if game_state.get("show_traces", False) and "trace" in entity.payload:
+                        trace_list = entity.payload.get("trace", [])
+                        if trace_list:
+                            # Visually shrink massive payloads into an elegant "Source -> Brain -> Factory" readout!
+                            payload_str = " -> ".join(trace_list[-3:]) 
+                        else:
+                            payload_str = "Trace: Started"
+                    else:
+                        payload_str = str(entity.payload)
+                        if len(payload_str) > 20:
+                            payload_str = payload_str[:17] + "..."
                     
                     p_text = small_font.render(payload_str, True, (0, 255, 255))
                     p_rect = p_text.get_rect(center=(int(screen_x), int(screen_y) - 25))
                     
-                    # Black transparent background for readability
                     bg_surf = pygame.Surface((p_rect.width + 8, p_rect.height + 4), pygame.SRCALPHA)
                     bg_surf.fill((0, 0, 0, 180))
                     screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
                     screen.blit(p_text, p_rect)
             
-            # Logic Wiring Renderer
             if current_mode in ["EDIT", "PLAY", "PAUSE"] or game_state["active_tool"] == "wire_tool":
                 if hasattr(entity, 'connected_uuids') and getattr(entity, 'body', None):
                     world_start_x, world_start_y = entity.body.position.x, entity.body.position.y
@@ -1405,7 +1311,6 @@ def main():
                             
                             flash = getattr(entity, 'flash_timer', 0)
                             
-                            # Render standard logic wires vs cool purple wormholes!
                             if getattr(entity, 'variant_key', '').startswith('portal'):
                                 wire_color = (200, 50, 255) if flash > 0 else (100, 20, 150)
                                 width = 4 if flash > 0 else 2
@@ -1415,7 +1320,7 @@ def main():
                                     wire_color = (255, 200, 0)
                                 width = 3 if flash > 0 else 1
 
-                            # Generate an elegant S-Curve Bezier!
+                            # Generate elegant S-Curve Bezier
                             points = [get_wire_curve_point(start_pos, end_pos, i / 25.0) for i in range(26)]
                             int_points = [(int(p.x), int(p.y)) for p in points]
 
@@ -1441,9 +1346,6 @@ def main():
                                          (int(right_wing.x), int(right_wing.y))]
                                     )
 
-        # ───────────────────────────────────────────────────────────────
-        # LAYER 2.5: Active Signals (Pulses)
-        # ───────────────────────────────────────────────────────────────
         for sig in active_signals:
             sender = active_instances.get(sig["sender_uuid"])
             tgt = active_instances.get(sig["target_uuid"])
@@ -1451,15 +1353,13 @@ def main():
                 sx, sy = camera.world_to_screen(sender.body.position.x, sender.body.position.y)
                 ex, ey = camera.world_to_screen(tgt.body.position.x, tgt.body.position.y)
                 
-                # Interpolate along the Bezier curve based on progress!
+                # Curve following pulse
                 pt = get_wire_curve_point((sx, sy), (ex, ey), sig["progress"])
                 px, py = pt.x, pt.y
                 
-                # Draw the glowing signal pulse!
-                pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) # Outer Glow
-                pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) # Bright Core
+                pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) 
+                pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) 
 
-        # Wiring preview line
         if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
             src = game_state["wiring_source"]
             if src.body:
@@ -1467,12 +1367,10 @@ def main():
                 screen_start = camera.world_to_screen(world_start_x, world_start_y)
                 start_x, start_y = int(screen_start[0]), int(screen_start[1])
                 
-                # Draw curved preview!
                 points = [get_wire_curve_point((start_x, start_y), m_pos, i / 25.0) for i in range(26)]
                 int_points = [(int(p.x), int(p.y)) for p in points]
                 pygame.draw.aalines(screen, (255, 150, 0), False, int_points)
 
-        # Belt preview line
         if current_mode == "EDIT" and game_state.get("active_tool") == "belt_tool" and game_state.get("belt_source"):
             src = game_state["belt_source"]
             if src.body:
@@ -1481,7 +1379,6 @@ def main():
                 start_x, start_y = int(screen_start[0]), int(screen_start[1])
                 pygame.draw.line(screen, (100, 100, 255), (start_x, start_y), m_pos, 3)
 
-        # Ghost Cursor Preview
         if current_mode == "EDIT" and not grabbed_body and game_state["active_tool"] is not None:
             active_tool_key = game_state["active_tool"]
             preview_surf = create_icon_surface(active_tool_key, all_variants[active_tool_key])
@@ -1489,16 +1386,11 @@ def main():
             preview_rect = preview_surf.get_rect(center=m_pos)
             screen.blit(preview_surf, preview_rect)
 
-        # ───────────────────────────────────────────────────────────────
-        # LAYER 3: UI Overlay (NO Camera Offset)
-        # ───────────────────────────────────────────────────────────────
-        
         border_color = env_manager.edit_mode_color if current_mode == "EDIT" else env_manager.play_mode_color
         pygame.draw.rect(screen, border_color, playable_rect, 5)
 
         ui_manager.draw(screen)
         
-        # Trash can
         if trash_can_visible and current_mode == "EDIT":
             trash_bg_color = (150, 50, 50) if cursor_over_trash else (80, 80, 80)
             pygame.draw.rect(screen, trash_bg_color, trash_can_rect, border_radius=10)

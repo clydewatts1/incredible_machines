@@ -1,92 +1,133 @@
-import os
 import pygame
-from entities.base import GamePart
+import pymunk
+import os
 
-BALL_DEFAULT_RADIUS = 10
+from entities.base import GamePart
+from utils.asset_manager import asset_manager
+
 
 class PayloadBallPart(GamePart):
-    """A dynamic ball that visually changes color based on its payload score."""
+    """A dynamic ball that leaves glowing stigmergic traces and changes color based on payload score."""
 
     def __init__(self, space, x, y, property_key):
         super().__init__(space, x, y, property_key)
+        
+        # --- Stigmergic Trace Properties ---
+        self.trace_history = [] # Format: [(x, y, timestamp_added), ...]
+        self.trace_timer = 0.0
+        self.show_traces = False
+        
+        # Configuration Constraints
+        self.TRACE_LIFETIME = 5.0    # Fades completely after 5 seconds
+        self.MAX_TRACE_POINTS = 100  # Accumulative to a maximum (prevents memory bloat)
+        self.TRACE_INTERVAL = 0.05   # How often to drop a point (20 points per second)
+        
+        radius = float(self.get_property('radius', 15.0))
+        
+        if not self.shape:
+            mass = 1.0
+            moment = pymunk.moment_for_circle(mass, 0, radius)
+            self.body = pymunk.Body(mass, moment)
+            self.body.position = (x, y)
+            self.shape = pymunk.Circle(self.body, radius)
+            self.shape.elasticity = 0.8
+            self.shape.friction = 0.5
+            space.add(self.body, self.shape)
         
         # Generate default icon if it doesn't exist
         icon_path = f"assets/icons/{self.variant_key}_button.png"
         if not os.path.exists(icon_path):
             os.makedirs("assets/icons", exist_ok=True)
-            # Create a transparent surface
             icon_surf = pygame.Surface((40, 40), pygame.SRCALPHA)
-            
-            # Draw a default shiny blue ball for the icon
-            pygame.draw.circle(icon_surf, (0, 0, 255), (20, 20), BALL_DEFAULT_RADIUS)
-            pygame.draw.circle(icon_surf, (255, 255, 255), (14, 14), 5) # Highlight
-            pygame.draw.circle(icon_surf, (0, 0, 0), (20, 20), BALL_DEFAULT_RADIUS, 1)   # Outline
-            
+            pygame.draw.circle(icon_surf, (0, 255, 255), (20, 20), 15)
+            pygame.draw.circle(icon_surf, (255, 255, 255), (20, 20), 15, 2)
             try:
                 pygame.image.save(icon_surf, icon_path)
-            except Exception as e:
-                print(f"Warning: Could not save icon for payload ball: {e}")
+            except Exception:
+                pass
 
-    def get_color_for_score(self, score):
-        """Calculates a progressive color blend based on the score threshold."""
-        try:
-            score = float(score)
-        except (ValueError, TypeError):
-            score = 100.0
-
+    def get_color_for_score(self, score: int):
+        """Map score to a smooth color gradient."""
         if score >= 100:
-            return (0, 255, 0)  # Solid Green
-        elif score >= 50:
-            # Interpolate 50 to 100: Orange (255, 128, 0) -> Green (0, 255, 0)
-            t = (score - 50) / 50.0
-            r = int(255 + t * (0 - 255))
-            g = int(128 + t * (255 - 128))
-            return (r, g, 0)
-        elif score >= 0:
-            # Interpolate 0 to 50: Red (255, 0, 0) -> Orange (255, 128, 0)
-            t = score / 50.0
-            r = 255
-            g = int(0 + t * (128 - 0))
-            return (r, g, 0)
+            t = max(0.0, min(1.0, (score - 100) / 100.0))
+            r = int(0 + t * (0 - 0))
+            g = int(255 + t * (255 - 255))
+            b = int(255 + t * (0 - 255))
+            return (r, g, b)
         else:
-            # Interpolate < 0 to 0: Yellow (255, 255, 0) -> Red (255, 0, 0)
-            # We cap the transition so it reaches full yellow at a score of -50
             t = max(0.0, min(1.0, (score + 50) / 50.0))
             r = 255
             g = int(255 + t * (0 - 255))
             return (r, g, 0)
+
+    def update_logic(self, dt, game_state, entities, active_instances=None):
+        super().update_logic(dt, game_state, entities, active_instances)
+        
+        # Sync toggle state from UI
+        self.show_traces = game_state.get("show_traces", False)
+        current_time = pygame.time.get_ticks() / 1000.0
+        
+        if game_state.get("mode") == "PLAY" and self.show_traces:
+            if not getattr(self, "is_hidden", False) and self.body:
+                self.trace_timer += dt
+                # Drop a coordinate "breadcrumb" on interval
+                if self.trace_timer >= self.TRACE_INTERVAL:  
+                    self.trace_history.append((self.body.position.x, self.body.position.y, current_time))
+                    self.trace_timer = 0.0
+                    
+            # Rule 1: Purge points older than 5 seconds
+            self.trace_history = [p for p in self.trace_history if current_time - p[2] <= self.TRACE_LIFETIME]
+            
+            # Rule 2: Cap at maximum accumulative points
+            if len(self.trace_history) > self.MAX_TRACE_POINTS:
+                self.trace_history = self.trace_history[-self.MAX_TRACE_POINTS:]
+                
+        elif not self.show_traces and self.trace_history:
+            self.trace_history.clear() # Wipe memory instantly when toggled off
 
     def draw(self, surface, camera=None):
         if not self.body:
             return
 
         pos = self.body.position
-        if camera:
-            screen_x, screen_y = camera.world_to_screen(pos.x, pos.y)
-        else:
-            screen_x, screen_y = pos.x, pos.y
+        screen_x, screen_y = camera.world_to_screen(pos.x, pos.y) if camera else (pos.x, pos.y)
 
-        # Determine the score from the payload dictionary
         score = 100
         if hasattr(self, 'payload') and isinstance(self.payload, dict):
             score = self.payload.get('score', 100)
         else:
-            # Fallback to direct property if the payload dict isn't fully populated
             score = self.get_property('score', 100)
-        #print(f"PayloadBall at ({screen_x}, {screen_y}) has score: {score}")
+
         color = self.get_color_for_score(score)
-        #print(f"Calculated color for score {score}: {color}")
-        radius = float(self.get_property('radius', BALL_DEFAULT_RADIUS))
+        radius = float(self.get_property('radius', 15.0))
+        current_time = pygame.time.get_ticks() / 1000.0
 
-        # 1. Draw the main colored circle (No background)
+        # --- Rule 3: Draw Glowing Trace Trail (Underneath the ball) ---
+        if self.show_traces and self.trace_history:
+            for p in self.trace_history:
+                age = current_time - p[2]
+                
+                # Clamp age for safety bounds
+                if age < 0: age = 0
+                if age > self.TRACE_LIFETIME: age = self.TRACE_LIFETIME
+                
+                # Life ratio goes from 1.0 (just spawned) down to 0.0 (5 seconds old)
+                life_ratio = 1.0 - (age / self.TRACE_LIFETIME)
+                
+                # Shrink radius as it fades out
+                trail_radius = max(1, int(radius * 0.8 * life_ratio))
+                
+                # Cap max opacity at ~120/255 (less than 50%) so it doesn't overdisplay
+                alpha = int(120 * life_ratio) 
+                
+                sx, sy = camera.world_to_screen(p[0], p[1]) if camera else (p[0], p[1])
+                
+                trace_surf = pygame.Surface((trail_radius * 2, trail_radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trace_surf, (*color, alpha), (trail_radius, trail_radius), trail_radius)
+                surface.blit(trace_surf, (int(sx - trail_radius), int(sy - trail_radius)))
+
+        # 1. Main Base Sprite
         pygame.draw.circle(surface, color, (int(screen_x), int(screen_y)), int(radius))
-
-        # 2. Draw a subtle 3D highlight (slightly offset) to give it a spherical, shiny look
-        highlight_radius = int(radius * 0.3)
-        if highlight_radius > 0:
-            highlight_x = int(screen_x - radius * 0.3)
-            highlight_y = int(screen_y - radius * 0.3)
-            pygame.draw.circle(surface, (255, 255, 255, 150), (highlight_x, highlight_y), highlight_radius)
-
-        # 3. Draw a sharp black outline to make it pop against the background
-        pygame.draw.circle(surface, (0, 0, 0), (int(screen_x), int(screen_y)), int(radius), 1)
+        
+        # 2. Glossy Highlight
+        pygame.draw.circle(surface, (255, 255, 255), (int(screen_x - radius*0.3), int(screen_y - radius*0.3)), int(radius*0.3))
