@@ -41,6 +41,7 @@ from utils.config_loader import load_all_variants
 from utils.ui_manager import UIManager, UIPanel, UIButton, UILabel, UIScrollPanel, UITextInput, UITextArea
 from utils.level_manager import LevelManager
 from utils.camera import Camera
+from utils.physics_events import CollisionManager
 
 UI_TOP_HEIGHT = 50
 UI_BOTTOM_HEIGHT = 40
@@ -325,10 +326,12 @@ def main():
                 for constraint in list(entity.body.constraints):
                     if constraint in space.constraints:
                         space.remove(constraint)
-            if entity.shape and entity.shape.body:
-                space.remove(*entity.shape.body.shapes)
-                if entity.shape.body != space.static_body:
-                    space.remove(entity.shape.body)
+            for shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
+                if shape and shape in space.shapes:
+                    space.remove(shape)
+            if hasattr(entity, 'body') and entity.body:
+                if entity.body != space.static_body and entity.body in space.bodies:
+                    space.remove(entity.body)
         entities.clear()
         active_instances.clear()
         
@@ -342,8 +345,9 @@ def main():
                 new_part.uuid = data["uuid"]
             if "overrides" in data:
                 new_part.apply_draft_overrides(data["overrides"])
-            new_part.body.angle = rot
-            space.reindex_shapes_for_body(new_part.body)
+            if hasattr(new_part, 'body') and new_part.body:
+                new_part.body.angle = rot
+                space.reindex_shapes_for_body(new_part.body)
             entities.append(new_part)
             active_instances[new_part.uuid] = new_part
             
@@ -426,10 +430,12 @@ def main():
                 for constraint in list(entity.body.constraints):
                     if constraint in space.constraints:
                         space.remove(constraint)
-            if entity.shape and entity.shape.body:
-                space.remove(*entity.shape.body.shapes)
-                if entity.shape.body != space.static_body:
-                    space.remove(entity.shape.body)
+            for shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
+                if shape and shape in space.shapes:
+                    space.remove(shape)
+            if hasattr(entity, 'body') and entity.body:
+                if entity.body != space.static_body and entity.body in space.bodies:
+                    space.remove(entity.body)
         entities.clear()
         active_instances.clear()
 
@@ -450,11 +456,10 @@ def main():
     def handle_edit():
         game_state["mode"] = "EDIT"
         build_top_panel()
-    
+        
     def handle_quit():
-        # Cleanly tells the main event loop to shut down the game
         pygame.event.post(pygame.event.Event(pygame.QUIT))
-
+    
     def toggle_snap_to_grid():
         game_state["snap_to_grid"] = not game_state.get("snap_to_grid", False)
         build_top_panel()
@@ -656,7 +661,7 @@ def main():
                     else:
                         new_dict[key] = int(text)
                 except (ValueError, SyntaxError):
-                    new_dict[key] = text
+                        new_dict[key] = text
             
             if 'payload' in new_dict:
                 selected.payload = new_dict['payload']
@@ -712,224 +717,17 @@ def main():
 
     entities = []
     active_instances = {}
+    signal_queue = []
+    active_signals = [] 
     
-    def post_solve(arbiter, space, data):
-        if arbiter.total_impulse.length > 200:
-            shape_a, shape_b = arbiter.shapes
-            for entity in entities:
-                if getattr(entity, 'shape', None) in (shape_a, shape_b) or \
-                   (hasattr(entity, 'shapes') and (shape_a in entity.shapes or shape_b in entity.shapes)):
-                    entity.play_event_sound("collision_sound")
-        return True
-        
-    space.on_collision(collision_type_a=None, collision_type_b=None, post_solve=post_solve)
-    
-    def basket_sensor_begin(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        target_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_BASKET else shape_b
-        basket_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_BASKET else shape_a
-        
-        target_entity = None
-        basket_entity = None
-        
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == target_shape or target_shape in getattr(entity, 'shapes', []):
-                target_entity = entity
-            if getattr(entity, 'shape', None) == basket_shape or basket_shape in getattr(entity, 'shapes', []):
-                basket_entity = entity
-                    
-        if target_entity and basket_entity:
-            accepts = basket_entity.get_property("accepts_types", ["all"])
-            if isinstance(accepts, str):
-                accepts = [accepts]
-                
-            if "all" in accepts or target_entity.variant_key in accepts:
-                target_entity.to_delete = True
-                if basket_entity not in signal_queue:
-                    signal_queue.append(basket_entity)
-                return False
-            else:
-                return True
-        return False
-
-    space.on_collision(collision_type_a=constants.COLLISION_TYPE_BASKET, collision_type_b=None, begin=basket_sensor_begin)
-
-    def cannon_sensor_begin(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        target_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_CANNON else shape_b
-        cannon_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_CANNON else shape_a
-        
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == target_shape or target_shape in getattr(entity, 'shapes', []):
-                entity.to_delete = True
-                break
-                
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == cannon_shape or cannon_shape in getattr(entity, 'shapes', []):
-                entity.force_shoot = True
-                if entity not in signal_queue:
-                    signal_queue.append(entity)
-                break
-                
-        return False
-
-    space.on_collision(collision_type_a=constants.COLLISION_TYPE_CANNON, collision_type_b=None, begin=cannon_sensor_begin)
-
-    def factory_sensor_pre_solve(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_FACTORY_TOP else shape_b
-        factory_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_FACTORY_TOP else shape_a
-
-        incoming_entity = None
-        factory_entity = None
-
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
-                incoming_entity = entity
-            if getattr(entity, 'shape', None) == factory_shape or factory_shape in getattr(entity, 'shapes', []):
-                factory_entity = entity
-
-        if not incoming_entity or not factory_entity:
-            return True
-
-        if getattr(factory_entity, 'variant_key', None) not in ('logic_factory', 'ai_brain'):
-            return True
-
-        if incoming_entity.uuid == factory_entity.uuid:
-            return True
-
-        if getattr(factory_entity, 'current_payload_uuid', None) == incoming_entity.uuid:
-            return False
-
-        if getattr(factory_entity, 'cooldown_timer', 0.0) > 0.0:
-            return True
-
-        accepted = factory_entity.ingest_payload(incoming_entity)
-        if accepted:
-            return False 
-            
-        return True 
-
-    space.on_collision(
-        collision_type_a=constants.COLLISION_TYPE_FACTORY_TOP,
-        collision_type_b=None,
-        pre_solve=factory_sensor_pre_solve,
-    )
-
-    def warehouse_sensor_pre_solve(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_WAREHOUSE else shape_b
-        warehouse_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_WAREHOUSE else shape_a
-
-        incoming_entity = None
-        warehouse_entity = None
-
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
-                incoming_entity = entity
-            if getattr(entity, 'shape', None) == warehouse_shape or warehouse_shape in getattr(entity, 'shapes', []):
-                warehouse_entity = entity
-
-        if not incoming_entity or not warehouse_entity:
-            return True
-
-        if getattr(warehouse_entity, 'variant_key', None) != 'warehouse' and not getattr(warehouse_entity, 'variant_key', '').startswith('warehouse'):
-            return True
-
-        if incoming_entity.uuid == warehouse_entity.uuid:
-            return True
-
-        if incoming_entity.uuid in getattr(warehouse_entity, 'stored_payload_uuids', []):
-            return False
-
-        accepted = warehouse_entity.ingest_payload(incoming_entity)
-        if accepted:
-            return False 
-        return True
-
-    space.on_collision(
-        collision_type_a=constants.COLLISION_TYPE_WAREHOUSE,
-        collision_type_b=None,
-        pre_solve=warehouse_sensor_pre_solve,
-    )
-
-    def portal_sensor_pre_solve(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_PORTAL else shape_b
-        portal_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_PORTAL else shape_a
-
-        incoming_entity = None
-        portal_entity = None
-
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
-                incoming_entity = entity
-            if getattr(entity, 'shape', None) == portal_shape or portal_shape in getattr(entity, 'shapes', []):
-                portal_entity = entity
-
-        if not incoming_entity or not portal_entity:
-            return True
-
-        if getattr(portal_entity, 'variant_key', None) != 'portal' and not getattr(portal_entity, 'variant_key', '').startswith('portal'):
-            return True
-
-        if incoming_entity.uuid == portal_entity.uuid:
-            return True
-
-        for item in getattr(portal_entity, 'transit_queue', []):
-            if item.get("payload_uuid") == incoming_entity.uuid:
-                return False
-
-        accepted = portal_entity.ingest_payload(incoming_entity, entities)
-        if accepted:
-            return False 
-        return True
-
-    space.on_collision(
-        collision_type_a=constants.COLLISION_TYPE_PORTAL,
-        collision_type_b=None,
-        pre_solve=portal_sensor_pre_solve,
-    )
-
-    def sink_sensor_pre_solve(arbiter, space, data):
-        shape_a, shape_b = arbiter.shapes
-        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_SINK_TOP else shape_b
-        sink_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_SINK_TOP else shape_a
-
-        incoming_entity = None
-        sink_entity = None
-
-        for entity in list(entities):
-            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
-                incoming_entity = entity
-            if getattr(entity, 'shape', None) == sink_shape or sink_shape in getattr(entity, 'shapes', []):
-                sink_entity = entity
-
-        if not incoming_entity or not sink_entity:
-            return True
-
-        if getattr(sink_entity, 'variant_key', '').startswith('data_sink') is False:
-            return True
-
-        if incoming_entity.uuid == sink_entity.uuid:
-            return True
-
-        accepted = sink_entity.ingest_payload(incoming_entity)
-        return not accepted
-
-    space.on_collision(
-        collision_type_a=constants.COLLISION_TYPE_SINK_TOP,
-        collision_type_b=None,
-        pre_solve=sink_sensor_pre_solve,
-    )
+    collision_manager = CollisionManager(entities, active_instances, signal_queue)
+    collision_manager.setup(space)
     
     grabbed_body = None
     prev_mode = game_state["mode"]
     game_state["wiring_source"] = None
     game_state["belt_source"] = None 
     game_state["pipe_source"] = None
-    signal_queue = []
-    active_signals = [] 
     
     trash_can_visible = False
     trash_can_rect = pygame.Rect(w // 2 - 40, h - 100, 80, 80)
@@ -1033,7 +831,6 @@ def main():
                                         target_entity.play_event_sound("spawn_sound")
                                         game_state["wiring_source"] = None
 
-                            # === NEW: PIPE TOOL LOGIC ===
                             elif game_state["active_tool"] == "pipe_tool":
                                 target_entity = None
                                 for entity in entities:
@@ -1049,7 +846,6 @@ def main():
                                         src = game_state["pipe_source"]
                                         tgt = target_entity
                                         
-                                        # Snap new pipe node at the midpoint between the two connected objects
                                         mid_x = (src.body.position.x + tgt.body.position.x) / 2
                                         mid_y = (src.body.position.y + tgt.body.position.y) / 2
                                         
@@ -1301,11 +1097,12 @@ def main():
                             if constraint in space.constraints:
                                 space.remove(constraint)
                                 
-                    for shape in getattr(entity, 'shapes', [entity.shape]):
-                        if shape and shape.body and shape in space.shapes:
+                    for shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
+                        if shape and shape in space.shapes:
                             space.remove(shape)
-                    if entity.body and entity.body != space.static_body and entity.body in space.bodies:
-                        space.remove(entity.body)
+                    if hasattr(entity, 'body') and entity.body:
+                        if entity.body != space.static_body and entity.body in space.bodies:
+                            space.remove(entity.body)
                     if entity in entities:
                         entities.remove(entity)
                     if entity.uuid in active_instances:
@@ -1377,12 +1174,10 @@ def main():
                         pygame.draw.circle(screen, (255, 0, 255), (sx, sy), 5)
                         pygame.draw.circle(screen, (0, 0, 0), (sx, sy), 5, 1)
 
-                # === STIGMERGIC TRACE PAYLOAD LABEL ===
                 if hasattr(entity, 'payload') and entity.payload:
                     if game_state.get("show_traces", False) and "trace" in entity.payload:
                         trace_list = entity.payload.get("trace", [])
                         if trace_list:
-                            # Visually shrink massive payloads into an elegant "Source -> Brain -> Factory" readout!
                             payload_str = " -> ".join(trace_list[-3:]) 
                         else:
                             payload_str = "Trace: Started"
@@ -1407,7 +1202,7 @@ def main():
                     
                     for tgt_uuid in entity.connected_uuids:
                         tgt = active_instances.get(tgt_uuid)
-                        if tgt and tgt.body:
+                        if tgt and getattr(tgt, 'body', None):
                             world_end_x, world_end_y = tgt.body.position.x, tgt.body.position.y
                             screen_end = camera.world_to_screen(world_end_x, world_end_y)
                             end_pos = (int(screen_end[0]), int(screen_end[1]))
@@ -1423,7 +1218,6 @@ def main():
                                     wire_color = (255, 200, 0)
                                 width = 3 if flash > 0 else 1
 
-                            # Generate elegant S-Curve Bezier
                             points = [get_wire_curve_point(start_pos, end_pos, i / 25.0) for i in range(26)]
                             int_points = [(int(p.x), int(p.y)) for p in points]
 
@@ -1456,14 +1250,12 @@ def main():
                 sx, sy = camera.world_to_screen(sender.body.position.x, sender.body.position.y)
                 ex, ey = camera.world_to_screen(tgt.body.position.x, tgt.body.position.y)
                 
-                # Curve following pulse
                 pt = get_wire_curve_point((sx, sy), (ex, ey), sig["progress"])
                 px, py = pt.x, pt.y
                 
                 pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) 
                 pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) 
 
-        # === EDIT MODE: TOOL PREVIEWS ===
         if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
             src = game_state["wiring_source"]
             if src.body:
@@ -1475,7 +1267,6 @@ def main():
                 int_points = [(int(p.x), int(p.y)) for p in points]
                 pygame.draw.aalines(screen, (255, 150, 0), False, int_points)
 
-        # --- PREVIEW FOR THE NEW DATA PIPE TOOL ---
         if current_mode == "EDIT" and game_state["active_tool"] == "pipe_tool" and game_state.get("pipe_source"):
             src = game_state["pipe_source"]
             if src.body:
@@ -1486,7 +1277,6 @@ def main():
                 points = [get_pipe_curve_point((start_x, start_y), m_pos, i / 20.0) for i in range(21)]
                 int_points = [(int(p.x), int(p.y)) for p in points]
                 
-                # Draw thick translucent tube for preview
                 preview_surf = pygame.Surface(screen.get_size(), pygame.SRCALPHA)
                 pygame.draw.lines(preview_surf, (100, 200, 255, 80), False, int_points, 18)
                 pygame.draw.lines(preview_surf, (150, 230, 255, 200), False, int_points, 6)
