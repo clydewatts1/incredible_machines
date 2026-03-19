@@ -31,6 +31,14 @@ class DataSink(GamePart):
     def __init__(self, space: pymunk.Space, x: float, y: float, variant_name: str = "data_sink"):
         super().__init__(space, x, y, variant_name)
 
+        # --- Explicitly register all defaults into self.properties ---
+        # This ensures the Save/Load manager captures these inherited values
+        self.properties.setdefault("accepts_types", ["all"])
+        self.properties.setdefault("exporter_type", "null")
+        self.properties.setdefault("export", {})
+        self.properties.setdefault("width", 96.0)
+        self.properties.setdefault("height", 96.0)
+
         self.queue: queue.Queue = queue.Queue()
         self.result_queue: queue.Queue = queue.Queue()
 

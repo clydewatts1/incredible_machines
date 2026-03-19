@@ -559,3 +559,59 @@ variants:
     mass: 1.0
     score: 100
     payload: {"score": 100}
+
+# New entities for 2026-03-18
+# the brain
+  ai_brain:
+    label: "AI Brain Node"
+    category: "logic"
+    template: "Rectangle"
+    width: 96
+    height: 96
+    is_static: True
+    model: "llama3.2"
+  
+    # --- NEW: I/O Configuration ---
+    input_side: "top"      # Only accept payloads falling from the 'top'
+    output_side: "right"   # Default side to shoot out of ('top', 'left', 'right', 'bottom')
+    cost_modifier: -10.0   # How much energy a "thought" consumes
+  
+    system_prompt: "You are a quality control AI. Look at the 'status' field. If the status is 'SUCCESS', return route_state 10. If 'FAILURE', return route_state 100."
+    routing:
+      - max_state: 10
+        velocity: 200
+        angle: 45
+        desc: "Success Route"
+        output_side: "right"  # Successes shoot out the right!
+      - max_state: 100
+        velocity: 10
+        angle: 45
+        desc: "Failure Route"
+        output_side: "left"   # Failures shoot out the left!
+    animations:
+      OFF: "ai_brain_off"
+      INITIALIZING: "ai_brain_initializing"
+      IDLE: "ai_brain_idle"
+      INGESTING: "ai_brain_ingesting"
+      WRITING: "ai_brain_writing"
+      FATAL: "ai_brain_fatal"
+      
+  warehouse:
+    label: "Warehouse Buffer"
+    category: "logic"
+    template: "Rectangle"  # We use rectangle for the physics bounds, but we draw a triangle!
+    width: 96
+    height: 96
+    is_static: True
+    capacity: 20
+    release_interval: 1.0
+    input_side: "top"
+    output_side: "bottom"
+
+  portal:
+    label: "Quantum Portal"
+    category: "logic"
+    template: "Rectangle"  # Bounds are rectangle, sprite is a circle
+    width: 64
+    height: 64
+    is_static: True

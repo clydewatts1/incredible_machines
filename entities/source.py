@@ -89,12 +89,31 @@ class DataSource(GamePart):
         """
         super().__init__(space, x, y, variant_name)
         
+        # --- Explicitly register all defaults into self.properties ---
+        # This guarantees that the Save/Load system and the Left Inspector
+        # capture all inherited values instead of missing the Python fallbacks.
+        self.properties.setdefault("emit_interval", 2.0)
+        self.properties.setdefault("engine_type", "null")
+        self.properties.setdefault("instructions", {})
+        self.properties.setdefault("output_variant", "bouncy_ball")
+        self.properties.setdefault("active_side", "Bottom")
+        self.properties.setdefault("exit_velocity", 150.0)
+        self.properties.setdefault("exit_angle", 0.0)
+        self.properties.setdefault("width", 96.0)
+        self.properties.setdefault("height", 96.0)
+        self.properties.setdefault("start_paused", False)
+        
         # Thread-safe queue for generator results
         self.queue = queue.Queue()
         
         # Lifecycle state
         self.visual_state = "OFF"
         self._is_destroyed = False
+        
+        # Pause & Signal State
+        self.is_paused = str(self.get_property("start_paused", "False")).lower() == "true"
+        self.signal_received = False
+        self.signal_state = None
         
         # Timing
         self.next_emit_time = time.time()
@@ -111,6 +130,12 @@ class DataSource(GamePart):
         # Animation & sound
         self._animation_textures = {}
         self._load_animation_textures()
+
+    def receive_signal(self, payload):
+        """Called by the main loop when another object (like a Warehouse) sends a logic pulse."""
+        if hasattr(payload, "visual_state"):
+            self.signal_state = payload.visual_state
+            self.signal_received = True
 
     def _debug_enabled(self) -> bool:
         return bool(self.instructions.get("debug", False))
@@ -478,10 +503,20 @@ class DataSource(GamePart):
             self.base_texture = state_texture
             self.draw_texture(surface, camera=camera)
             self.base_texture = old_texture
-            return
-        
-        # Fallback to default sprite if no state texture
-        super().draw(surface, camera=camera)
+        else:
+            # Fallback to default sprite if no state texture
+            super().draw(surface, camera=camera)
+            
+        # --- NEW UX: Draw a visual Pause symbol when paused! ---
+        if getattr(self, 'is_paused', False) and self.body:
+            if camera:
+                screen_x, screen_y = camera.world_to_screen(self.body.position.x, self.body.position.y)
+            else:
+                screen_x, screen_y = self.body.position.x, self.body.position.y
+                
+            # Draw yellow "||" pause bars above the center
+            pygame.draw.rect(surface, (255, 200, 0), (screen_x - 8, screen_y - 20, 5, 15), border_radius=1)
+            pygame.draw.rect(surface, (255, 200, 0), (screen_x + 3, screen_y - 20, 5, 15), border_radius=1)
     
     def update_logic(self, dt: float, game_state: Dict[str, Any], entities: List[GamePart], active_instances: Dict[str, GamePart] = None):
         """
@@ -503,22 +538,42 @@ class DataSource(GamePart):
         """
         if game_state.get("mode") != "PLAY":
             return
+            
+        current_time = time.time()
+        
+        # --- PROCESS SIGNALS (Warehouse Flow Control) ---
+        if self.signal_received:
+            self.signal_received = False
+            if self.signal_state == "FULL":
+                self.is_paused = True
+            elif self.signal_state in ["IDLE", "OFF"]:
+                self.is_paused = False
+                # Re-sync the timer so it doesn't instantly burst out multiple balls!
+                self.next_emit_time = current_time + self.emit_interval
+
+        # Apply Pause Logic (Fixes the Deadlock!)
+        if self.is_paused:
+            self.next_emit_time = current_time + self.emit_interval # Keep pushing the timer forward
+            
+            # CRITICAL FIX: We must keep our visual state as "IDLE" internally, 
+            # otherwise the downstream Warehouse will see we aren't IDLE and it will refuse 
+            # to release its own balls! The new draw() method will show the pause icon instead.
+            if self.visual_state not in {"IDLE", "OFF"}:
+                self._set_state("IDLE")
+            return
         
         # Initialize engine on first update (in OFF state)
         if self.visual_state == "OFF":
             try:
                 self._initialize_engine()
                 self._set_state("IDLE")
-                self.next_emit_time = time.time() + self.emit_interval
+                self.next_emit_time = current_time + self.emit_interval
             except Exception:
-                # Initialization failed; FATAL was already set in _initialize_engine
                 return
         
         # Dormant states: do nothing
         if self.visual_state in {"EXHAUSTED", "FATAL"}:
             return
-        
-        current_time = time.time()
         
         # Transition from IDLE to POLLING when emit interval is reached
         if current_time >= self.next_emit_time and self.visual_state == "IDLE":

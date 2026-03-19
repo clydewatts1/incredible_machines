@@ -73,9 +73,9 @@ class PayloadBallPart(GamePart):
         else:
             # Fallback to direct property if the payload dict isn't fully populated
             score = self.get_property('score', 100)
-        print(f"PayloadBall at ({screen_x}, {screen_y}) has score: {score}")
+        #print(f"PayloadBall at ({screen_x}, {screen_y}) has score: {score}")
         color = self.get_color_for_score(score)
-        print(f"Calculated color for score {score}: {color}")
+        #print(f"Calculated color for score {score}: {color}")
         radius = float(self.get_property('radius', BALL_DEFAULT_RADIUS))
 
         # 1. Draw the main colored circle (No background)

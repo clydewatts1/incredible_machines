@@ -1,322 +1,73 @@
 entities:
-- uuid: 5e6aefdb-ee99-40bd-afde-572e7899a1fa
+- uuid: 51402984-9136-4596-b09f-ab219a5c98c5
   entity_id: data_source_csv
   position:
-    x: 801.0
-    y: 148.0
+    x: 779.0
+    y: 140.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 189ab209-e65e-4a24-af36-c89b83415c83
+  entity_id: warehouse
+  position:
+    x: 620.0
+    y: 260.0
   rotation: 0.0
   overrides:
-    active_side: Top
-    animations:
-      false: data_source_off
-      INITIALIZING: data_source_initializing_csv
-      IDLE: data_source_idle_csv
-      POLLING: data_source_polling_csv
-      EMITTING: data_source_emitting_csv
-      EXHAUSTED: data_source_exhausted_csv
-      FATAL: data_source_fatal_csv
-    category: sources
+    angle: ''
+    capacity: 5
+    category: logic
     collision_sound: default_collision.wav
     elasticity: 0.5
-    emit_interval: 2.0
-    engine_type: csv
-    exit_angle: 45.0
-    exit_velocity: 300.0
     friction: 0.5
     height: 96
-    instructions:
-      filepath: data/samples.csv
-      debug: false
-      loop: true
-      skip_header: true
-      delimiter: ','
+    input_side: top
     is_static: 'True'
     mass: 1.0
-    spawn_variant: payload_ball
-    output_variant: payload_ball
+    output_side: bottom
     payload: {}
-    sounds:
-      false: null
-      INITIALIZING: null
-      IDLE: null
-      POLLING: null
-      EMITTING: null
-      EXHAUSTED: null
-      FATAL: null
+    release_interval: 5
+    send_full_signal: 'True'
     spawn_sound: spawn.wav
+    velocity: ''
     width: 96
-- uuid: 1db59e80-2da6-4bfb-bf75-0fa6e110404d
-  entity_id: logic_factory
+- uuid: c365dd9b-7e50-4135-9433-279fea48b145
+  entity_id: ai_brain
   position:
-    x: 630.0
-    y: 250.0
+    x: 620.0
+    y: 376.0
   rotation: 0.0
   overrides: {}
-- uuid: 5d1e3f02-3af4-4969-8a34-bce97d465a16
-  entity_id: data_sink_csv
-  position:
-    x: 425.0
-    y: 472.0
-  rotation: 0.0
-  overrides: {}
-- uuid: 6e36f13e-351b-482a-bdc9-ef6dd0f2cdd7
-  entity_id: data_sink_csv
-  position:
-    x: 782.0
-    y: 456.0
-  rotation: 0.0
-  overrides: {}
-- uuid: 0defb93e-2def-4ff4-a882-692e9482eb2c
-  entity_id: text_box
-  position:
-    x: 867.0
-    y: 427.0
-  rotation: 0.0
-  overrides:
-    bg_color:
-    - 40
-    - 40
-    - 40
-    - 200
-    category: other
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    font_size: 20
-    friction: 0.5
-    height: 50
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    text: Bad Sink
-    text_color:
-    - 255
-    - 255
-    - 255
-    width: 100
-- uuid: 62f07fec-e691-4fcc-8a54-289f3dcb93cc
-  entity_id: text_box
-  position:
-    x: 500.0
-    y: 421.0
-  rotation: 0.0
-  overrides:
-    bg_color:
-    - 40
-    - 40
-    - 40
-    - 200
-    category: other
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    font_size: 20
-    friction: 0.5
-    height: 50
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    text: Good Sink
-    text_color:
-    - 255
-    - 255
-    - 255
-    width: 100
-- uuid: a2231e90-dcb1-4534-bb64-d27a76565539
-  entity_id: text_box
-  position:
-    x: 548.0
-    y: 200.0
-  rotation: 0.0
-  overrides:
-    bg_color:
-    - 40
-    - 40
-    - 40
-    - 200
-    category: other
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    font_size: 20
-    friction: 0.5
-    height: 50
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    text: AI Agent
-    text_color:
-    - 255
-    - 255
-    - 255
-    width: 100
-- uuid: 7de31157-3bce-42ed-ae33-f0a113ff9b46
-  entity_id: conveyor_belt
-  position:
-    x: 565.0
-    y: 382.0
-  rotation: 0.30000000000000004
-  overrides: {}
-- uuid: 13b894e9-2b55-4547-83c6-bb853f7c88dd
-  entity_id: conveyor_belt
-  position:
-    x: 680.0
-    y: 400.0
-  rotation: 2.7755575615628914e-17
-  overrides: {}
-- uuid: d42b576b-427b-4647-96fd-881f9412b5b2
+- uuid: 868004f9-5980-4828-a7eb-3e0b0d929ef6
   entity_id: long_ramp
   position:
-    x: 840.0
-    y: 351.0
-  rotation: 1.8000000000000005
+    x: 565.0
+    y: 453.0
+  rotation: -0.7
   overrides: {}
-- uuid: 2cac4a88-775d-473b-ba37-afcf7049e2b2
-  entity_id: text_box
+- uuid: e1358596-f335-43b2-afe6-2c1f0ea0d53a
+  entity_id: long_ramp
   position:
-    x: 722.0
-    y: 336.0
-  rotation: 0.0
-  overrides:
-    bg_color:
-    - 40
-    - 40
-    - 40
-    - 200
-    category: other
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    font_size: 20
-    friction: 0.5
-    height: 50
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    text: Error or rejected data
-    text_color:
-    - 255
-    - 255
-    - 255
-    width: 100
-- uuid: 0e593a86-32ce-4d48-bd2e-f8a3b293cb31
-  entity_id: conveyor_belt
-  position:
-    x: 311.0
-    y: 561.0
-  rotation: 0.4
+    x: 674.0
+    y: 455.0
+  rotation: 0.7
   overrides: {}
-- uuid: 3443bd82-e8cd-426b-9747-7249452fbdad
-  entity_id: conveyor_belt
-  position:
-    x: 417.0
-    y: 585.0
-  rotation: 0.0
-  overrides: {}
-- uuid: bad5b110-1de4-4765-b2cd-26fe5a6e6847
-  entity_id: conveyor_belt
-  position:
-    x: 530.0
-    y: 584.0
-  rotation: 0.0
-  overrides: {}
-- uuid: 582057db-e8ae-48f0-a7f9-0688734aa2ea
-  entity_id: conveyor_belt
-  position:
-    x: 625.0
-    y: 581.0
-  rotation: 0.0
-  overrides: {}
-- uuid: 27d44f07-c39e-4d81-b627-322d2b4d11b0
-  entity_id: conveyor_belt
-  position:
-    x: 715.0
-    y: 578.0
-  rotation: 0.0
-  overrides: {}
-- uuid: d1da6f9f-0801-4b2a-8dc2-227dd7336274
-  entity_id: conveyor_belt
-  position:
-    x: 820.0
-    y: 547.0
-  rotation: -0.5
-  overrides: {}
-- uuid: d3db1491-2b05-486b-b34c-4878a16aff79
+- uuid: bcd949dd-f97e-4097-b436-b2e1fadbeee8
   entity_id: data_sink_csv
   position:
-    x: 907.0
-    y: 575.0
+    x: 717.0
+    y: 550.0
   rotation: 0.0
   overrides: {}
-- uuid: 5eb2706c-3969-4256-8cbb-a3545116d47e
-  entity_id: text_box
+- uuid: 0d6834f8-712c-4912-b882-b9472043928b
+  entity_id: data_sink_csv
   position:
-    x: 568.0
-    y: 536.0
-  rotation: 0.0
-  overrides:
-    bg_color:
-    - 40
-    - 40
-    - 40
-    - 200
-    category: other
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    font_size: 20
-    friction: 0.5
-    height: 50
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    text: Bad Payload Trap
-    text_color:
-    - 255
-    - 255
-    - 255
-    width: 100
-- uuid: 8efa2123-d9d7-4023-8d2e-d57b93d8af5d
-  entity_id: gear_driver
-  position:
-    x: 329.16966484639954
-    y: 59.672054744793314
-  rotation: -19.13333333333331
-  overrides: {}
-- uuid: 29867294-6e2c-4172-95a8-f0e7faf41d79
-  entity_id: gear_follower
-  position:
-    x: 347.8350693883182
-    y: 123.63537888243387
-  rotation: 9.56666666666665
-  overrides: {}
-- uuid: 9fe0a962-734e-46fa-9f09-f510322624c1
-  entity_id: gear_follower
-  position:
-    x: 386.00000000000483
-    y: 125.00000000000601
-  rotation: -9.56666666666665
-  overrides: {}
-- uuid: 5cda6bfb-edae-46f1-843a-c493a00b7f84
-  entity_id: gear_follower
-  position:
-    x: 418.9999999999998
-    y: 126.0000000000006
-  rotation: 9.56666666666665
-  overrides: {}
-- uuid: b3377584-9021-49f4-bcac-9b7e9ec89c0f
-  entity_id: bouncy_ball
-  position:
-    x: 819.502931176793
-    y: 518.8998894820551
-  rotation: 11.109252536705494
-  overrides: {}
-- uuid: 517bd999-8be9-45cb-984f-37dd5bc9a759
-  entity_id: bouncy_ball
-  position:
-    x: 645.4365081389583
-    y: 177.74225215932486
+    x: 522.0
+    y: 554.0
   rotation: 0.0
   overrides: {}
 constraints: []
-connections: []
+connections:
+- sender: 189ab209-e65e-4a24-af36-c89b83415c83
+  receiver: 51402984-9136-4596-b09f-ab219a5c98c5
+- sender: c365dd9b-7e50-4135-9433-279fea48b145
+  receiver: 189ab209-e65e-4a24-af36-c89b83415c83

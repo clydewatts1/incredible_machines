@@ -2,18 +2,27 @@ import pygame
 import pymunk
 import sys
 import os
+import math
 import tkinter as tk
 from tkinter import filedialog
 
 import constants
+
+# --- Register Collision Types Dynamically if missing ---
+if not hasattr(constants, 'COLLISION_TYPE_WAREHOUSE'):
+    constants.COLLISION_TYPE_WAREHOUSE = 10
+if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
+    constants.COLLISION_TYPE_PORTAL = 11
+
 from entities.base import GamePart
 from entities.active import FactoryPart
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
 from entities.sink import DataSink
 from entities.axle import AxlePart
-from entities.conveyor import ConveyorBeltPart
-from entities.text import TextBoxPart
+from entities.brain import BrainPart
+from entities.warehouse import WarehousePart
+from entities.portal import PortalPart
 from entities.payloadball import PayloadBallPart
 from utils.sound_manager import sound_manager
 from utils.environment_manager import env_manager
@@ -78,7 +87,27 @@ def create_icon_surface(variant_key, variant_data):
 def create_part(space, x, y, variant_key):
     """Route entity construction through specialized classes when required."""
     if variant_key == "logic_factory":
-        return FactoryPart(space, x, y, variant_key)
+        part = FactoryPart(space, x, y, variant_key)
+        if hasattr(part, 'shape') and part.shape:
+            part.shape.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
+        return part
+    elif variant_key == "ai_brain":
+        part = BrainPart(space, x, y, variant_key)
+        if hasattr(part, 'shape') and part.shape:
+            part.shape.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
+        return part
+    elif variant_key == "warehouse" or variant_key.startswith("warehouse"):
+        part = WarehousePart(space, x, y, variant_key)
+        if hasattr(part, 'shape') and part.shape:
+            part.shape.collision_type = constants.COLLISION_TYPE_WAREHOUSE
+        return part
+    elif variant_key == "portal" or variant_key.startswith("portal"):
+        part = PortalPart(space, x, y, variant_key)
+        if hasattr(part, 'shape') and part.shape:
+            part.shape.collision_type = constants.COLLISION_TYPE_PORTAL
+        return part
+    elif variant_key == "payload_ball":
+        return PayloadBallPart(space, x, y, variant_key)
     elif variant_key in ("data_source", "data_source_csv", "data_source_mcp"):
         return DataSource(space, x, y, variant_key)
     elif variant_key.startswith("data_sink"):
@@ -87,14 +116,40 @@ def create_part(space, x, y, variant_key):
         return MechanicalPart(space, x, y, variant_key) 
     elif variant_key == "axle":
         return AxlePart(space, x, y, variant_key)
-    elif variant_key == "conveyor_belt":
-        
-        return ConveyorBeltPart(space, x, y, variant_key)
-    elif variant_key == "text_box":
-        return TextBoxPart(space, x, y, variant_key)
-    elif variant_key == "payload_ball":
-        return PayloadBallPart(space, x, y, variant_key)
     return GamePart(space, x, y, variant_key)
+
+
+def get_wire_curve_point(start_pos, end_pos, t):
+    """Calculates a point along an elegant S-Curve Bezier for logic wires, with a gentle wind sway."""
+    p0 = pygame.math.Vector2(start_pos)
+    p3 = pygame.math.Vector2(end_pos)
+    
+    dx = p3.x - p0.x
+    dy = p3.y - p0.y
+    dist = p0.distance_to(p3)
+    
+    # Gentle wind sway effect
+    time_sec = pygame.time.get_ticks() / 1000.0
+    # Phase shift based on position so every wire waves slightly differently
+    phase = (p0.x + p0.y) * 0.01 
+    
+    # Scale the magnitude of the sway by the wire's distance so short wires don't wiggle wildly
+    max_sway = min(25.0, dist * 0.15)
+    
+    # Calculate two slightly offset sine waves for the Bezier control points
+    sway1 = math.sin(time_sec * 2.0 + phase) * max_sway
+    sway2 = math.sin(time_sec * 2.5 + phase + 1.0) * max_sway
+    
+    # Create horizontal or vertical flow S-curves depending on offset
+    if abs(dx) > abs(dy):
+        p1 = p0 + pygame.math.Vector2(dx * 0.5, sway1)
+        p2 = p0 + pygame.math.Vector2(dx * 0.5, dy + sway2)
+    else:
+        p1 = p0 + pygame.math.Vector2(sway1, dy * 0.5)
+        p2 = p0 + pygame.math.Vector2(dx + sway2, dy * 0.5)
+        
+    u = 1 - t
+    return (u**3)*p0 + 3*(u**2)*t*p1 + 3*u*(t**2)*p2 + (t**3)*p3
 
 
 def snap_to_grid(world_x, world_y):
@@ -146,7 +201,8 @@ def main():
         for variant_data in all_variants.values()
     })
     
-    screen = pygame.display.set_mode((window_width, window_height))
+    # Added pygame.RESIZABLE and pygame.SCALED to allow maximizing the window!
+    screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
     pygame.display.set_caption("The Incredible Machine Clone - Milestone 9")
     clock = pygame.time.Clock()
 
@@ -673,16 +729,10 @@ def main():
         basket_entity = None
         
         for entity in list(entities):
-            if getattr(entity, 'shapes', None):
-                if target_shape in entity.shapes:
-                    target_entity = entity
-                if basket_shape in entity.shapes:
-                    basket_entity = entity
-            else:
-                if getattr(entity, 'shape', None) == target_shape:
-                    target_entity = entity
-                if getattr(entity, 'shape', None) == basket_shape:
-                    basket_entity = entity
+            if getattr(entity, 'shape', None) == target_shape or target_shape in getattr(entity, 'shapes', []):
+                target_entity = entity
+            if getattr(entity, 'shape', None) == basket_shape or basket_shape in getattr(entity, 'shapes', []):
+                basket_entity = entity
                     
         if target_entity and basket_entity:
             # Phase 3: Type Filtering Logic
@@ -713,16 +763,13 @@ def main():
         
         # 1. Ingest (delete) the incoming projectile
         for entity in list(entities):
-            if getattr(entity, 'shapes', None) and target_shape in entity.shapes:
-                entity.to_delete = True
-                break
-            elif getattr(entity, 'shape', None) == target_shape:
+            if getattr(entity, 'shape', None) == target_shape or target_shape in getattr(entity, 'shapes', []):
                 entity.to_delete = True
                 break
                 
         # 2. Trigger the cannon to fire immediately (or enqueue signal if it's acting as a Sender)
         for entity in list(entities):
-            if getattr(entity, 'shapes', None) and cannon_shape in entity.shapes:
+            if getattr(entity, 'shape', None) == cannon_shape or cannon_shape in getattr(entity, 'shapes', []):
                 entity.force_shoot = True
                 # Phase 3: Enqueue signal if cannon was wired to another entity
                 if entity not in signal_queue:
@@ -733,7 +780,7 @@ def main():
 
     space.on_collision(collision_type_a=constants.COLLISION_TYPE_CANNON, collision_type_b=None, begin=cannon_sensor_begin)
 
-    def factory_sensor_begin(arbiter, space, data):
+    def factory_sensor_pre_solve(arbiter, space, data):
         shape_a, shape_b = arbiter.shapes
         incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_FACTORY_TOP else shape_b
         factory_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_FACTORY_TOP else shape_a
@@ -741,36 +788,126 @@ def main():
         incoming_entity = None
         factory_entity = None
 
+        # --- FIX: Ensure we cleanly lookup entities even if they don't explicitly define `self.shapes` list!
         for entity in list(entities):
-            if getattr(entity, 'shapes', None):
-                if incoming_shape in entity.shapes:
-                    incoming_entity = entity
-                if factory_shape in entity.shapes:
-                    factory_entity = entity
+            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
+                incoming_entity = entity
+            if getattr(entity, 'shape', None) == factory_shape or factory_shape in getattr(entity, 'shapes', []):
+                factory_entity = entity
 
         if not incoming_entity or not factory_entity:
             return True
 
-        if getattr(factory_entity, 'variant_key', None) != 'logic_factory':
+        if getattr(factory_entity, 'variant_key', None) not in ('logic_factory', 'ai_brain'):
             return True
 
         if incoming_entity.uuid == factory_entity.uuid:
             return True
 
-        # During cooldown the top edge behaves as a solid wall.
+        # If this specific ball is currently being processed, ignore physical collision
+        if getattr(factory_entity, 'current_payload_uuid', None) == incoming_entity.uuid:
+            return False
+
+        # During cooldown the edge behaves as a solid wall.
         if getattr(factory_entity, 'cooldown_timer', 0.0) > 0.0:
             return True
 
         accepted = factory_entity.ingest_payload(incoming_entity)
-        return not accepted
+        
+        if accepted:
+            # === CRITICAL BUG FIX ===
+            # WARNING: Never mutate body.position or body.velocity inside a pre_solve callback! 
+            # Doing so corrupts Pymunk's rigid body solver and locks/freezes the object permanently.
+            # We simply return False here to let it pass inside. The main PLAY loop handles safely 
+            # suspending it in the center!
+            return False 
+            
+        return True # Act as a solid wall if rejected
 
     space.on_collision(
         collision_type_a=constants.COLLISION_TYPE_FACTORY_TOP,
         collision_type_b=None,
-        begin=factory_sensor_begin,
+        pre_solve=factory_sensor_pre_solve,
     )
 
-    def sink_sensor_begin(arbiter, space, data):
+    def warehouse_sensor_pre_solve(arbiter, space, data):
+        shape_a, shape_b = arbiter.shapes
+        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_WAREHOUSE else shape_b
+        warehouse_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_WAREHOUSE else shape_a
+
+        incoming_entity = None
+        warehouse_entity = None
+
+        # --- BULLETPROOF FIX: Explicit shape lookup avoiding empty list traps ---
+        for entity in list(entities):
+            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
+                incoming_entity = entity
+            if getattr(entity, 'shape', None) == warehouse_shape or warehouse_shape in getattr(entity, 'shapes', []):
+                warehouse_entity = entity
+
+        if not incoming_entity or not warehouse_entity:
+            return True
+
+        if getattr(warehouse_entity, 'variant_key', None) != 'warehouse' and not getattr(warehouse_entity, 'variant_key', '').startswith('warehouse'):
+            return True
+
+        if incoming_entity.uuid == warehouse_entity.uuid:
+            return True
+
+        if incoming_entity.uuid in getattr(warehouse_entity, 'stored_payload_uuids', []):
+            return False
+
+        accepted = warehouse_entity.ingest_payload(incoming_entity)
+        if accepted:
+            return False 
+        return True
+
+    space.on_collision(
+        collision_type_a=constants.COLLISION_TYPE_WAREHOUSE,
+        collision_type_b=None,
+        pre_solve=warehouse_sensor_pre_solve,
+    )
+
+    def portal_sensor_pre_solve(arbiter, space, data):
+        shape_a, shape_b = arbiter.shapes
+        incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_PORTAL else shape_b
+        portal_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_PORTAL else shape_a
+
+        incoming_entity = None
+        portal_entity = None
+
+        for entity in list(entities):
+            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
+                incoming_entity = entity
+            if getattr(entity, 'shape', None) == portal_shape or portal_shape in getattr(entity, 'shapes', []):
+                portal_entity = entity
+
+        if not incoming_entity or not portal_entity:
+            return True
+
+        if getattr(portal_entity, 'variant_key', None) != 'portal' and not getattr(portal_entity, 'variant_key', '').startswith('portal'):
+            return True
+
+        if incoming_entity.uuid == portal_entity.uuid:
+            return True
+
+        # Prevent a ball from triggering the portal if it's already in the transit queue
+        for item in getattr(portal_entity, 'transit_queue', []):
+            if item.get("payload_uuid") == incoming_entity.uuid:
+                return False
+
+        accepted = portal_entity.ingest_payload(incoming_entity, entities)
+        if accepted:
+            return False 
+        return True
+
+    space.on_collision(
+        collision_type_a=constants.COLLISION_TYPE_PORTAL,
+        collision_type_b=None,
+        pre_solve=portal_sensor_pre_solve,
+    )
+
+    def sink_sensor_pre_solve(arbiter, space, data):
         shape_a, shape_b = arbiter.shapes
         incoming_shape = shape_a if shape_b.collision_type == constants.COLLISION_TYPE_SINK_TOP else shape_b
         sink_shape = shape_b if shape_b.collision_type == constants.COLLISION_TYPE_SINK_TOP else shape_a
@@ -779,10 +916,9 @@ def main():
         sink_entity = None
 
         for entity in list(entities):
-            entity_shapes = getattr(entity, 'shapes', [getattr(entity, 'shape', None)])
-            if incoming_shape in entity_shapes:
+            if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
                 incoming_entity = entity
-            if sink_shape in entity_shapes:
+            if getattr(entity, 'shape', None) == sink_shape or sink_shape in getattr(entity, 'shapes', []):
                 sink_entity = entity
 
         if not incoming_entity or not sink_entity:
@@ -800,7 +936,7 @@ def main():
     space.on_collision(
         collision_type_a=constants.COLLISION_TYPE_SINK_TOP,
         collision_type_b=None,
-        begin=sink_sensor_begin,
+        pre_solve=sink_sensor_pre_solve,
     )
     
     grabbed_body = None
@@ -808,6 +944,7 @@ def main():
     game_state["wiring_source"] = None
     game_state["belt_source"] = None 
     signal_queue = []
+    active_signals = [] # Added for visualizing animated pulses along logic wires!
     
     # M25 Phase 6: Drag-to-Trash UX
     trash_can_visible = False
@@ -823,6 +960,7 @@ def main():
             if current_mode == "PLAY":
                 grabbed_body = None
                 space.reindex_static()
+                active_signals.clear() # Reset active visual signals
             prev_mode = current_mode
 
         # 1. Reset hover state for all entities
@@ -847,6 +985,10 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+                
+            # Toggle fullscreen with F11
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_F11:
+                pygame.display.toggle_fullscreen()
                 
             # Phase 4 & 5: Pass events to UIManager first
             if ui_manager.process_event(event):
@@ -1069,13 +1211,53 @@ def main():
                 if hasattr(sender, 'connected_uuids'):
                     for tgt_uuid in sender.connected_uuids:
                         tgt = active_instances.get(tgt_uuid)
-                        if tgt and hasattr(tgt, 'receive_signal'):
-                            tgt.receive_signal(payload=sender)
+                        if tgt:
+                            # Only render visual pulses for LOGIC signals, not physical Portal wormholes!
+                            if not getattr(sender, 'variant_key', '').startswith('portal'):
+                                active_signals.append({
+                                    "sender_uuid": sender.uuid,
+                                    "target_uuid": tgt_uuid,
+                                    "progress": 0.0
+                                })
+                            if hasattr(tgt, 'receive_signal'):
+                                tgt.receive_signal(payload=sender)
+            
+            # Update signal pulses progress
+            alive_signals = []
+            for sig in active_signals:
+                sig["progress"] += constants.PHYSICS_STEP * 3.0 # Speed of pulse (takes ~0.33s to cross wire)
+                if sig["progress"] < 1.0:
+                    alive_signals.append(sig)
+            active_signals = alive_signals
+            
+            # Reset visibility flag for all entities
+            for entity in entities:
+                entity.is_hidden = False
             
             # Process logic updates and ingestions
             for entity in list(entities):
                 if getattr(entity, 'flash_timer', 0) > 0:
                     entity.flash_timer -= 1
+
+                # === NEW: Hold payloads inside processing machines ===
+                if getattr(entity, 'current_payload_uuid', None):
+                    payload = active_instances.get(entity.current_payload_uuid)
+                    if payload and hasattr(payload, 'body') and payload.body:
+                        payload.body.position = entity.body.position
+                        payload.body.velocity = (0, 0)
+                        payload.body.angular_velocity = 0
+                        # HIDE the graphic of the ball while it's inside so the machine sprite is fully visible!
+                        payload.is_hidden = True
+                        
+                # === NEW WAREHOUSE HOLD LOGIC ===
+                if hasattr(entity, 'stored_payload_uuids'):
+                    for puuid in entity.stored_payload_uuids:
+                        payload = active_instances.get(puuid)
+                        if payload and hasattr(payload, 'body') and payload.body:
+                            payload.body.position = entity.body.position
+                            payload.body.velocity = (0, 0)
+                            payload.body.angular_velocity = 0
+                            payload.is_hidden = True
 
                 if getattr(entity, 'floating', False):
                     mass = float(getattr(entity.body, 'mass', 0.0))
@@ -1166,13 +1348,21 @@ def main():
         
         # Draw all entities with camera translation
         for entity in entities:
+            # Determine world position (support both PyMunk bodies and lightweight visual objects)
             if hasattr(entity, 'body') and entity.body:
                 world_x, world_y = entity.body.position.x, entity.body.position.y
-                screen_x, screen_y = camera.world_to_screen(world_x, world_y)
+            elif hasattr(entity, 'x') and hasattr(entity, 'y'):
+                world_x, world_y = entity.x, entity.y
+            else:
+                continue
                 
-                if (-100 < screen_x < constants.WINDOW_WIDTH + 100 and 
-                    -100 < screen_y < constants.WINDOW_HEIGHT + 100):
-                    
+            screen_x, screen_y = camera.world_to_screen(world_x, world_y)
+            
+            if (-100 < screen_x < constants.WINDOW_WIDTH + 100 and 
+                -100 < screen_y < constants.WINDOW_HEIGHT + 100):
+                
+                # ONLY draw the visual sprite if the entity is not currently hidden inside a machine
+                if not getattr(entity, 'is_hidden', False):
                     # Pass active_instances to mechanical parts if they support belts
                     if hasattr(entity, 'connected_belts'):
                         entity.update_visual(screen, camera=camera, active_instances=active_instances)
@@ -1184,24 +1374,24 @@ def main():
                         pygame.draw.circle(screen, (255, 0, 255), (sx, sy), 5)
                         pygame.draw.circle(screen, (0, 0, 0), (sx, sy), 5, 1)
 
-                    # NEW: Display payload visually over the object
-                    if hasattr(entity, 'payload') and entity.payload:
-                        payload_str = str(entity.payload)
-                        if len(payload_str) > 20:
-                            payload_str = payload_str[:17] + "..."
-                        
-                        p_text = small_font.render(payload_str, True, (0, 255, 255))
-                        p_rect = p_text.get_rect(center=(int(screen_x), int(screen_y) - 25))
-                        
-                        # Black transparent background for readability
-                        bg_surf = pygame.Surface((p_rect.width + 8, p_rect.height + 4), pygame.SRCALPHA)
-                        bg_surf.fill((0, 0, 0, 180))
-                        screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
-                        screen.blit(p_text, p_rect)
+                # ALWAYS draw the payload data label above the entity (Even if the ball is hidden!)
+                if hasattr(entity, 'payload') and entity.payload:
+                    payload_str = str(entity.payload)
+                    if len(payload_str) > 20:
+                        payload_str = payload_str[:17] + "..."
+                    
+                    p_text = small_font.render(payload_str, True, (0, 255, 255))
+                    p_rect = p_text.get_rect(center=(int(screen_x), int(screen_y) - 25))
+                    
+                    # Black transparent background for readability
+                    bg_surf = pygame.Surface((p_rect.width + 8, p_rect.height + 4), pygame.SRCALPHA)
+                    bg_surf.fill((0, 0, 0, 180))
+                    screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
+                    screen.blit(p_text, p_rect)
             
             # Logic Wiring Renderer
             if current_mode in ["EDIT", "PLAY", "PAUSE"] or game_state["active_tool"] == "wire_tool":
-                if hasattr(entity, 'connected_uuids') and entity.body:
+                if hasattr(entity, 'connected_uuids') and getattr(entity, 'body', None):
                     world_start_x, world_start_y = entity.body.position.x, entity.body.position.y
                     screen_start = camera.world_to_screen(world_start_x, world_start_y)
                     start_pos = (int(screen_start[0]), int(screen_start[1]))
@@ -1214,27 +1404,60 @@ def main():
                             end_pos = (int(screen_end[0]), int(screen_end[1]))
                             
                             flash = getattr(entity, 'flash_timer', 0)
-                            if flash > 0:
-                                wire_color = (0, 255, 255) 
-                                width = 3
+                            
+                            # Render standard logic wires vs cool purple wormholes!
+                            if getattr(entity, 'variant_key', '').startswith('portal'):
+                                wire_color = (200, 50, 255) if flash > 0 else (100, 20, 150)
+                                width = 4 if flash > 0 else 2
                             else:
-                                wire_color = (255, 255, 0)
-                                if current_mode in ["PLAY", "PAUSE"]:
+                                wire_color = (0, 255, 255) if flash > 0 else (255, 255, 0)
+                                if current_mode in ["PLAY", "PAUSE"] and flash <= 0:
                                     wire_color = (255, 200, 0)
-                                width = 1
+                                width = 3 if flash > 0 else 1
+
+                            # Generate an elegant S-Curve Bezier!
+                            points = [get_wire_curve_point(start_pos, end_pos, i / 25.0) for i in range(26)]
+                            int_points = [(int(p.x), int(p.y)) for p in points]
 
                             if width == 1:
-                                pygame.draw.aaline(screen, wire_color, start_pos, end_pos)
+                                pygame.draw.aalines(screen, wire_color, False, int_points)
                             else:
-                                pygame.draw.line(screen, wire_color, start_pos, end_pos, width)
+                                pygame.draw.lines(screen, wire_color, False, int_points, width)
                                 
-                            direction = pymunk.Vec2d(end_pos[0] - start_pos[0], end_pos[1] - start_pos[1])
-                            if direction.length > 20:
-                                direction = direction.normalized()
-                                arrow_base = (end_pos[0] - int(direction.x * 15), end_pos[1] - int(direction.y * 15))
-                                left_wing = (arrow_base[0] - int(direction.y * 5), arrow_base[1] + int(direction.x * 5))
-                                right_wing = (arrow_base[0] + int(direction.y * 5), arrow_base[1] - int(direction.x * 5))
-                                pygame.draw.polygon(screen, wire_color, [end_pos, left_wing, right_wing])
+                            start_v = pygame.math.Vector2(start_pos)
+                            end_v = pygame.math.Vector2(end_pos)
+                            if start_v.distance_to(end_v) > 20:
+                                direction = points[-1] - points[-2]
+                                if direction.length() > 0:
+                                    direction = direction.normalize()
+                                    arrow_base = points[-1] - direction * 15
+                                    left_wing = arrow_base + pygame.math.Vector2(-direction.y, direction.x) * 5
+                                    right_wing = arrow_base + pygame.math.Vector2(direction.y, -direction.x) * 5
+                                    pygame.draw.polygon(
+                                        screen, 
+                                        wire_color, 
+                                        [(int(points[-1].x), int(points[-1].y)), 
+                                         (int(left_wing.x), int(left_wing.y)), 
+                                         (int(right_wing.x), int(right_wing.y))]
+                                    )
+
+        # ───────────────────────────────────────────────────────────────
+        # LAYER 2.5: Active Signals (Pulses)
+        # ───────────────────────────────────────────────────────────────
+        for sig in active_signals:
+            sender = active_instances.get(sig["sender_uuid"])
+            tgt = active_instances.get(sig["target_uuid"])
+            if sender and tgt and getattr(sender, 'body', None) and getattr(tgt, 'body', None):
+                sx, sy = camera.world_to_screen(sender.body.position.x, sender.body.position.y)
+                ex, ey = camera.world_to_screen(tgt.body.position.x, tgt.body.position.y)
+                
+                # Interpolate along the Bezier curve based on progress!
+                pt = get_wire_curve_point((sx, sy), (ex, ey), sig["progress"])
+                px, py = pt.x, pt.y
+                
+                # Draw the glowing signal pulse!
+                pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) # Outer Glow
+                pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) # Bright Core
 
         # Wiring preview line
         if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
@@ -1243,7 +1466,11 @@ def main():
                 world_start_x, world_start_y = src.body.position.x, src.body.position.y
                 screen_start = camera.world_to_screen(world_start_x, world_start_y)
                 start_x, start_y = int(screen_start[0]), int(screen_start[1])
-                pygame.draw.aaline(screen, (255, 150, 0), (start_x, start_y), m_pos)
+                
+                # Draw curved preview!
+                points = [get_wire_curve_point((start_x, start_y), m_pos, i / 25.0) for i in range(26)]
+                int_points = [(int(p.x), int(p.y)) for p in points]
+                pygame.draw.aalines(screen, (255, 150, 0), False, int_points)
 
         # Belt preview line
         if current_mode == "EDIT" and game_state.get("active_tool") == "belt_tool" and game_state.get("belt_source"):
