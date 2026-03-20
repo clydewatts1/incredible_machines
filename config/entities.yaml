@@ -274,11 +274,11 @@ variants:
     width: 96
     height: 96
     is_static: True
-    active_side: "Top"
-    exit_velocity: 300.0
-    exit_angle: 45.0
+    active_side: "Left"
+    exit_velocity: 150.0
+    exit_angle: 180.0
     emit_interval: 2.0
-    output_variant: "bouncy_ball"  # Emitted entity variant (defaults to bouncy_ball if omitted)
+    output_variant: "payload_ball"  # Emitted entity variant (defaults to bouncy_ball if omitted)
     engine_type: "csv"
     instructions:
       filepath: "data/samples.csv"

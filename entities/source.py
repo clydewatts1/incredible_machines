@@ -37,7 +37,7 @@ class DataSource(GamePart):
     packages payloads, and spawns physics projectiles.
     
     State Machine: OFF -> INITIALIZING -> IDLE -> POLLING -> EMITTING -> IDLE (repeat)
-                   or EXHAUSTED (source empty) or FATAL (error)
+                   or EXHAUSTED (source empty) or FATAL (error) or JAMMED (backpressure)
     """
     
     def __init__(self, space: pymunk.Space, x: float, y: float, variant_name: str = "data_source"):
@@ -88,6 +88,9 @@ class DataSource(GamePart):
         
         # Current fetch state
         self.current_worker_thread = None
+        
+        # M27 Extension: Backpressure & Pipe Integration
+        self.held_payload = None  # Stores a PayloadBallPart if the pipe is full
         
         # Animation & sound
         self._animation_textures = {}
@@ -342,7 +345,15 @@ class DataSource(GamePart):
             entities: World entity list (append new ball).
             active_instances: UUID -> entity map (register new ball).
         """
-        # 1. Compute port position (center of active edge)
+        # 1. Look for a dedicated DataPipePart for logical transit (M27 Extension)
+        pipe = None
+        for entity in entities:
+            if getattr(entity, "variant_key", "") == "data_pipe" and \
+               str(entity.get_property("source_uuid", "")) == str(self.uuid):
+                pipe = entity
+                break
+        
+        # 2. Compute port position (center of active edge)
         width = float(self.get_property("width", 96))
         height = float(self.get_property("height", 96))
         half_w = width / 2.0
@@ -370,7 +381,7 @@ class DataSource(GamePart):
         else:  # Right
             port_x, port_y = fx + half_w, fy
         
-        # 2. Create physics ball using the main router so Custom Parts work
+        # 3. Create physics ball using the main router so Custom Parts work
         output_variant = self.get_property("output_variant", "bouncy_ball")
         try:
             from main import create_part
@@ -384,8 +395,26 @@ class DataSource(GamePart):
         # Bind the flattened payload directly to the newly created ball
         ball.payload = payload
         
-        # 3. Calculate velocity using centralized routing utility
-        # Create a route_rule dict from DataSource properties
+        # --- M27 Extension: Pipe Ingestion Path ---
+        if pipe:
+            self._debug_log(f"Found connected pipe {pipe.uuid}. Attempting ingestion...")
+            accepted = pipe.ingest_payload(ball)
+            if accepted:
+                self._debug_log("Pipe accepted payload. Transitioning to EMITTING.")
+                self._set_state("EMITTING")
+                # Register the ball in dictionaries so it exists in memory, 
+                # though it's hidden and physics-disabled by the pipe.
+                active_instances[ball.uuid] = ball
+                return
+            else:
+                self._debug_log("Pipe FULL. Entering JAMMED state.")
+                self.held_payload = ball
+                self._set_state("JAMMED")
+                active_instances[ball.uuid] = ball
+                return
+
+        # 4. Physical Fallback (if no pipe or pipe ingestion logic skipped)
+        # Calculate velocity using centralized routing utility
         exit_velocity = float(self.get_property("exit_velocity", 150.0))
         exit_angle = float(self.get_property("exit_angle", 0.0))
         route_rule = {"velocity": exit_velocity, "angle": exit_angle}
@@ -402,11 +431,11 @@ class DataSource(GamePart):
         # Apply calculated velocity
         ball.body.velocity = (vx, vy)
         
-        # 4. Add to world
+        # 5. Add to world
         entities.append(ball)
         active_instances[ball.uuid] = ball
         
-        # 5. State transition
+        # 6. State transition
         self._set_state("EMITTING")
     
     def _spawn_fatal_label(self, entities: List[GamePart], reason: str):
@@ -522,3 +551,31 @@ class DataSource(GamePart):
         # Return to IDLE from EMITTING after brief time
         if self.visual_state == "EMITTING":
             self._set_state("IDLE")
+            
+        # --- JAMMED RETRY LOGIC (M27 Extension) ---
+        if self.visual_state == "JAMMED" and self.held_payload:
+            # We must freeze the emit timer
+            self.next_emit_time = current_time + self.emit_interval
+            
+            # Look for the pipe again
+            pipe = None
+            for entity in entities:
+                if getattr(entity, "variant_key", "") == "data_pipe" and \
+                   str(entity.get_property("source_uuid", "")) == str(self.uuid):
+                    pipe = entity
+                    break
+            
+            if pipe:
+                accepted = pipe.ingest_payload(self.held_payload)
+                if accepted:
+                    self._debug_log("JAMMED cleared: Pipe accepted held payload.")
+                    self.held_payload = None
+                    self._set_state("IDLE")
+                # Else: still jammed, we will try again next frame
+            else:
+                # Pipe was deleted/moved? Fallback to physical ejection
+                self._debug_log("JAMMED fallback: Pipe missing. Ejecting physically.")
+                self._emit_ball(self.held_payload.payload, entities, active_instances)
+                self.held_payload.to_delete = True # Cleanup the held reference
+                self.held_payload = None
+                self._set_state("IDLE")

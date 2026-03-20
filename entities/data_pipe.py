@@ -174,15 +174,24 @@ class DataPipePart(GamePart):
         pygame.draw.circle(surface, (255, 255, 255), (mid_x, mid_y), 7, 1)
 
     def cleanup(self):
+        # M27 Extension: Drop payloads at their exact Bezier positions
+        start_pos = self._cached_start_pos or self.body.position
+        end_pos = self._cached_end_pos or self.body.position
+        
         for item in self.transit_queue:
             payload_entity = item.get("entity")
             if payload_entity is None:
                 continue
+                
+            progress = float(item.get("progress", 0.0))
+            # Calculate the exact Bezier point where they were in the pipe
+            drop_point = get_pipe_curve_point(start_pos, end_pos, progress)
+            
             payload_entity.is_hidden = False
             if getattr(payload_entity, "body", None):
                 payload_entity.body.velocity = (0.0, 0.0)
                 payload_entity.body.angular_velocity = 0.0
-                payload_entity.body.position = self.body.position
+                payload_entity.body.position = (drop_point.x, drop_point.y)
 
         self.transit_queue.clear()
         super().cleanup()

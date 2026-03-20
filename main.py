@@ -773,8 +773,16 @@ def main():
                 if game_state["wiring_source"] is None:
                     game_state["wiring_source"] = target_entity
                 elif game_state["wiring_source"] != target_entity:
-                    game_state["wiring_source"].connected_uuids.append(target_entity.uuid)
-                    target_entity.play_event_sound("spawn_sound")
+                    src = game_state["wiring_source"]
+                    if target_entity.uuid in src.connected_uuids:
+                        # M27 Extension: Toggle OFF (Remove Connection)
+                        src.connected_uuids.remove(target_entity.uuid)
+                        sound_manager.play_sound("snap.wav")
+                        target_entity.flash_timer = 20 # Visual red flash indicator
+                    else:
+                        # Standard Connection
+                        src.connected_uuids.append(target_entity.uuid)
+                        target_entity.play_event_sound("spawn_sound")
                     game_state["wiring_source"] = None
                 else:
                     game_state["wiring_source"] = None
