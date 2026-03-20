@@ -26,20 +26,20 @@ class EnvironmentManager:
         self.play_mode_color = tuple(self.config.get("play_mode_color", [0, 255, 0]))
         
         bg_path_relative = self.config.get("background_image", "")
-        bg_path_absolute = os.path.join(os.path.dirname(__file__), '..', bg_path_relative)
-        
         self.background_image = None
-        
-        try:
-            image = pygame.image.load(bg_path_absolute)
-            self.background_image = pygame.transform.smoothscale(
-                image,
-                (self.window_width, self.window_height)
-            )
-        except FileNotFoundError:
-            print(f"FAIL LOUDLY: Background image not found at {bg_path_absolute}. Falling back to solid color.")
-        except Exception as e:
-            print(f"FAIL LOUDLY: Failed to load background image {bg_path_absolute}: {e}. Falling back to solid color.")
+
+        if bg_path_relative:
+            bg_path_absolute = os.path.join(os.path.dirname(__file__), '..', bg_path_relative)
+            try:
+                image = pygame.image.load(bg_path_absolute)
+                self.background_image = pygame.transform.smoothscale(
+                    image,
+                    (self.window_width, self.window_height)
+                )
+            except FileNotFoundError:
+                print(f"FAIL LOUDLY: Background image not found at {bg_path_absolute}. Falling back to solid color.")
+            except Exception as e:
+                print(f"FAIL LOUDLY: Failed to load background image {bg_path_absolute}: {e}. Falling back to solid color.")
 
     def _to_int(self, value, default):
         """Safely convert YAML values to int with fallback."""

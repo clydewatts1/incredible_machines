@@ -33,7 +33,7 @@ THEME_DATA = {
             "hovered_bg": "#00FFFF",
             "selected_bg": "#00FFFF"
         },
-        "font": { "name": "arial", "size": "14" }
+        "font": { "name": "arial", "size": 14 }
     },
     "panel": {
         "colours": {
@@ -75,7 +75,7 @@ THEME_DATA = {
         "colours": { "normal_bg": "#E0E0E0", "container_bg": "#E0E0E0" }
     },
     "#transport_btn": {
-        "font": { "name": "segoeuisymbol", "size": "18" }
+        "font": { "name": "segoeuisymbol", "size": 18 }
     }
 }
 
@@ -89,9 +89,9 @@ class EditorUI:
         self.game_state = game_state
         self.callbacks = callbacks
 
-        # Initialize pygame-gui UIManager
-        self.ui_manager = pygame_gui.UIManager(self.window_size)
-        self.ui_manager.get_theme().load_theme(THEME_DATA)
+        # Initialize pygame-gui UIManager with the correct theme file
+        theme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "theme.json")
+        self.ui_manager = pygame_gui.UIManager(self.window_size, theme_path)
         
         # UI Dimensions
         self.top_h = env_settings["ui_top_height"]
@@ -283,38 +283,73 @@ class EditorUI:
         self.right_container.set_dimensions((self.right_w - 20, self.right_panel.relative_rect.height - new_top - 10))
 
     def rebuild_right_palette(self):
-        """Builds the component scrolling container with tooltips."""
+        """Builds the component palette as icon tiles inside bordered card panels."""
         for el in self.palette_elements:
             el.kill()
         self.palette_elements.clear()
-        
-        gx, gy = 8, 8
-        btn_h = 60
-        btn_w = (self.right_container.relative_rect.width - 24) // 3
-        
+
+        COLS = 3
+        ICON_BTN_SIZE = 56   # Square button containing the icon
+        LABEL_H = 20
+        PAD = 4              # Inner padding inside the card
+        CARD_H = PAD + ICON_BTN_SIZE + 2 + LABEL_H + PAD
+        gx, gy = 6, 8
+        container_w = self.right_container.relative_rect.width
+        card_w = (container_w - (COLS + 1) * gx) // COLS
+
         selected = self.game_state.get("selected_category", "all")
-        variants = [(k, v) for k, v in self.all_variants.items() if selected == "all" or str(v.get("category", "other")).lower() == selected]
-        
+        variants = [(k, v) for k, v in self.all_variants.items()
+                    if selected == "all" or str(v.get("category", "other")).lower() == selected]
+
         for i, (vk, vd) in enumerate(variants):
-            col, row = i % 3, i // 3
-            bx = col * (btn_w + gx)
-            by = row * (btn_h + gy)
-            
-            label = vd.get("label", vk)
+            col, row = i % COLS, i // COLS
+            cx = gx + col * (card_w + gx)
+            cy = gy + row * (CARD_H + gy)
+
+            label_text = vd.get("label", vk)
             desc = vd.get("description", "A factory component.")
-            
-            btn = UIButton(
-                relative_rect=pygame.Rect(bx, by, btn_w, btn_h),
-                text=label[:6] + ".." if len(label) > 8 else label,
+
+            # --- Card panel (the border box) ---
+            card = UIPanel(
+                relative_rect=pygame.Rect(cx, cy, card_w, CARD_H),
                 manager=self.ui_manager,
                 container=self.right_container,
-                tool_tip_text=desc
+                object_id="#palette_card"
             )
-            btn.user_data = vk # Tool variant key
+            self.palette_elements.append(card)
+
+            # Icon button sits inside the card with inner padding
+            btn_w = card_w - 2 * PAD
+            btn = UIButton(
+                relative_rect=pygame.Rect(PAD, PAD, btn_w, ICON_BTN_SIZE),
+                text="",
+                manager=self.ui_manager,
+                container=card,
+                tool_tip_text=f"{label_text}: {desc}",
+                object_id="#palette_btn"
+            )
+            icon_surf = create_icon_surface(vk, vd)
+            if icon_surf:
+                icon_scaled = pygame.transform.smoothscale(icon_surf, (40, 40))
+                btn.set_image(icon_scaled)
+            btn.user_data = vk
             self.palette_elements.append(btn)
 
-        rows = (len(variants) + 2) // 3
-        self.right_container.set_scrollable_area_dimensions((self.right_container.relative_rect.width, rows * (btn_h + gy) + 20))
+            # Label beneath the button inside the card
+            short_label = label_text[:12] if len(label_text) <= 12 else label_text[:11] + "…"
+            lbl = UILabel(
+                relative_rect=pygame.Rect(PAD, PAD + ICON_BTN_SIZE + 2, btn_w, LABEL_H),
+                text=short_label,
+                manager=self.ui_manager,
+                container=card,
+                object_id="#palette_label"
+            )
+            self.palette_elements.append(lbl)
+
+        rows = (len(variants) + COLS - 1) // COLS
+        self.right_container.set_scrollable_area_dimensions(
+            (container_w, rows * (CARD_H + gy) + gy)
+        )
 
     def rebuild_left_inspector(self):
         """Generates dynamic input fields for the selected entity."""
@@ -457,4 +492,21 @@ class EditorUI:
         self.ui_manager.update(time_delta)
 
     def draw(self, surface):
+        # Paint the left panel container background explicitly (UIScrollingContainer
+        # renders on an internal surface that ignores theme colours).
+        PANEL_BG = (224, 224, 224)  # #E0E0E0
+        left_abs = pygame.Rect(
+            self.left_panel.rect.x + 10,
+            self.left_panel.rect.y + 40,
+            self.side_w - 20,
+            self.left_panel.rect.height - 50
+        )
+        pygame.draw.rect(surface, PANEL_BG, left_abs)
+        right_abs = pygame.Rect(
+            self.right_panel.rect.x + 10,
+            self.right_panel.rect.y + 80,
+            self.right_w - 20,
+            self.right_panel.rect.height - 90
+        )
+        pygame.draw.rect(surface, PANEL_BG, right_abs)
         self.ui_manager.draw_ui(surface)

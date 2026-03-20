@@ -90,7 +90,8 @@ class CollisionManager:
         if not incoming_entity or not factory_entity:
             return True
 
-        if getattr(factory_entity, 'variant_key', None) not in ('logic_factory', 'ai_brain'):
+        # M32: duck-type on ingest_payload instead of variant_key whitelist
+        if not hasattr(factory_entity, 'ingest_payload'):
             return True
 
         if incoming_entity.uuid == factory_entity.uuid:
@@ -99,14 +100,18 @@ class CollisionManager:
         if getattr(factory_entity, 'current_payload_uuid', None) == incoming_entity.uuid:
             return False
 
+        # M32: JAMMED guard – if entity is jammed, keep colliding (reject intake)
+        if getattr(factory_entity, 'visual_state', '') == 'JAMMED':
+            return True
+
         if getattr(factory_entity, 'cooldown_timer', 0.0) > 0.0:
             return True
 
         accepted = factory_entity.ingest_payload(incoming_entity)
         if accepted:
-            return False 
+            return False
             
-        return True 
+        return True
 
     def warehouse_sensor_pre_solve(self, arbiter, space, data):
         shape_a, shape_b = arbiter.shapes
@@ -189,7 +194,8 @@ class CollisionManager:
         if not incoming_entity or not sink_entity:
             return True
 
-        if getattr(sink_entity, 'variant_key', '').startswith('data_sink') is False:
+        # M32: duck-type on ingest_payload (supports any FlowEntity sink)
+        if not hasattr(sink_entity, 'ingest_payload'):
             return True
 
         if incoming_entity.uuid == sink_entity.uuid:

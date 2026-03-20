@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 import pygame
 
 import constants
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from entities.floating_label import FloatingTextLabel
 from utils.asset_manager import asset_manager
 from utils.routing import calculate_ejection_kinematics, find_route
@@ -30,105 +30,75 @@ except ImportError:
     AI_AVAILABLE = False
 
 
-class BrainPart(GamePart):
-    """An active processor entity that uses a Local LLM to evaluate payloads."""
+class BrainPart(FlowEntity):
+    """An active processor entity that uses a Local LLM to evaluate payloads.  [M32: inherits FlowEntity]"""
+
+    can_provide_output = True
+    can_accept_input = True
 
     VALID_STATES = {"OFF", "INITIALIZING", "IDLE", "INGESTING", "WRITING", "FATAL", "JAMMED", "COOLDOWN", "PAUSED"}
 
     def __init__(self, space, x, y, property_key):
         super().__init__(space, x, y, property_key)
-        self.visual_state = "OFF"
+        # visual_state, _is_destroyed, is_paused, signal_received, signal_state,
+        # needs_broadcast, cooldown_timer, _animation_textures are all set by FlowEntity.__init__
         self.queue = queue.Queue()
-        self._is_destroyed = False
-        self.cooldown_timer = 0.0
         self.current_payload_uuid: Optional[str] = None
         
-        # --- Pause & Signal State ---
-        self.is_paused = False
-        self.signal_received = False
-        self.signal_state = None
-
         # --- Explicitly register defaults for the Save/Load system ---
         self.properties.setdefault("model", "llama3.1")
         self.properties.setdefault("system_prompt", "Analyze the payload data. Determine its routing state.")
         self.properties.setdefault("routing", [])
-        
-        # New I/O and Lifecycle Defaults
-        self.properties.setdefault("input_side", "top")    # top, left, right
-        self.properties.setdefault("output_side", "right") # top, left, right, bottom
-        self.properties.setdefault("cost_modifier", -10.0) # Energy cost per thought
-        
+        self.properties.setdefault("input_side", "top")
+        self.properties.setdefault("output_side", "right")
+        self.properties.setdefault("cost_modifier", -10.0)
         self.properties.setdefault("tired_velocity", 150.0)
         self.properties.setdefault("shoot_speed", 250.0)
         self.properties.setdefault("target", "")
         self.properties.setdefault("width", 96.0)
         self.properties.setdefault("height", 96.0)
 
-        self._create_default_visuals()
-
-        self._animation_textures = {}
-        self._load_animation_textures()
-        
         self._set_state("INITIALIZING")
         self._set_state("IDLE")
 
-    def _create_default_visuals(self):
-        """Creates a fallback UI icon if missing, but respects existing realistic sprites."""
-        pass
+    # Inherited from FlowEntity: _set_state, draw,
+    #                             receive_signal, broadcast_status, _process_incoming_signal
 
     def _load_animation_textures(self):
-        """Loads animation frames, gracefully falling back to the IDLE sprite if missing."""
+        """
+        Override: inject default ai_brain sprite names when YAML `animations` is absent.
+        FlowEntity._load_animation_textures handles the actual loading and procedural fallback.
+        """
+        from utils.sprite_manager import sprite_manager
         animations = self.get_property("animations", {})
-        
         if not isinstance(animations, dict) or not animations:
+            # Hardcoded defaults for ai_brain sprites
             animations = {
-                "OFF": "ai_brain_off",
+                "OFF":          "ai_brain_off",
                 "INITIALIZING": "ai_brain_initializing",
-                "IDLE": "ai_brain_idle",
-                "INGESTING": "ai_brain_ingesting",
-                "WRITING": "ai_brain_writing",
-                "FATAL": "ai_brain_fatal",
-                "JAMMED": "ai_brain_jammed",
-                "COOLDOWN": "ai_brain_cooldown",
-                "PAUSED": "ai_brain_paused"
+                "IDLE":         "ai_brain_idle",
+                "INGESTING":    "ai_brain_ingesting",
+                "WRITING":      "ai_brain_writing",
+                "FATAL":        "ai_brain_fatal",
+                "JAMMED":       "ai_brain_jammed",
+                "COOLDOWN":     "ai_brain_cooldown",
+                "PAUSED":       "ai_brain_paused",
             }
-
-        width = int(float(self.get_property("width", 96)))
+        width  = int(float(self.get_property("width",  96)))
         height = int(float(self.get_property("height", 96)))
-
         for state_name, base_name in animations.items():
-            self._animation_textures[state_name] = sprite_manager.get_sprite(
-                base_name, width, height, label=f"Brain {state_name}"
-            )
+            surf = sprite_manager.get_sprite(base_name, width, height, label=f"Brain {state_name}")
+            if surf is None:
+                surf = self._make_procedural_fallback(width, height, state_name)
+            self._animation_textures[state_name] = surf
 
     def receive_signal(self, payload):
-        """Called by the main loop when another object (like a Warehouse) sends a logic pulse."""
-        if hasattr(payload, "visual_state"):
-            self.signal_state = payload.visual_state
-            self.signal_received = True
+        """Delegate to FlowEntity; also handles SmartSplitter dict feedback."""
+        super().receive_signal(payload)
 
     def _set_state(self, new_state: str):
-        if new_state not in self.VALID_STATES:
-            return
-
-        old_state = self.visual_state
-        self.visual_state = new_state
-        
-        if old_state != new_state and (new_state == "WRITING" or old_state == "WRITING"):
-            self.cooldown_timer = max(self.cooldown_timer, constants.FACTORY_COOLDOWN_SECONDS)
-            
-        if old_state != new_state:
-            sounds = self.get_property("sounds", {})
-            if isinstance(sounds, dict):
-                sound_file = sounds.get(new_state)
-                if sound_file:
-                    try:
-                        sound_manager.play_sound(sound_file)
-                    except Exception:
-                        pass
-            
-            # Broadcast state changes out to connected components!
-            self.needs_broadcast = True
+        """Override to trigger cooldown on WRITING transitions."""
+        super()._set_state(new_state)
 
     def is_in_cooldown(self) -> bool:
         return self.cooldown_timer > 0.0
@@ -267,80 +237,12 @@ class BrainPart(GamePart):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
 
-    def _find_matching_pipe_for_state(self, entities: List[GamePart], route_state: float):
-        for entity in entities:
-            if getattr(entity, "variant_key", "") != "data_pipe":
-                continue
-
-            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
-                continue
-
-            try:
-                pipe_state = float(entity.get_property("route_state", 10.0))
-            except (TypeError, ValueError):
-                continue
-
-            if abs(pipe_state - float(route_state)) <= 1e-6:
-                return entity
-
-        return None
-
-    def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, entities: Optional[List[GamePart]] = None):
-        default_angles = {
-            "right": 0.0,
-            "top": 90.0,
-            "left": 180.0,
-            "bottom": 270.0,
-        }
-        default_angle = default_angles.get(edge, 0.0)
-        if edge == "bottom":
-            tired_velocity = float(self.get_property("tired_velocity", 150.0))
-            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-                self,
-                edge,
-                route_rule,
-                tired_velocity,
-                default_angle,
-                entities,
-            )
-        else:
-            effective_route_rule = dict(route_rule or {})
-            if not effective_route_rule.get("target") and self.connected_uuids:
-                effective_route_rule["target"] = self.connected_uuids[0]
-            shoot_speed = float(self.get_property("shoot_speed", 250.0))
-            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-                self,
-                edge,
-                effective_route_rule,
-                shoot_speed,
-                default_angle,
-                entities,
-            )
-
-        payload_entity.body.position = (eject_x, eject_y)
-        payload_entity.body.velocity = (vx, vy)
-            
-        self._set_state("WRITING")
+    # Removed: _find_matching_pipe_for_state — superseded by resolve_exit_path (FlowEntity)
+    # Removed: _eject_payload — superseded by resolve_exit_path (FlowEntity)
 
     def draw(self, surface, camera=None):
-        state_texture = self._animation_textures.get(self.visual_state)
-        if state_texture is not None:
-            old_texture = self.base_texture
-            self.base_texture = state_texture
-            super().draw(surface, camera=camera)
-            self.base_texture = old_texture
-        else:
-            super().draw(surface, camera=camera)
-            
-        # --- NEW UX: Draw visual Pause symbol! ---
-        if getattr(self, 'is_paused', False) and self.body:
-            if camera:
-                screen_x, screen_y = camera.world_to_screen(self.body.position.x, self.body.position.y)
-            else:
-                screen_x, screen_y = self.body.position.x, self.body.position.y
-                
-            pygame.draw.rect(surface, (255, 200, 0), (screen_x - 8, screen_y - 20, 5, 15), border_radius=1)
-            pygame.draw.rect(surface, (255, 200, 0), (screen_x + 3, screen_y - 20, 5, 15), border_radius=1)
+        """Delegate to FlowEntity (state texture + pause icon)."""
+        super().draw(surface, camera=camera)
 
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]):
         if self._is_destroyed:
@@ -377,56 +279,38 @@ class BrainPart(GamePart):
                     payload_entity.payload["data"] = {}
                 payload_entity.payload["data"].update(injected_data)
 
-            route_rule = find_route(route_state, self.get_property("routing", []))
-            
-            if route_rule is None:
-                self._set_state("FATAL")
-                self._spawn_fatal_label(entities, f"fatal: no route for state {route_state}")
+            # M32: Use resolve_exit_path instead of manual pipe search + _eject_payload
+            exit_result = self.resolve_exit_path(
+                payload_entity, route_state, entities, active_instances
+            )
+            if exit_result == "pipe":
                 self.current_payload_uuid = None
-                self._eject_payload(payload_entity, edge="bottom", entities=entities)
-                continue
-
-            matching_pipe = self._find_matching_pipe_for_state(entities, route_state)
-            if matching_pipe is not None:
-                accepted = bool(matching_pipe.ingest_payload(payload_entity))
-                if accepted:
-                    self.current_payload_uuid = None
-                    self._set_state("IDLE")
-                    continue
-
+                self._set_state("IDLE")
+            elif exit_result == "jammed":
                 self._set_state("JAMMED")
                 self.current_payload_uuid = payload_entity.uuid
                 self.queue.put(result_data)
                 break
-            
-            output_side = str(route_rule.get("output_side", self.get_property("output_side", "right"))).lower()
-            self.current_payload_uuid = None
-            self._eject_payload(payload_entity, edge=output_side, route_rule=route_rule, entities=entities)
+            else:  # ejected
+                self.current_payload_uuid = None
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
         if game_state.get("mode") != "PLAY":
             return
 
-        # --- SIGNAL BROADCAST ---
-        if getattr(self, 'needs_broadcast', False):
+        # --- SIGNAL BROADCAST (M32: use inherited broadcast_status) ---
+        if self.needs_broadcast:
             self.needs_broadcast = False
-            for tgt_uuid in self.connected_uuids:
-                tgt = active_instances.get(tgt_uuid)
-                if tgt and hasattr(tgt, 'receive_signal'):
-                    tgt.receive_signal(self)
+            self.broadcast_status(active_instances or {})
 
-        # --- PROCESS SIGNALS (Warehouse Flow Control) ---
-        if self.signal_received:
-            self.signal_received = False
-            if self.signal_state == "FULL":
-                self.is_paused = True
-                if self.visual_state == "IDLE":
-                    self._set_state("PAUSED")
-            elif self.signal_state in ["IDLE", "OFF"]:
-                self.is_paused = False
-                if self.visual_state == "PAUSED":
-                    self._set_state("IDLE")
+        # --- PROCESS SIGNALS (M32: use inherited _process_incoming_signal) ---
+        self._process_incoming_signal()
+        if self.is_paused and self.visual_state == "IDLE":
+            self._set_state("PAUSED")
+        elif not self.is_paused and self.visual_state == "PAUSED":
+            self._set_state("IDLE")
 
+        # Cooldown tick
         if self.cooldown_timer > 0.0:
             self.cooldown_timer = max(0.0, self.cooldown_timer - dt)
             if self.cooldown_timer > 0.0:
@@ -434,8 +318,8 @@ class BrainPart(GamePart):
             elif self.visual_state == "COOLDOWN":
                 self._set_state("IDLE")
 
-        # Keep state accurate so downstream polling works
-        if getattr(self, 'is_paused', False) and self.visual_state not in {"INGESTING", "FATAL", "JAMMED", "COOLDOWN"}:
+        # Keep state accurate
+        if self.is_paused and self.visual_state not in {"INGESTING", "FATAL", "JAMMED", "COOLDOWN"}:
             self._set_state("PAUSED")
-        elif not getattr(self, 'is_paused', False) and self.visual_state not in {"INGESTING", "FATAL", "JAMMED", "COOLDOWN", "PAUSED"}:
+        elif not self.is_paused and self.visual_state not in {"INGESTING", "FATAL", "JAMMED", "COOLDOWN", "PAUSED"}:
             self._set_state("IDLE")

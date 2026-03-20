@@ -17,15 +17,17 @@ import pymunk
 
 import constants
 from entities.floating_label import FloatingTextLabel
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
 from utils.exporters import get_exporter
 from utils.sound_manager import sound_manager
 
 
-class DataSink(GamePart):
-    """Asynchronous sink node for external data egestion."""
+class DataSink(FlowEntity):
+    """Asynchronous sink node for external data egestion.  [M32: inherits FlowEntity]"""
+
+    can_accept_input = True
 
     VALID_STATES = {"OFF", "INITIALIZING", "IDLE", "INGESTING", "WRITING", "FATAL"}
 
@@ -43,7 +45,6 @@ class DataSink(GamePart):
         self.queue: queue.Queue = queue.Queue()
         self.result_queue: queue.Queue = queue.Queue()
 
-        self.visual_state = "OFF"
         self._is_destroyed = False
         self._flush_requested = False
         self._accept_ingestion = True
@@ -64,50 +65,26 @@ class DataSink(GamePart):
 
         self._processed_entity_uuids = set()
 
-        self._animation_textures = {}
-        self._load_animation_textures()
+        # Animation textures loaded by FlowEntity.__init__ via _load_animation_textures()
 
         self._set_state("INITIALIZING")
 
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
 
-    def _load_animation_textures(self) -> None:
-        animations = self.get_property("animations", {})
-        if not isinstance(animations, dict):
-            return
-
-        width = int(float(self.get_property("width", 96)))
-        height = int(float(self.get_property("height", 96)))
-
-        for state_name, sprite_name in animations.items():
-            self._animation_textures[state_name] = sprite_manager.get_sprite(
-                sprite_name, width, height, label=f"DataSink {state_name}"
-            )
+    # Inherited from FlowEntity: _load_animation_textures, draw
 
     def _set_state(self, new_state: str) -> None:
+        """Override adds INGESTING cooldown check on top of FlowEntity._set_state."""
         if new_state not in self.VALID_STATES:
             return
-
         if new_state == "INGESTING":
             now = time.time()
             if (now - self._last_ingest_state_time) < constants.SINK_INGEST_STATE_COOLDOWN:
                 return
             self._last_ingest_state_time = now
+        super()._set_state(new_state)
 
-        old_state = self.visual_state
-        if old_state == new_state:
-            return
-
-        self.visual_state = new_state
-        sounds = self.get_property("sounds", {})
-        if isinstance(sounds, dict):
-            sound_file = sounds.get(new_state)
-            if sound_file:
-                try:
-                    sound_manager.play_sound(sound_file)
-                except Exception:
-                    pass
 
     def _spawn_fatal_label(self, entities: List[GamePart], reason: str) -> None:
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
@@ -307,13 +284,7 @@ class DataSink(GamePart):
         self.cleanup()
 
     def draw(self, surface, camera=None) -> None:
-        state_texture = self._animation_textures.get(self.visual_state)
-        if state_texture is not None:
-            old_texture = self.base_texture
-            self.base_texture = state_texture
-            self.draw_texture(surface, camera=camera)
-            self.base_texture = old_texture
-            return
+        """Delegate to FlowEntity state-based rendering."""
         super().draw(surface, camera=camera)
 
     def update_logic(self, dt: float, game_state: Dict[str, Any], entities: List[GamePart], active_instances: Optional[Dict[str, GamePart]] = None):

@@ -20,7 +20,7 @@ from typing import Optional, Dict, Any, List
 import pygame
 import pymunk
 
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from entities.floating_label import FloatingTextLabel
 from utils.generators import get_generator, GeneratorExhausted
 from utils.routing import calculate_ejection_kinematics
@@ -29,9 +29,9 @@ from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
 
 
-class DataSource(GamePart):
+class DataSource(FlowEntity):
     """
-    M23 Data Source entity.
+    M23 Data Source entity  [M32: now inherits FlowEntity]
     
     Pulls data from external sources (CSV, MCP) via background worker threads,
     packages payloads, and spawns physics projectiles.
@@ -39,6 +39,8 @@ class DataSource(GamePart):
     State Machine: OFF -> INITIALIZING -> IDLE -> POLLING -> EMITTING -> IDLE (repeat)
                    or EXHAUSTED (source empty) or FATAL (error) or JAMMED (backpressure)
     """
+
+    can_provide_output = True
     
     def __init__(self, space: pymunk.Space, x: float, y: float, variant_name: str = "data_source"):
         """
@@ -68,14 +70,8 @@ class DataSource(GamePart):
         # Thread-safe queue for generator results
         self.queue = queue.Queue()
         
-        # Lifecycle state
-        self.visual_state = "OFF"
-        self._is_destroyed = False
-        
         # Pause & Signal State
         self.is_paused = str(self.get_property("start_paused", "False")).lower() == "true"
-        self.signal_received = False
-        self.signal_state = None
         
         # Timing
         self.next_emit_time = time.time()
@@ -91,16 +87,10 @@ class DataSource(GamePart):
         
         # M27 Extension: Backpressure & Pipe Integration
         self.held_payload = None  # Stores a PayloadBallPart if the pipe is full
-        
-        # Animation & sound
-        self._animation_textures = {}
-        self._load_animation_textures()
 
     def receive_signal(self, payload):
-        """Called by the main loop when another object (like a Warehouse) sends a logic pulse."""
-        if hasattr(payload, "visual_state"):
-            self.signal_state = payload.visual_state
-            self.signal_received = True
+        """Delegate to FlowEntity standard handler."""
+        super().receive_signal(payload)
 
     def _debug_enabled(self) -> bool:
         return bool(self.instructions.get("debug", False))
@@ -109,47 +99,12 @@ class DataSource(GamePart):
         if self._debug_enabled():
             print(f"[DataSource:{self.variant_key}:{self.uuid[:8]}] {message}")
     
-    def _load_animation_textures(self):
-        """
-        Load state-specific texture images from assets/sprites.
-        Uses asset_manager to handle missing files gracefully.
-        """
-        animations = self.get_property("animations", {})
-        if not isinstance(animations, dict):
-            return
-        
-        width = int(float(self.get_property("width", 96)))
-        height = int(float(self.get_property("height", 96)))
-        
-        for state_name, sprite_name in animations.items():
-            self._animation_textures[state_name] = sprite_manager.get_sprite(
-                sprite_name, width, height, label=f"DataSource {state_name}"
-            )
+    # Inherited from FlowEntity: _load_animation_textures, _set_state, draw
 
     def _set_state(self, new_state: str):
-        """
-        Transition to a new state.
-        Updates visual_state and triggers audio/animation updates.
-        
-        Args:
-            new_state: One of OFF, INITIALIZING, IDLE, POLLING, EMITTING, EXHAUSTED, FATAL.
-        """
-        old_state = self.visual_state
-        self.visual_state = new_state
-        self._debug_log(f"State change: {old_state} -> {new_state}")
-        
-        # Play state transition sound (if configured)
-        sounds = self.get_property("sounds", {})
-        sound_file = sounds.get(new_state)
-        
-        if sound_file:
-            try:
-                # Use game's sound manager (M6 integration)
-                from utils.sound_manager import sound_manager
-                sound_manager.play_sound(sound_file)
-            except Exception:
-                # Silent fail: missing sound file is non-fatal
-                pass
+        """Override to also update emit_interval from properties on each state change."""
+        super()._set_state(new_state)
+
     
     def _initialize_engine(self):
         """
@@ -455,35 +410,8 @@ class DataSource(GamePart):
         entities.append(label)
     
     def draw(self, surface, camera=None):
-        """
-        Draw the DataSource with state-specific texture.
-        Falls back to default sprite if no state texture is available.
-        
-        Args:
-            surface: Pygame surface to draw on.
-            camera: Optional camera for coordinate translation.
-        """
-        state_texture = self._animation_textures.get(self.visual_state)
-        if state_texture is not None:
-            # Temporarily replace base_texture to use state-specific sprite
-            old_texture = self.base_texture
-            self.base_texture = state_texture
-            self.draw_texture(surface, camera=camera)
-            self.base_texture = old_texture
-        else:
-            # Fallback to default sprite if no state texture
-            super().draw(surface, camera=camera)
-            
-        # --- NEW UX: Draw a visual Pause symbol when paused! ---
-        if getattr(self, 'is_paused', False) and self.body:
-            if camera:
-                screen_x, screen_y = camera.world_to_screen(self.body.position.x, self.body.position.y)
-            else:
-                screen_x, screen_y = self.body.position.x, self.body.position.y
-                
-            # Draw yellow "||" pause bars above the center
-            pygame.draw.rect(surface, (255, 200, 0), (screen_x - 8, screen_y - 20, 5, 15), border_radius=1)
-            pygame.draw.rect(surface, (255, 200, 0), (screen_x + 3, screen_y - 20, 5, 15), border_radius=1)
+        """Delegate state-based rendering to FlowEntity, then draw pause icon."""
+        super().draw(surface, camera=camera)
     
     def update_logic(self, dt: float, game_state: Dict[str, Any], entities: List[GamePart], active_instances: Dict[str, GamePart] = None):
         """
@@ -509,14 +437,13 @@ class DataSource(GamePart):
         current_time = time.time()
         
         # --- PROCESS SIGNALS (Warehouse Flow Control) ---
-        if self.signal_received:
-            self.signal_received = False
-            if self.signal_state == "FULL":
-                self.is_paused = True
-            elif self.signal_state in ["IDLE", "OFF"]:
-                self.is_paused = False
-                # Re-sync the timer so it doesn't instantly burst out multiple balls!
-                self.next_emit_time = current_time + self.emit_interval
+        self._process_incoming_signal()
+        if self.signal_state == "FULL":
+            self.is_paused = True
+        elif self.signal_state in ["IDLE", "OFF"] and self.signal_state is not None:
+            self.is_paused = False
+            self.next_emit_time = current_time + self.emit_interval
+        self.signal_state = None  # consume
 
         # Apply Pause Logic (Fixes the Deadlock!)
         if self.is_paused:

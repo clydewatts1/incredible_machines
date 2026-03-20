@@ -916,7 +916,7 @@ def main():
         world_screen_top = int(-camera.offset_y)
         world_screen_right = int(world_width - camera.offset_x)
         world_screen_bottom = int(world_height - camera.offset_y)
-        void_color = (85, 85, 85)
+        void_color = (224, 224, 224)
 
         if world_screen_left > 0:
             pygame.draw.rect(screen, void_color, pygame.Rect(0, 0, world_screen_left, window_height))

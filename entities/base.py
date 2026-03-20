@@ -340,6 +340,14 @@ class GamePart:
             return self.overrides[key]
         return self.properties.get(key, default)
 
+    def cleanup(self):
+        """Base no-op cleanup. Subclasses should call super().cleanup() to support MRO chaining."""
+        pass
+
+    def destroy(self):
+        """Alias for cleanup(). Subclasses may override."""
+        self.cleanup()
+
     def apply_draft_overrides(self, new_dict):
         """
         Applies a dictionary of drafted overrides.
@@ -442,3 +450,332 @@ class GamePart:
                     if active_instances is not None:
                         active_instances[new_part.uuid] = new_part
                     self.play_event_sound("spawn_sound")
+
+
+# ---------------------------------------------------------------------------
+#  M32: FlowEntity – Unified Base for all I/O and Processing Nodes
+# ---------------------------------------------------------------------------
+
+class FlowEntity(GamePart):
+    """
+    M32: Unified base class for DataSource, DataSink, BrainPart and future nodes.
+
+    Centralises:
+    - Sprite-based animation state machine with procedural fallback.
+    - Pause icon rendering.
+    - Standardised receive_signal / broadcast_status.
+    - refresh_parameters hook for runtime property updates.
+    - resolve_exit_path for Pipe-first / Vector-fallback / Error-default routing.
+    - Shared queue + _is_destroyed guard + cleanup().
+    """
+
+    # Subclasses should override these class-level flags.
+    can_provide_output: bool = False
+    can_accept_input: bool = False
+
+    # Valid state names — subclasses may extend.
+    VALID_STATES = {
+        "OFF", "INITIALIZING", "IDLE",
+        "INGESTING", "WRITING", "FATAL",
+        "JAMMED", "COOLDOWN", "PAUSED", "EXHAUSTED",
+        "POLLING", "EMITTING",
+    }
+
+    def __init__(self, space, x, y, property_key):
+        super().__init__(space, x, y, property_key)
+
+        # --- Lifecycle ---
+        self.visual_state: str = "OFF"
+        self._is_destroyed: bool = False
+
+        # --- Pause / Signal ---
+        self.is_paused: bool = False
+        self.signal_received: bool = False
+        self.signal_state = None
+        self.needs_broadcast: bool = False
+
+        # --- Cooldown ---
+        self.cooldown_timer: float = 0.0
+
+        # --- Animation ---
+        self._animation_textures: dict = {}
+        self._load_animation_textures()
+
+    # ------------------------------------------------------------------ #
+    #  Animation
+    # ------------------------------------------------------------------ #
+
+    def _load_animation_textures(self):
+        """
+        Load state-specific textures from YAML `animations` mapping.
+        Missing sprites fall back to a procedural surface (grey box + state label).
+        """
+        from utils.sprite_manager import sprite_manager
+
+        animations = self.get_property("animations", {})
+        if not isinstance(animations, dict):
+            return
+
+        width  = int(float(self.get_property("width",  96)))
+        height = int(float(self.get_property("height", 96)))
+
+        for state_name, sprite_name in animations.items():
+            surf = sprite_manager.get_sprite(
+                sprite_name, width, height,
+                label=f"{self.__class__.__name__} {state_name}"
+            )
+            if surf is None:
+                surf = self._make_procedural_fallback(width, height, state_name)
+            self._animation_textures[state_name] = surf
+
+    def _make_procedural_fallback(self, width: int, height: int, state_name: str) -> pygame.Surface:
+        """
+        Render a Light Gray (#E0E0E0) surface with a 1px Black border
+        and the state name centred in Black text.
+        """
+        surf = pygame.Surface((width, height), pygame.SRCALPHA)
+        surf.fill((224, 224, 224))                               # Light gray
+        pygame.draw.rect(surf, (0, 0, 0), surf.get_rect(), 1)  # 1px black border
+        font = pygame.font.SysFont("arial", max(9, height // 7))
+        label_surf = font.render(state_name, True, (0, 0, 0))
+        label_rect = label_surf.get_rect(center=(width // 2, height // 2))
+        surf.blit(label_surf, label_rect)
+        return surf
+
+    def _set_state(self, new_state: str):
+        """
+        Transition to a new visual state.
+        Plays config-defined state sounds and sets the broadcast flag.
+        """
+        if new_state not in self.VALID_STATES:
+            return
+        if new_state == self.visual_state:
+            return
+
+        old_state = self.visual_state
+        self.visual_state = new_state
+
+        # Cooldown on WRITING exit/entry (matches original Brain/Factory behaviour)
+        if "WRITING" in (old_state, new_state):
+            self.cooldown_timer = max(
+                self.cooldown_timer,
+                getattr(import_constants(), "FACTORY_COOLDOWN_SECONDS",
+                        getattr(__import__("constants"), "FACTORY_COOLDOWN_SECONDS", 0.5))
+            )
+
+        # Sound
+        sounds = self.get_property("sounds", {})
+        if isinstance(sounds, dict):
+            sound_file = sounds.get(new_state)
+            if sound_file:
+                try:
+                    sound_manager.play_sound(sound_file)
+                except Exception:
+                    pass
+
+        # Signal broadcast flag
+        self.needs_broadcast = True
+
+    def is_in_cooldown(self) -> bool:
+        return self.cooldown_timer > 0.0
+
+    def draw(self, surface, camera=None, **kwargs):
+        """
+        Renders state-specific texture if available; otherwise delegates to
+        the parent draw_texture method (base sprite).
+        Also renders the pause ‖ icon when self.is_paused is True.
+        """
+        state_texture = self._animation_textures.get(self.visual_state)
+        if state_texture is not None:
+            old_texture = self.base_texture
+            self.base_texture = state_texture
+            self.draw_texture(surface, camera=camera)
+            self.base_texture = old_texture
+        else:
+            super().draw(surface, camera=camera)
+
+        # Pause icon overlay
+        if self.is_paused and self.body:
+            if camera:
+                sx, sy = camera.world_to_screen(self.body.position.x, self.body.position.y)
+            else:
+                sx, sy = self.body.position.x, self.body.position.y
+            pygame.draw.rect(surface, (255, 200, 0), (sx - 8, sy - 20, 5, 15), border_radius=1)
+            pygame.draw.rect(surface, (255, 200, 0), (sx + 3, sy - 20, 5, 15), border_radius=1)
+
+    # ------------------------------------------------------------------ #
+    #  Signalling
+    # ------------------------------------------------------------------ #
+
+    def receive_signal(self, payload):
+        """
+        Standardised handler for backpressure/flow-control signals.
+        Reads `payload.visual_state` (or a raw dict with key 'feedback').
+        """
+        if hasattr(payload, "visual_state"):
+            self.signal_state = payload.visual_state
+            self.signal_received = True
+        elif isinstance(payload, dict) and "feedback" in payload:
+            # Duck-type: SmartSplitter feedback dicts pass through unchanged.
+            pass
+
+    def broadcast_status(self, active_instances: dict):
+        """
+        Notifies all connected entities of the current visual_state
+        by calling their receive_signal(self).
+        """
+        for tgt_uuid in self.connected_uuids:
+            tgt = active_instances.get(tgt_uuid)
+            if tgt and hasattr(tgt, "receive_signal"):
+                tgt.receive_signal(self)
+
+    def _process_incoming_signal(self):
+        """
+        Consume a pending signal and apply pause/resume logic.
+        Call this at the top of update_logic() in subclasses.
+        """
+        if not self.signal_received:
+            return
+        self.signal_received = False
+        if self.signal_state == "FULL":
+            self.is_paused = True
+        elif self.signal_state in ("IDLE", "OFF"):
+            self.is_paused = False
+
+    # ------------------------------------------------------------------ #
+    #  Parameter Refresh Hook  (M32 stigmergic optimization support)
+    # ------------------------------------------------------------------ #
+
+    def refresh_parameters(self, updates_dict: dict):
+        """
+        Merge new property values into self.properties at runtime.
+        Delegates to apply_draft_overrides for physics re-calc.
+        """
+        for k, v in updates_dict.items():
+            self.properties[k] = v
+        self.apply_draft_overrides(updates_dict)
+
+    # ------------------------------------------------------------------ #
+    #  Hybrid Routing  –  resolve_exit_path  (The Zero Rule)
+    # ------------------------------------------------------------------ #
+
+    def resolve_exit_path(
+        self,
+        payload_entity,
+        state_result,
+        entities: list,
+        active_instances: dict = None,
+    ) -> str:
+        """
+        M32: Unified exit-path resolver with the Zero Rule.
+
+        State Normalisation:
+          If state_result <= 0, treat as error: search_state = 0.
+
+        Precedence (for BOTH normal and error paths):
+          1. Error/Matched Pipe – DataPipePart with source_uuid==self.uuid and
+             route_state == search_state. If full → JAMMED.
+          2. Explicit Rule – routing entry whose max_state == search_state.
+             Uses its velocity / angle / output_side.
+          3. Hard Exit (error default) – eject from "bottom" at tired_velocity,
+             set FATAL state.
+
+        Returns:
+            "pipe"    – payload handed to pipe; caller must NOT touch physics.
+            "ejected" – payload physically moved; caller should clear payload_uuid.
+            "jammed"  – pipe found but full; caller should set JAMMED and retry.
+        """
+        from utils.routing import find_route, calculate_ejection_kinematics
+
+        # ── Zero Rule: normalise ──────────────────────────────────────────
+        raw = float(state_result)
+        is_error = raw <= 0
+        search_state = 0.0 if is_error else raw
+
+        # ── 1. Pipe First ─────────────────────────────────────────────────
+        matching_pipe = None
+        for entity in entities:
+            if getattr(entity, "variant_key", "") != "data_pipe":
+                continue
+            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
+                continue
+            try:
+                pipe_state = float(entity.get_property("route_state", -999))
+            except (TypeError, ValueError):
+                continue
+            if abs(pipe_state - search_state) <= 1e-6:
+                matching_pipe = entity
+                break
+
+        if matching_pipe is not None:
+            accepted = bool(matching_pipe.ingest_payload(payload_entity))
+            if accepted:
+                if is_error:
+                    self._set_state("FATAL")
+                return "pipe"
+            return "jammed"
+
+        # ── 2. Explicit Rule ──────────────────────────────────────────────
+        routing_rules = self.get_property("routing", [])
+        route_rule = find_route(search_state, routing_rules)
+
+        if route_rule is not None:
+            output_side = str(
+                route_rule.get("output_side", self.get_property("output_side", "right"))
+            ).lower()
+            shoot_speed  = float(self.get_property("shoot_speed", 250.0))
+            tired_velocity = float(self.get_property("tired_velocity", 150.0))
+            velocity = shoot_speed if output_side != "bottom" else tired_velocity
+
+            default_angles = {"right": 0.0, "top": 90.0, "left": 180.0, "bottom": 270.0}
+            default_angle  = default_angles.get(output_side, 0.0)
+
+            eff_rule = dict(route_rule)
+            if not eff_rule.get("target") and self.connected_uuids:
+                eff_rule["target"] = self.connected_uuids[0]
+
+            (ex, ey), (vx, vy) = calculate_ejection_kinematics(
+                self, output_side, eff_rule, velocity, default_angle, entities
+            )
+            payload_entity.body.position = (ex, ey)
+            payload_entity.body.velocity = (vx, vy)
+            if is_error:
+                self._set_state("FATAL")
+            else:
+                self._set_state("WRITING")
+            return "ejected"
+
+        # ── 3. Hard Exit (error default) ──────────────────────────────────
+        tired_velocity = float(self.get_property("tired_velocity", 150.0))
+        (ex, ey), (vx, vy) = calculate_ejection_kinematics(
+            self, "bottom", None, tired_velocity, 270.0, entities
+        )
+        payload_entity.body.position = (ex, ey)
+        payload_entity.body.velocity = (vx, vy)
+        # Always enter FATAL on a hard exit — no pipe, no rule
+        self._set_state("FATAL")
+        return "ejected"
+
+    # ------------------------------------------------------------------ #
+    #  Shared cleanup
+    # ------------------------------------------------------------------ #
+
+    def cleanup(self):
+        """Mark destroyed and drain the work queue if one exists."""
+        self._is_destroyed = True
+        q = getattr(self, "queue", None)
+        if q is not None:
+            while not q.empty():
+                try:
+                    q.get_nowait()
+                except Exception:
+                    break
+
+    def destroy(self):
+        self.cleanup()
+
+
+def import_constants():
+    """Lazy import helper used inside FlowEntity._set_state."""
+    import constants as _c
+    return _c
