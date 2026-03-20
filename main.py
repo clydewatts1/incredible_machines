@@ -15,12 +15,7 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
-
-# Ensure this matches your local engine import
-try:
-    from agent_engine import FactoryPart 
-except ImportError:
-    from entities.active import FactoryPart
+from entities.active import FactoryPart
 
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
@@ -31,6 +26,7 @@ from entities.warehouse import WarehousePart
 from entities.portal import PortalPart
 from entities.payloadball import PayloadBallPart
 from entities.textbox import TextBoxPart
+from entities.splitter import SmartSplitterPart
 
 # Import the new Data Pipe!
 from entities.data_pipe import DataPipePart, get_pipe_curve_point
@@ -111,6 +107,8 @@ def create_part(space, x, y, variant_key):
         if hasattr(part, 'shape') and part.shape:
             part.shape.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
         return part
+    elif variant_key == "smart_splitter" or variant_key.startswith("smart_splitter"):
+        return SmartSplitterPart(space, x, y, variant_key)
     elif variant_key == "warehouse" or variant_key.startswith("warehouse"):
         part = WarehousePart(space, x, y, variant_key)
         if hasattr(part, 'shape') and part.shape:

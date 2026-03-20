@@ -193,7 +193,7 @@ class DataSink(GamePart):
             "ingested_at": time.time(),
         }
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, GamePart] = None) -> bool:
         if not self.accepts_entity(payload_entity):
             return False
 
@@ -201,9 +201,65 @@ class DataSink(GamePart):
         self._set_state("INGESTING")
 
         item = self._build_queue_item(payload_entity)
+        
+        # M29: Send success feedback to any SmartSplitters in the payload's trace
+        if active_instances:
+            self._send_feedback_to_splitters(payload_entity, "SUCCESS", active_instances)
+        
         self.queue.put(item)
         payload_entity.to_delete = True
         return True
+    
+    def _send_feedback_to_splitters(self, payload_entity: GamePart, feedback: str, active_instances: Dict[str, GamePart]):
+        """
+        M29: Send feedback signals to SmartSplitterPart entities that routed this payload.
+        
+        Inspects the payload's trace array for splitter decisions, extracts the UUID and choice,
+        looks up the splitter in active_instances, and calls receive_signal with the feedback.
+        
+        Args:
+            payload_entity: The payload entity containing the trace.
+            feedback: "SUCCESS" or "FAILURE"
+            active_instances: Map of UUID -> entity for looking up splitters.
+        """
+        payload = getattr(payload_entity, "payload", None)
+        if not isinstance(payload, dict):
+            return
+        
+        trace = payload.get("trace", [])
+        if not isinstance(trace, list):
+            return
+        
+        # Extract final score for feedback
+        score = payload.get("score", 0.0)
+        try:
+            score = float(score)
+        except (TypeError, ValueError):
+            score = 0.0
+        
+        # Send feedback to each splitter in the trace
+        for trace_item in trace:
+            if not isinstance(trace_item, dict):
+                continue
+            
+            if trace_item.get("type") != "splitter_decision":
+                continue
+            
+            splitter_uuid = trace_item.get("uuid")
+            choice = trace_item.get("choice")
+            
+            if not splitter_uuid or not choice:
+                continue
+            
+            # Look up the splitter and send feedback
+            splitter = active_instances.get(splitter_uuid)
+            if splitter and hasattr(splitter, "receive_signal"):
+                signal_data = {
+                    "feedback": feedback,
+                    "choice": choice,
+                    "score": score
+                }
+                splitter.receive_signal(signal_data)
 
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]) -> None:
         if self._is_destroyed:

@@ -628,3 +628,17 @@ variants:
       capacity: 5             # Maximum number of balls the pipe can hold at once
       transit_time: 2.0       # How many seconds it takes to travel from source to target
     route_state: 10         # The routing state this pipe listens for from the Brain
+
+# Added in 2026-03-19 - smart splitter (M29)
+  smart_splitter:
+    label: "Smart Splitter"
+    category: "logic"
+    template: "Rectangle"
+    width: 100
+    height: 100
+    is_static: True
+    left_weight: 10.0         # Initial weight for left path
+    right_weight: 10.0        # Initial weight for right path
+    learning_rate: 2.0        # How much to adjust weights on feedback
+    exit_velocity: 150.0      # Speed at which payloads exit
+    exit_angle: 0.0           # Angle offset for ejection

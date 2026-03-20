@@ -22,6 +22,7 @@ import pymunk
 
 from entities.base import GamePart
 from utils.generators import get_generator, GeneratorExhausted
+from utils.routing import calculate_ejection_kinematics
 import constants
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
@@ -365,47 +366,7 @@ class DataSource(GamePart):
         
         return payload
     
-    def _compute_emission_velocity(self) -> tuple:
-        """
-        Compute world-space velocity (vx, vy) from exit_velocity, exit_angle, and active_side.
-        
-        Angle Reference Frame:
-        - 0° points right (east)
-        - 90° points up (north)
-        - 180° points left (west)
-        - 270° points down (south)
-        
-        Per-Side Adjustments:
-        - Top: Y-axis, offset = 90°
-        - Bottom: Y-axis, offset = 270°
-        - Left: X-axis, offset = 180°
-        - Right: X-axis, offset = 0°
-        
-        Returns:
-            (vx, vy): Velocity vector in pixels/sec.
-        """
-        exit_velocity = float(self.get_property("exit_velocity", 150.0))
-        exit_angle_deg = float(self.get_property("exit_angle", 0.0))
-        active_side = self.get_property("active_side", "Bottom")
-        
-        # Compute global angle offset per active_side
-        if active_side == "Top":
-            angle_offset = 90.0
-        elif active_side == "Bottom":
-            angle_offset = 270.0
-        elif active_side == "Left":
-            angle_offset = 180.0
-        else:  # Right
-            angle_offset = 0.0
-        
-        final_angle_deg = exit_angle_deg + angle_offset
-        final_angle_rad = math.radians(final_angle_deg)
-        
-        # Compute velocity components
-        vx = exit_velocity * math.cos(final_angle_rad)
-        vy = -exit_velocity * math.sin(final_angle_rad)  # Negate Y (screen coords)
-        
-        return (vx, vy)
+
     
     def _emit_ball(
         self,
@@ -431,6 +392,15 @@ class DataSource(GamePart):
         fy = self.body.position.y
         active_side = self.get_property("active_side", "Bottom")
         
+        # Map active_side to edge for calculate_ejection_kinematics
+        edge_map = {
+            "Top": "top",
+            "Bottom": "bottom",
+            "Left": "left",
+            "Right": "right"
+        }
+        edge = edge_map.get(active_side, "bottom")
+        
         if active_side == "Top":
             port_x, port_y = fx, fy - half_h
         elif active_side == "Bottom":
@@ -454,8 +424,22 @@ class DataSource(GamePart):
         # Bind the flattened payload directly to the newly created ball
         ball.payload = payload
         
-        # 3. Apply calculated velocity
-        vx, vy = self._compute_emission_velocity()
+        # 3. Calculate velocity using centralized routing utility
+        # Create a route_rule dict from DataSource properties
+        exit_velocity = float(self.get_property("exit_velocity", 150.0))
+        exit_angle = float(self.get_property("exit_angle", 0.0))
+        route_rule = {"velocity": exit_velocity, "angle": exit_angle}
+        
+        # Get default angle for this side
+        default_angles = {"top": 90.0, "bottom": 270.0, "left": 180.0, "right": 0.0}
+        default_angle = default_angles.get(edge, 0.0)
+        
+        # Compute position and velocity using shared utility
+        (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+            self, edge, route_rule, exit_velocity, default_angle, entities
+        )
+        
+        # Apply calculated velocity
         ball.body.velocity = (vx, vy)
         
         # 4. Add to world

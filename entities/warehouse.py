@@ -5,6 +5,7 @@ from typing import Any, Dict, List, Optional
 import pygame
 import pymunk
 
+from utils.routing import calculate_ejection_kinematics
 import constants
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
@@ -81,42 +82,38 @@ class WarehousePart(GamePart):
         return True
 
     def _eject_payload(self, payload_entity: GamePart):
-        width = float(self.get_property("width", 96))
-        height = float(self.get_property("height", 96))
-        half_w = width / 2.0
-        half_h = height / 2.0
-        margin = 25.0
-        
-        fx, fy = self.body.position.x, self.body.position.y
+        # Get properties
         output_side = str(self.get_property("output_side", "bottom")).lower()
         
-        if output_side == "bottom":
-            eject_x, eject_y = fx, fy + half_h + margin
-            default_angle = 270.0
-        elif output_side == "left":
-            eject_x, eject_y = fx - half_w - margin, fy
-            default_angle = 180.0
-        elif output_side == "right":
-            eject_x, eject_y = fx + half_w + margin, fy
-            default_angle = 0.0
-        else: # top fallback
-            eject_x, eject_y = fx, fy - half_h - margin
-            default_angle = 90.0
-            
-        payload_entity.body.position = (eject_x, eject_y)
-
+        # Try to get velocity from property, fallback to payload's entry speed
         try:
             speed = float(self.get_property("velocity", ""))
         except ValueError:
             speed = payload_entity.payload.get("_entry_speed", 150.0)
-
+        
+        # Try to get angle from property, fallback to default per side
         try:
             angle_deg = float(self.get_property("angle", ""))
         except ValueError:
+            angle_deg = None
+        
+        # Default angles per output side
+        default_angles = {"bottom": 270.0, "top": 90.0, "left": 180.0, "right": 0.0}
+        default_angle = default_angles.get(output_side, 270.0)
+        if angle_deg is None:
             angle_deg = default_angle
-
-        world_angle = math.radians(angle_deg)
-        payload_entity.body.velocity = (speed * math.cos(world_angle), speed * -math.sin(world_angle))
+        
+        # Create route_rule dict for utilities
+        route_rule = {"velocity": speed, "angle": angle_deg}
+        
+        # Use centralized routing utility to compute position and velocity
+        (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
+            self, output_side, route_rule, speed, default_angle, []
+        )
+        
+        # Apply position and velocity
+        payload_entity.body.position = (eject_x, eject_y)
+        payload_entity.body.velocity = (vx, vy)
         payload_entity.is_hidden = False
         
         self.flash_timer = 10

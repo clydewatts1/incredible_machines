@@ -194,7 +194,7 @@ class CollisionManager:
         if incoming_entity.uuid == sink_entity.uuid:
             return True
 
-        accepted = sink_entity.ingest_payload(incoming_entity)
+        accepted = sink_entity.ingest_payload(incoming_entity, self.active_instances)
         return not accepted
 
     def setup(self, space):

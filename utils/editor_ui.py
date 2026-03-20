@@ -15,12 +15,7 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
-
-# Ensure this matches your local engine import
-try:
-    from agent_engine import FactoryPart 
-except ImportError:
-    from entities.active import FactoryPart
+from entities.active import FactoryPart
 
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
