@@ -63,6 +63,17 @@ variants:
     mass: 1.0
     collision_sound: "bounce.wav"
 
+  payload_ball:
+    label: "Payload Ball"
+    category: "payloads"
+    template: "Circle"
+    radius: 15
+    mass: 1.0
+    color: [0, 255, 255]
+    properties:
+      score: 100
+
+
   long_ramp:
     template: "Rectangle"
     label: "Long Ramp"
@@ -551,14 +562,6 @@ variants:
     text_color: [255, 255, 255]
     bg_color: [40, 40, 40, 200]
 
-  payload_ball:
-    label: "Payload"
-    category: "payloads"
-    template: "Circle"
-    radius: 10
-    mass: 1.0
-    score: 100
-    payload: {"score": 100}
 
 # New entities for 2026-03-18
 # the brain

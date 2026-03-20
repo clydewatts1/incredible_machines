@@ -8,7 +8,7 @@ class LevelManager:
         # Ensure the saves directory exists
         os.makedirs(self.save_dir, exist_ok=True)
 
-    def save_level(self, entities, constraints=None, filepath=None):
+    def save_level(self, entities, constraints=None, filepath=None, metadata=None):
         """
         Extracts entity data from active entities and writes to a JSON file.
         """
@@ -44,32 +44,44 @@ class LevelManager:
                 for target_uuid in entity.connected_uuids:
                     connections.append({"sender": entity.uuid, "receiver": target_uuid})
             
+        full_data = {
+            "metadata": metadata if metadata else {},
+            "entities": level_data, 
+            "constraints": constraint_data, 
+            "connections": connections
+        }
+
         try:
             with open(path, "w") as f:
-                yaml.dump({"entities": level_data, "constraints": constraint_data, "connections": connections}, f, sort_keys=False)
+                yaml.dump(full_data, f, sort_keys=False)
             print(f"LevelManager: Successfully saved {len(entities)} entities to {path}")
         except Exception as e:
             print(f"LevelManager: Failed to save to {path}: {e}")
 
     def load_level(self, filepath=None):
         """
-        Reads a JSON file and returns a tuple (entity_data, constraints_data, connections_data).
+        Reads a JSON file and returns a tuple (entity_data, constraints_data, connections_data, metadata).
         Returns empty lists if the file doesn't exist.
         """
         path = filepath if filepath else self.default_save_path
         
         if not os.path.exists(path):
             print(f"LevelManager: Save file not found at {path}")
-            return [], [], []
+            return [], [], [], {}
             
         try:
             with open(path, "r") as f:
                 data = yaml.safe_load(f)
-                entities_data = data.get("entities", []) if data else []
-                constraints_data = data.get("constraints", []) if data else []
-                connections_data = data.get("connections", []) if data else []
-                print(f"LevelManager: Successfully loaded {len(entities_data)} entities, {len(constraints_data)} constraints, and {len(connections_data)} connections from {path}")
-                return entities_data, constraints_data, connections_data
+                if not data:
+                    return [], [], [], {}
+                
+                metadata = data.get("metadata", {})
+                entities_data = data.get("entities", [])
+                constraints_data = data.get("constraints", [])
+                connections_data = data.get("connections", [])
+                
+                print(f"LevelManager: Successfully loaded {len(entities_data)} entities and metadata from {path}")
+                return entities_data, constraints_data, connections_data, metadata
         except Exception as e:
             print(f"LevelManager: Failed to load from {path}: {e}")
-            return [], [], []
+            return [], [], [], {}

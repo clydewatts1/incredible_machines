@@ -1,368 +1,104 @@
+metadata:
+  flow_name: Bouncy_Ball_Flow
+  flow_description: Bouncy Ball Test
 entities:
-- uuid: 51402984-9136-4596-b09f-ab219a5c98c5
-  entity_id: data_source_csv
+- uuid: 3b283c98-8099-4736-bf0f-80f6b3bffc6d
+  entity_id: bouncy_ball
   position:
-    x: 699.0
-    y: 137.0
-  rotation: 0.0
-  overrides:
-    active_side: Top
-    animations:
-      false: data_source_off
-      INITIALIZING: data_source_initializing_csv
-      IDLE: data_source_idle_csv
-      POLLING: data_source_polling_csv
-      EMITTING: data_source_emitting_csv
-      EXHAUSTED: data_source_exhausted_csv
-      FATAL: data_source_fatal_csv
-    category: sources
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    emit_interval: 2.0
-    engine_type: csv
-    exit_angle: 45.0
-    exit_velocity: 300.0
-    friction: 0.5
-    height: 96
-    instructions:
-      filepath: data/samples.csv
-      debug: false
-      loop: true
-      skip_header: true
-      delimiter: ','
-    is_static: 'True'
-    mass: 1.0
-    output_variant: payload_ball
-    payload: {}
-    sounds:
-      false: null
-      INITIALIZING: null
-      IDLE: null
-      POLLING: null
-      EMITTING: null
-      EXHAUSTED: null
-      FATAL: null
-    spawn_sound: spawn.wav
-    start_paused: 'False'
-    width: 96
-- uuid: 189ab209-e65e-4a24-af36-c89b83415c83
-  entity_id: warehouse
-  position:
-    x: 618.0
-    y: 226.0
-  rotation: 2.7755575615628914e-17
-  overrides:
-    angle: ''
-    capacity: 5
-    category: logic
-    collision_sound: default_collision.wav
-    elasticity: 0.5
-    friction: 0.5
-    height: 96
-    input_side: top
-    is_static: 'True'
-    mass: 1.0
-    output_side: bottom
-    payload: {}
-    release_interval: 5
-    send_full_signal: 'True'
-    spawn_sound: spawn.wav
-    velocity: ''
-    width: 96
-- uuid: c365dd9b-7e50-4135-9433-279fea48b145
-  entity_id: ai_brain
-  position:
-    x: 613.0
-    y: 346.0
-  rotation: 0.0
-  overrides:
-    animations:
-      false: ai_brain_off
-      INITIALIZING: ai_brain_initializing
-      IDLE: ai_brain_idle
-      INGESTING: ai_brain_ingesting
-      WRITING: ai_brain_writing
-      FATAL: ai_brain_fatal
-    category: logic
-    collision_sound: default_collision.wav
-    cost_modifier: -10.0
-    elasticity: 0.5
-    friction: 0.5
-    height: 96
-    input_side: top
-    is_static: 'True'
-    mass: 1.0
-    model: tinyllama
-    output_side: right
-    payload: {}
-    routing:
-    - max_state: 10
-      velocity: 200
-      angle: 45
-      desc: Success Route
-      output_side: right
-    - max_state: 100
-      velocity: 10
-      angle: 45
-      desc: Failure Route
-      output_side: left
-    shoot_speed: 250.0
-    spawn_sound: spawn.wav
-    system_prompt: You are a quality control AI. Look at the 'status' field. If the
-      status is 'SUCCESS', return route_state 10. If 'FAILURE', return route_state
-      100.
-    target: ''
-    tired_velocity: 150.0
-    width: 96
-- uuid: 868004f9-5980-4828-a7eb-3e0b0d929ef6
-  entity_id: long_ramp
-  position:
-    x: 569.0
-    y: 428.0
-  rotation: -0.7
-  overrides: {}
-- uuid: e1358596-f335-43b2-afe6-2c1f0ea0d53a
-  entity_id: long_ramp
-  position:
-    x: 654.0
-    y: 426.0
-  rotation: 0.7
-  overrides: {}
-- uuid: bcd949dd-f97e-4097-b436-b2e1fadbeee8
-  entity_id: data_sink_csv
-  position:
-    x: 694.0
-    y: 529.0
+    x: 320.0
+    y: 120.0
   rotation: 0.0
   overrides: {}
-- uuid: 0d6834f8-712c-4912-b882-b9472043928b
-  entity_id: data_sink_csv
+- uuid: ec8784c8-f521-4162-b95c-eef3bf261712
+  entity_id: bouncy_ball
   position:
-    x: 530.0
+    x: 360.0
+    y: 160.0
+  rotation: 0.0
+  overrides: {}
+- uuid: be404f70-8cd1-4a19-b8a4-46d7e65df978
+  entity_id: bouncy_ball
+  position:
+    x: 400.0
+    y: 200.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 5dfc710b-8bca-4ec0-8d57-af923f77ec14
+  entity_id: bouncy_ball
+  position:
+    x: 440.0
+    y: 240.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 8efcfba0-ab9f-4bbc-8620-1bcfdbb5d2e9
+  entity_id: bouncy_ball
+  position:
+    x: 480.0
+    y: 280.0
+  rotation: 0.0
+  overrides: {}
+- uuid: bba3c4f8-0ae9-43cd-9e5f-1162717cac0c
+  entity_id: bouncy_ball
+  position:
+    x: 520.0
+    y: 320.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 6a7fc68c-f63e-44f7-b66f-75ec4f11fbd3
+  entity_id: bouncy_ball
+  position:
+    x: 560.0
+    y: 360.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 1c8fe17e-4642-4128-b3ff-46904f1c446c
+  entity_id: bouncy_ball
+  position:
+    x: 600.0
+    y: 400.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 7e890242-512d-4693-aeda-f209c9074f81
+  entity_id: bouncy_ball
+  position:
+    x: 640.0
+    y: 440.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 84de3c72-4eb2-4f21-8ce1-07944528580e
+  entity_id: bouncy_ball
+  position:
+    x: 680.0
+    y: 480.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3572d190-e6e2-43db-89bc-76585db38139
+  entity_id: bouncy_ball
+  position:
+    x: 720.0
     y: 520.0
   rotation: 0.0
   overrides: {}
-- uuid: b57941f7-3cb9-4b2f-a669-16bf4aecf36d
-  entity_id: conveyor_belt
+- uuid: 15115888-a5e3-411b-abf6-059133af1dea
+  entity_id: bouncy_ball
   position:
-    x: 369.0
-    y: 646.0
+    x: 760.0
+    y: 560.0
   rotation: 0.0
   overrides: {}
-- uuid: e63486ee-093f-4973-a849-4f35e412061d
-  entity_id: conveyor_belt
+- uuid: 5169476e-2b98-4134-af48-a94a0a5fe9c8
+  entity_id: bouncy_ball
   position:
-    x: 482.0
-    y: 647.0
-  rotation: 0.0
-  overrides:
-    category: mechanical
-    collision_sound: default_collision.wav
-    color:
-    - 100
-    - 100
-    - 100
-    direction: right
-    elasticity: 0.5
-    friction: 2.0
-    height: 20
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    speed: 300
-    width: 120
-- uuid: 3d3b1d55-c140-43d8-8f6b-753a7b623c0b
-  entity_id: conveyor_belt
-  position:
-    x: 584.0
-    y: 646.0
-  rotation: 0.0
-  overrides:
-    category: mechanical
-    collision_sound: default_collision.wav
-    color:
-    - 100
-    - 100
-    - 100
-    direction: right
-    elasticity: 0.5
-    friction: 2.0
-    height: 20
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    speed: 300
-    width: 120
-- uuid: ecd65074-ec7d-45ff-a30a-218a073cd4e2
-  entity_id: conveyor_belt
-  position:
-    x: 705.0
-    y: 644.0
-  rotation: 0.0
-  overrides:
-    category: mechanical
-    collision_sound: default_collision.wav
-    color:
-    - 100
-    - 100
-    - 100
-    direction: right
-    elasticity: 0.5
-    friction: 2.0
-    height: 20
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    speed: 300
-    width: 120
-- uuid: 88bdee5d-2f08-40ab-bf60-4453597ddc5f
-  entity_id: conveyor_belt
-  position:
-    x: 825.0
-    y: 644.0
-  rotation: 0.0
-  overrides:
-    category: mechanical
-    collision_sound: default_collision.wav
-    color:
-    - 100
-    - 100
-    - 100
-    direction: right
-    elasticity: 0.5
-    friction: 2.0
-    height: 20
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    speed: 300
-    width: 120
-- uuid: b0eb3711-1b60-4a60-a85a-626a552f2f51
-  entity_id: conveyor_belt
-  position:
-    x: 309.0
-    y: 619.0
-  rotation: 0.6
-  overrides:
-    category: mechanical
-    collision_sound: default_collision.wav
-    color:
-    - 100
-    - 100
-    - 100
-    direction: left
-    elasticity: 0.5
-    friction: 2.0
-    height: 20
-    is_static: 'True'
-    mass: 1.0
-    payload: {}
-    spawn_sound: spawn.wav
-    speed: 100.0
-    width: 120
-- uuid: 072c15ca-c093-4f1e-96bf-570834be8373
-  entity_id: portal
-  position:
-    x: 915.0
-    y: 642.0
+    x: 800.0
+    y: 600.0
   rotation: 0.0
   overrides: {}
-- uuid: 3766d7e2-500b-4ee6-88f5-8672e191d30d
-  entity_id: portal
+- uuid: bfff7bb7-1cbb-4e22-bc49-6af6ca782f78
+  entity_id: bouncy_ball
   position:
-    x: 585.0
-    y: 91.0
+    x: 840.0
+    y: 640.0
   rotation: 0.0
-  overrides:
-    angle: ''
-    category: logic
-    collision_sound: default_collision.wav
-    delay: 0.0
-    elasticity: 0.5
-    friction: 0.5
-    height: 64
-    inbound_sides: top
-    is_static: 'True'
-    mass: 1.0
-    max_transitions: 0
-    outbound_side: right
-    payload: {}
-    spawn_sound: spawn.wav
-    velocity: 10
-    width: 64
-    zombie_portal_name: ''
-- uuid: e020dcd2-b317-46a2-a82f-1574590dc619
-  entity_id: payload_ball
-  position:
-    x: 302.36825201761246
-    y: 706.1000000014906
-  rotation: -51.16811936591107
-  overrides: {}
-- uuid: 01d67364-44ac-4321-bf40-f32dcdfea70c
-  entity_id: long_ramp
-  position:
-    x: 701.0
-    y: 248.0
-  rotation: 0.4
-  overrides: {}
-- uuid: 8eec552d-d3ef-49fc-9d99-ac9a6f53805d
-  entity_id: long_ramp
-  position:
-    x: 533.0
-    y: 239.0
-  rotation: -0.3
-  overrides: {}
-- uuid: 343c3606-a96a-4e7a-a557-b1534bfa0296
-  entity_id: long_ramp
-  position:
-    x: 446.0
-    y: 274.0
-  rotation: -0.30000000000000004
-  overrides: {}
-- uuid: 927ca8cc-d42a-46b2-8523-699a490cb022
-  entity_id: long_ramp
-  position:
-    x: 770.0
-    y: 292.0
-  rotation: 0.4
-  overrides: {}
-- uuid: c528070d-c79d-4fca-b0c2-0fbe188a7465
-  entity_id: payload_ball
-  position:
-    x: 613.0
-    y: 503.9863624956367
-  rotation: 2.5850422087562466
-  overrides: {}
-- uuid: bc0d65d9-6518-41de-b6e6-53c763180518
-  entity_id: payload_ball
-  position:
-    x: 618.0
-    y: 226.0
-  rotation: 2.5850422087532707
-  overrides: {}
-- uuid: 4fc66e2d-00fc-4053-9743-b51d3413f86a
-  entity_id: payload_ball
-  position:
-    x: 618.0
-    y: 226.0
-  rotation: 2.5850422087592184
-  overrides: {}
-- uuid: 5b7c9569-e51a-4630-8ffa-1abdd16bc2aa
-  entity_id: payload_ball
-  position:
-    x: 618.0
-    y: 226.0
-  rotation: 2.5850422087550124
   overrides: {}
 constraints: []
-connections:
-- sender: 189ab209-e65e-4a24-af36-c89b83415c83
-  receiver: 51402984-9136-4596-b09f-ab219a5c98c5
-- sender: c365dd9b-7e50-4135-9433-279fea48b145
-  receiver: 189ab209-e65e-4a24-af36-c89b83415c83
-- sender: 072c15ca-c093-4f1e-96bf-570834be8373
-  receiver: 3766d7e2-500b-4ee6-88f5-8672e191d30d
+connections: []
