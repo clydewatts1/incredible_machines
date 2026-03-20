@@ -173,16 +173,26 @@ class EditorUI:
             el.kill()
         self.top_elements.clear()
 
-        # 1. FILE MENU (Left)
-        file_options = ["FILE", "Save", "Save As...", "Load...", "Clear World"]
-        self.file_menu = UIDropDownMenu(
-            options_list=file_options,
-            starting_option="FILE",
-            relative_rect=pygame.Rect(10, 10, 120, 30),
-            manager=self.ui_manager,
-            container=self.top_panel
-        )
-        self.top_elements.append(self.file_menu)
+        # 1. FILE ACTIONS (Left Cluster)
+        file_actions = [
+            ("SAVE", self.callbacks["save"]),
+            ("LOAD", self.callbacks["load"]),
+            ("CLEAR", self.callbacks["clear"])
+        ]
+        
+        btn_x = 10
+        for text, cb in file_actions:
+            btn = UIButton(
+                relative_rect=pygame.Rect(btn_x, 10, 80, 30),
+                text=text,
+                manager=self.ui_manager,
+                container=self.top_panel,
+                object_id="#file_action_btn"
+            )
+            self.top_elements.append(btn)
+            btn_x += 85
+            # Store callback for handling in process_events
+            btn.user_data = text
 
         # 2. TRANSPORT CONTROLS (Center Cluster)
         # We calculate the center based on the top panel width
@@ -442,10 +452,12 @@ class EditorUI:
         self.ui_manager.process_events(event)
         
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
-            # Handle Transport & Utilities
             if hasattr(event.ui_element, "user_data"):
                 ud = event.ui_element.user_data
-                if callable(ud):
+                if ud == "SAVE": self.callbacks["save"]()
+                elif ud == "LOAD": self.callbacks["load"]()
+                elif ud == "CLEAR": self.callbacks["clear"]()
+                elif callable(ud):
                     ud()
                 elif ud == "APPLY":
                     self._apply_inspector_changes()
@@ -462,12 +474,8 @@ class EditorUI:
                     self.rebuild_right_palette()
         
         elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-            if event.ui_element == self.file_menu:
-                val = event.text
-                if val == "Save": self.callbacks["save"]() 
-                elif val == "Save As...": self.callbacks["save"]()
-                elif val == "Load...": self.callbacks["load"]()
-                elif val == "Clear World": self.callbacks["clear"]()
+            # Dropdowns are now only used for the category tabs / property editor if at all.
+            pass
 
         return self.ui_manager.get_focus_set() is not None or self.ui_manager.get_hovering_any_element()
 

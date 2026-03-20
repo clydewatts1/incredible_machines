@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional
 import pygame
 
 import constants
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from entities.floating_label import FloatingTextLabel
 from utils.routing import calculate_ejection_kinematics, find_route
 from utils.engines import create_engine
@@ -14,54 +14,27 @@ from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
 
 
-class FactoryPart(GamePart):
-    """Milestone 22 active processor entity with async engine execution."""
+class FactoryPart(FlowEntity):
+    """Milestone 22 active processor entity with async engine execution.  [M32: inherits FlowEntity]"""
 
     def __init__(self, space, x, y, property_key):
         super().__init__(space, x, y, property_key)
-        self.visual_state = "IDLE"
+        # visual_state, is_paused, needs_broadcast, etc. are set by FlowEntity
         self.queue = queue.Queue()
-        self._is_destroyed = False
-        self.cooldown_timer = 0.0
         self.current_payload_uuid: Optional[str] = None
+        
+        self.properties.setdefault("width", 96.0)
+        self.properties.setdefault("height", 96.0)
 
-        self._animation_textures = {}
-        self._load_animation_textures()
-        self.visual_state = "INITIALIZING"
+        self._set_state("INITIALIZING")
         self._set_state("IDLE")
 
-    def _load_animation_textures(self):
-        animations = self.get_property("animations", {})
-        if not isinstance(animations, dict):
-            return
-
-        width = int(float(self.get_property("width", 96)))
-        height = int(float(self.get_property("height", 96)))
-        for state_name, base_name in animations.items():
-            self._animation_textures[state_name] = sprite_manager.get_sprite(
-                base_name, width, height, label=f"Factory {state_name}"
-            )
-
-    def _set_state(self, new_state: str):
-        old_state = self.visual_state
-        self.visual_state = new_state
-        if old_state != new_state and (new_state == "EMITTING" or old_state == "EMITTING"):
-            self.cooldown_timer = max(self.cooldown_timer, constants.FACTORY_COOLDOWN_SECONDS)
+    # Inherited from FlowEntity: _load_animation_textures, _set_state, draw,
+    #                             receive_signal, broadcast_status, _process_incoming_signal,
+    #                             cleanup, destroy, resolve_exit_path, etc.
 
     def is_in_cooldown(self) -> bool:
         return self.cooldown_timer > 0.0
-
-    def cleanup(self):
-        self._is_destroyed = True
-        self.current_payload_uuid = None
-        while not self.queue.empty():
-            try:
-                self.queue.get_nowait()
-            except queue.Empty:
-                break
-
-    def destroy(self):
-        self._is_destroyed = True
 
     def _ensure_payload_defaults(self, payload_entity: GamePart):
         payload = getattr(payload_entity, "payload", None)
@@ -121,7 +94,10 @@ class FactoryPart(GamePart):
             try:
                 result = engine.process(payload_copy, instructions_copy)
             except Exception as exc:
-                result = f"fatal: {exc}"
+                # M32: Error results are treated as state 0
+                result = 0.0
+                if not self._is_destroyed:
+                    self._spawn_fatal_label(pygame.display.get_surface(), f"engine fatal: {exc}")
 
             if not self._is_destroyed:
                 self.queue.put({"payload_uuid": payload_uuid, "result": result})
@@ -144,11 +120,14 @@ class FactoryPart(GamePart):
         gate = self._audit_payload_lifecycle(payload_entity)
 
         if gate == "bottom":
-            self._eject_payload(payload_entity, edge="bottom")
+            self.resolve_exit_path(payload_entity, 0.0, [], {})
             return True
 
         if gate == "top":
-            self._eject_payload(payload_entity, edge="top", floating=True)
+            # Lifecycle expiry (age/TTL) often defaults to "top" ejection in early M22 logic,
+            # but M32 unified routing treats lifecycle expiry as an error (state 0) or specific state.
+            # For now, we'll keep the "top" bounce if requested by gate, but call resolve_exit_path.
+            self.resolve_exit_path(payload_entity, -1.0, [], {}) # -1 triggers error path
             return True
 
         self.current_payload_uuid = payload_entity.uuid
@@ -173,94 +152,15 @@ class FactoryPart(GamePart):
             history = []
         history.append((self.uuid, score_delta))
         payload["processing_history"] = history
+        payload["processing_history"] = history
 
     def _spawn_fatal_label(self, entities: List[GamePart], reason: str):
         label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
         entities.append(label)
 
-    def _find_matching_pipe_for_state(self, entities: List[GamePart], state_value: float):
-        for entity in entities:
-            if getattr(entity, "variant_key", "") != "data_pipe":
-                continue
-
-            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
-                continue
-
-            try:
-                pipe_state = float(entity.get_property("route_state", 10.0))
-            except (TypeError, ValueError):
-                continue
-
-            if abs(pipe_state - float(state_value)) <= 1e-6:
-                return entity
-
-        return None
-
-    def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False, entities: Optional[List[GamePart]] = None):
-        default_angles = {
-            "right": 0.0,
-            "top": 90.0,
-            "left": 180.0,
-            "bottom": 270.0,
-        }
-        default_angle = default_angles.get(edge, 0.0)
-        tired_velocity = float(self.get_property("tired_velocity", 150.0))
-
-        if edge == "bottom":
-            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-                self,
-                edge,
-                route_rule,
-                tired_velocity,
-                default_angle,
-                entities,
-            )
-        elif edge == "top":
-            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-                self,
-                edge,
-                route_rule,
-                tired_velocity,
-                default_angle,
-                entities,
-            )
-            payload_entity.floating = floating
-            payload_entity.floating_timer = constants.FLOATING_TIMEOUT_SECONDS if floating else 0.0
-        else:
-            effective_route_rule = dict(route_rule or {})
-            if not effective_route_rule.get("target") and hasattr(payload_entity, 'payload') and isinstance(payload_entity.payload, dict):
-                payload_target = payload_entity.payload.get("target", None)
-                if payload_target:
-                    effective_route_rule["target"] = payload_target
-            shoot_speed = float(self.get_property("shoot_speed", 300.0))
-            fallback_angle = float(self.get_property("angle", default_angle))
-            (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-                self,
-                edge,
-                effective_route_rule,
-                shoot_speed,
-                fallback_angle,
-                entities,
-            )
-
-        payload_entity.body.position = (eject_x, eject_y)
-        payload_entity.body.velocity = (vx, vy)
-
-        payload = payload_entity.payload
-        payload["ttl"] = int(payload.get("ttl", constants.DEFAULT_PAYLOAD_TTL)) - 1
-        payload["routing_depth"] = int(payload.get("routing_depth", 0)) + 1
-
-        self._set_state("EMITTING")
-
-    def draw(self, surface, camera=None):
-        state_texture = self._animation_textures.get(self.visual_state)
-        if state_texture is not None:
-            old_texture = self.base_texture
-            self.base_texture = state_texture
-            self.draw_texture(surface, camera=camera)
-            self.base_texture = old_texture
-            return
-        super().draw(surface, camera=camera)
+    # Removed: _find_matching_pipe_for_state — superseded by resolve_exit_path
+    # Removed: _eject_payload — superseded by resolve_exit_path
+    # Removed: draw — handled by FlowEntity
 
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]):
         if self._is_destroyed:
@@ -282,54 +182,50 @@ class FactoryPart(GamePart):
                 self.current_payload_uuid = None
                 continue
 
-            if isinstance(result, str) and result.lower().startswith("fatal"):
-                self._set_state("FATAL")
-                self._spawn_fatal_label(entities, result)
-                self.current_payload_uuid = None
-                continue
-
             try:
                 state_value = float(result)
-                print(f"🏭 [Factory Debug] Engine evaluated payload to state: {state_value}")
             except (TypeError, ValueError):
-                self._set_state("FATAL")
-                self._spawn_fatal_label(entities, f"fatal: non-numeric state {result}")
-                self.current_payload_uuid = None
-                continue
+                # M32: Treat invalid results as error state 0
+                state_value = 0.0
+                print(f"🏭 [Factory Debug] Engine error: non-numeric state {result}")
 
+            # Apply score modifier if not already done
             route_rule = find_route(state_value, self.get_property("routing", []))
-            if route_rule is None:
-                self._set_state("FATAL")
-                self._spawn_fatal_label(entities, "fatal: no matching routing rule")
-                print(f"🏭 [Factory Debug] NO ROUTE matched for state: {state_value}")
-                self.current_payload_uuid = None
-                continue
-
-            print(f"🏭 [Factory Debug] Matched Route: {route_rule.get('desc', 'Unnamed Route')} (Max State: {route_rule.get('max_state')})")
-
-            if not bool(result_data.get("_score_applied", False)):
+            if route_rule and not result_data.get("_score_applied", False):
                 self._apply_score_modifier(payload_entity, route_rule)
                 result_data["_score_applied"] = True
 
-            matching_pipe = self._find_matching_pipe_for_state(entities, state_value)
-            if matching_pipe is not None:
-                accepted = bool(matching_pipe.ingest_payload(payload_entity))
-                if accepted:
-                    self.current_payload_uuid = None
-                    self._set_state("IDLE")
-                    continue
+            # Use resolve_exit_path for Pipe, Explicit Rule, or Hard Exit
+            exit_result = self.resolve_exit_path(
+                payload_entity, state_value, entities, active_instances
+            )
 
+            if exit_result == "pipe":
+                self.current_payload_uuid = None
+                if state_value <= 0:
+                    self._set_state("FATAL")
+                else:
+                    self._set_state("IDLE")
+            elif exit_result == "jammed":
                 self._set_state("JAMMED")
                 self.current_payload_uuid = payload_entity.uuid
                 self.queue.put(result_data)
                 break
-
-            self.current_payload_uuid = None
-            self._eject_payload(payload_entity, edge="left", route_rule=route_rule, entities=entities)
+            else: # ejected
+                self.current_payload_uuid = None
+                # resolve_exit_path handles FATAL/WRITING state based on Zero Rule
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
         if game_state.get("mode") != "PLAY":
             return
+
+        # --- SIGNAL BROADCAST (M32: use inherited broadcast_status) ---
+        if getattr(self, "needs_broadcast", False):
+            self.needs_broadcast = False
+            self.broadcast_status(active_instances or {})
+
+        # --- PROCESS SIGNALS (M32: use inherited _process_incoming_signal) ---
+        self._process_incoming_signal()
 
         if self.cooldown_timer > 0.0:
             self.cooldown_timer = max(0.0, self.cooldown_timer - dt)
@@ -338,5 +234,5 @@ class FactoryPart(GamePart):
             elif self.visual_state == "COOLDOWN":
                 self._set_state("IDLE")
 
-        if self.visual_state not in {"PROCESSING", "FATAL", "JAMMED", "COOLDOWN"}:
+        if self.visual_state not in {"PROCESSING", "FATAL", "JAMMED", "COOLDOWN", "EMITTING"}:
             self._set_state("IDLE")

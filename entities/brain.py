@@ -268,7 +268,8 @@ class BrainPart(FlowEntity):
                 self._set_state("FATAL")
                 self._spawn_fatal_label(entities, error_msg)
                 self.current_payload_uuid = None
-                self._eject_payload(payload_entity, edge="bottom", entities=entities)
+                # M32: Error results are treated as state 0
+                self.resolve_exit_path(payload_entity, 0.0, entities, active_instances)
                 continue
 
             route_state = result_data.get("route_state", 0.0)
