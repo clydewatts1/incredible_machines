@@ -48,7 +48,7 @@ class PortalPart(GamePart):
             except Exception:
                 pass
 
-    def ingest_payload(self, payload_entity: GamePart, entities: List[GamePart]) -> bool:
+    def ingest_payload(self, payload_entity: GamePart) -> bool:
         capacity = int(self.get_property("capacity", 5))
         if len(self.transit_queue) >= capacity:
             return False
@@ -60,6 +60,7 @@ class PortalPart(GamePart):
             
         self.transit_queue.append({
             "entity": payload_entity,
+            "payload_uuid": payload_entity.uuid,
             "timer": float(self.get_property("transit_time", 0.5))
         })
         self.flash_timer = 15
@@ -90,6 +91,10 @@ class PortalPart(GamePart):
                     px, py = target_portal.body.position
                     payload.body.position = (px, py + 50)
                     payload.body.velocity = (0, 150) # Shoot out
+                    
+                    # Physics Re-indexing: Ensure the engine detects the teleportation immediately
+                    if self.body and self.body.space:
+                        self.body.space.reindex_shapes_for_body(payload.body)
                     
                     target_portal.flash_timer = 15
                     item["to_remove"] = True

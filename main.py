@@ -5,8 +5,11 @@ import os
 import math
 import tkinter as tk
 from tkinter import filedialog
+import argparse
+import time
 
 import constants
+from agent_engine import FactoryPart
 
 # --- Register Collision Types Dynamically if missing ---
 if not hasattr(constants, 'COLLISION_TYPE_WAREHOUSE'):
@@ -15,7 +18,6 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
-from entities.active import FactoryPart
 
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
@@ -168,8 +170,18 @@ def snap_to_grid(world_x, world_y):
     snapped_y = round(world_y / constants.GRID_SIZE) * constants.GRID_SIZE
     return (snapped_x, snapped_y)
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Incredible Machines Clone CLI")
+    parser.add_argument("-l", "--load", type=str, help="Path to a YAML model file to load on startup")
+    parser.add_argument("-s", "--state", type=str, choices=["PLAY", "EDIT"], default="EDIT", help="Initial game state mode (default: EDIT)")
+    parser.add_argument("-t", "--timeout", type=float, help="Countdown timer in minutes. If reached, the game triggers the quit sequence.")
+    parser.add_argument("-d", "--dump", type=str, help="Filename to save the current world configuration upon exit.")
+    return parser.parse_args()
+
 def main():
     global UI_TOP_HEIGHT, UI_BOTTOM_HEIGHT, UI_SIDE_WIDTH, UI_RIGHT_SIDE_WIDTH
+
+    args = parse_args()
 
     pygame.init()
     sound_manager.initialize()
@@ -244,7 +256,7 @@ def main():
     ui_manager.add_element(right_panel)
     
     game_state = {
-        "mode": "EDIT",
+        "mode": args.state,
         "active_tool": None,
         "snap_to_grid": False,
         "show_grid": True,
@@ -721,6 +733,16 @@ def main():
     collision_manager = CollisionManager(entities, active_instances, signal_queue)
     collision_manager.setup(space)
     
+    # --- Handle CLI Load Argument ---
+    if args.load:
+        load_path = os.path.abspath(args.load)
+        if os.path.exists(load_path):
+            level_data, constraints_data, connections_data = level_manager.load_level(load_path)
+            apply_level_data(level_data, constraints_data, connections_data)
+            print(f"CLI: Successfully loaded level from {load_path}")
+        else:
+            print(f"CLI Warning: Load file not found at {load_path}")
+
     grabbed_body = None
     prev_mode = game_state["mode"]
     game_state["wiring_source"] = None
@@ -824,8 +846,16 @@ def main():
                 game_state["selected_instance"] = None
                 build_left_inspector()
 
+    start_ticks = pygame.time.get_ticks()
     running = True
     while running:
+        # Check CLI Timeout
+        if args.timeout:
+            elapsed_minutes = (pygame.time.get_ticks() - start_ticks) / 60000.0
+            if elapsed_minutes >= args.timeout:
+                print(f"CLI: Timeout of {args.timeout} minutes reached. Triggering quit sequence.")
+                running = False
+
         current_mode = game_state["mode"]
         
         if current_mode != prev_mode:
@@ -1310,6 +1340,12 @@ def main():
 
         pygame.display.flip()
         clock.tick(60)
+
+    # --- Handle CLI Auto-Dump Argument ---
+    if args.dump:
+        dump_path = os.path.abspath(args.dump)
+        level_manager.save_level(entities, filepath=dump_path)
+        print(f"CLI: Automatically dumped world configuration to {dump_path}")
 
     pygame.quit()
     sys.exit()

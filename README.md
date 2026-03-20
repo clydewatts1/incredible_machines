@@ -39,6 +39,25 @@ Welcome to **Incredible Machines**, a vibe-coded 2D physics-based puzzle sandbox
 | **Wire Logic Tool** | Click a Sender (source) then a Receiver (target) to create a link. |
 | **'Delete' Key** | Remove the currently selected entity. |
 | **UI Buttons** | Toggle between **Play** and **Edit** modes, Save/Load, or Clear the canvas. |
+| **Mouse Wheel** | Rotate the currently selected or hovered part (Edit Mode). |
+
+---
+
+## 💻 Command Line Interface (CLI)
+
+The game supports several command-line arguments for automation and testing:
+
+| Flag | Argument | Description |
+| :--- | :--- | :--- |
+| `-l` / `--load` | `<path>` | Path to a YAML level file to load on startup. |
+| `-s` / `--state` | `PLAY` or `EDIT` | Sets the initial game mode (default: `EDIT`). |
+| `-t` / `--timeout` | `<minutes>` | Sets a countdown timer. The game automatically quits when reached. |
+| `-d` / `--dump` | `<path>` | Filename to save the current world configuration upon exit. |
+
+**Example Usage:**
+```bash
+python main.py --load saves/quicksave.yaml --state PLAY --timeout 5 --dump saves/sim_result.yaml
+```
 
 ---
 

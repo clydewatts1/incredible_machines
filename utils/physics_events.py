@@ -156,7 +156,8 @@ class CollisionManager:
         if not incoming_entity or not portal_entity:
             return True
 
-        if getattr(portal_entity, 'variant_key', None) != 'portal' and not getattr(portal_entity, 'variant_key', '').startswith('portal'):
+        v_key = getattr(portal_entity, 'variant_key', '').lower()
+        if "portal" not in v_key:
             return True
 
         if incoming_entity.uuid == portal_entity.uuid:
@@ -166,7 +167,7 @@ class CollisionManager:
             if item.get("payload_uuid") == incoming_entity.uuid:
                 return False
 
-        accepted = portal_entity.ingest_payload(incoming_entity, self.entities)
+        accepted = portal_entity.ingest_payload(incoming_entity)
         if accepted:
             return False 
         return True

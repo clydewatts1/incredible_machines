@@ -21,52 +21,12 @@ import pygame
 import pymunk
 
 from entities.base import GamePart
+from entities.floating_label import FloatingTextLabel
 from utils.generators import get_generator, GeneratorExhausted
 from utils.routing import calculate_ejection_kinematics
 import constants
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
-
-
-class FloatingTextLabel:
-    """
-    Lightweight floating label for diagnostic messages (e.g., errors).
-    Floats upward and disappears after FLOATING_LABEL_TIMEOUT_SECONDS.
-    Reuses M18/M22 pattern.
-    """
-    
-    def __init__(self, x: float, y: float, text: str):
-        self.x = x
-        self.y = y
-        self.text = text
-        self.birth_time = pygame.time.get_ticks() / 1000.0
-        self.font = pygame.font.Font(None, 24)
-        self.surface = self.font.render(text, True, (255, 0, 0))
-        self.uuid = f"label_{id(self)}"
-        self.to_delete = False
-    
-    def update(self, dt: float):
-        """Update position (float upward) and lifetime."""
-        self.y -= constants.FLOATING_LABEL_RISE_SPEED * dt
-        
-        age = pygame.time.get_ticks() / 1000.0 - self.birth_time
-        if age > constants.FLOATING_TIMEOUT_SECONDS:
-            self.to_delete = True
-    
-    def draw(self, surface, camera=None):
-        """Draw label at current position."""
-        if not self.to_delete:
-            # Apply camera offset if provided
-            if camera:
-                screen_x, screen_y = camera.world_to_screen(self.x, self.y)
-            else:
-                screen_x, screen_y = self.x, self.y
-            
-            surface.blit(self.surface, (int(screen_x - self.surface.get_width() // 2), int(screen_y)))
-    
-    def update_visual(self, surface, camera=None):
-        """Wrapper for main render loop compatibility."""
-        self.draw(surface, camera)
 
 
 class DataSource(GamePart):

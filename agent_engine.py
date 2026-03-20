@@ -1,58 +1,17 @@
 import copy
 import queue
 import threading
-import uuid
 from typing import Any, Dict, List, Optional
 
 import pygame
 
 import constants
 from entities.base import GamePart
+from entities.floating_label import FloatingTextLabel
 from utils.routing import calculate_ejection_kinematics, find_route
 from utils.engines import create_engine
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
-
-
-class FloatingTextLabel:
-    """Lightweight floating label used for Factory diagnostics."""
-
-    def __init__(self, x: float, y: float, text: str, color=(255, 60, 60), lifetime=2.0):
-        self.uuid = str(uuid.uuid4())
-        self.x = float(x)
-        self.y = float(y)
-        self.text = str(text)
-        self.color = color
-        self.lifetime = float(lifetime)
-        self.elapsed = 0.0
-        self.to_delete = False
-        self.is_hovered = False
-        self.body = None
-        self.shape = None
-        self.shapes = []
-        self.connected_uuids = []
-
-    def update_logic(self, dt: float, game_state, entities, active_instances=None):
-        self.elapsed += dt
-        self.y -= constants.FLOATING_LABEL_RISE_SPEED * dt
-        if self.elapsed >= self.lifetime:
-            self.to_delete = True
-
-    def update_visual(self, surface, camera=None, **kwargs):
-        alpha_ratio = max(0.0, 1.0 - (self.elapsed / max(self.lifetime, 0.001)))
-        alpha = int(255 * alpha_ratio)
-        font = pygame.font.SysFont(None, 18)
-        text_surf = font.render(self.text, True, self.color)
-        text_surf.set_alpha(alpha)
-        
-        # Apply camera offset if provided
-        if camera:
-            screen_x, screen_y = camera.world_to_screen(self.x, self.y)
-        else:
-            screen_x, screen_y = self.x, self.y
-        
-        rect = text_surf.get_rect(center=(int(screen_x), int(screen_y)))
-        surface.blit(text_surf, rect)
 
 
 class FactoryPart(GamePart):
@@ -65,9 +24,6 @@ class FactoryPart(GamePart):
         self._is_destroyed = False
         self.cooldown_timer = 0.0
         self.current_payload_uuid: Optional[str] = None
-
-        # REMOVED cached properties (self.instructions, self.routing, etc.)
-        # so the factory is forced to dynamically fetch the live YAML/Saved Overrides!
 
         self._animation_textures = {}
         self._load_animation_textures()
@@ -128,7 +84,6 @@ class FactoryPart(GamePart):
         now_secs = pygame.time.get_ticks() / 1000.0
         payload["age"] = max(0.0, now_secs - float(payload.get("start_time", now_secs)))
 
-        # Dynamically fetch cost_modifier
         cost_modifier = float(self.get_property("cost_modifier", -10.0))
         payload["cost"] = float(payload.get("cost", constants.DEFAULT_PAYLOAD_COST)) + cost_modifier
 
@@ -148,21 +103,18 @@ class FactoryPart(GamePart):
 
     def _start_worker(self, payload_entity: GamePart):
         payload_copy = copy.deepcopy(payload_entity.payload)
-        
-        # === AUTO-SANITIZER ===
-        # Clean the payload to prevent CSV whitespace from breaking regex matching
+
         for k, v in list(payload_copy.items()):
             clean_k = k.strip() if isinstance(k, str) else k
             clean_v = v.strip() if isinstance(v, str) else v
             if clean_k != k:
                 del payload_copy[k]
             payload_copy[clean_k] = clean_v
-            
-        # Dynamically fetch latest instructions and engine_type!
+
         instructions_copy = copy.deepcopy(self.get_property("instructions", {}))
         engine_type = str(self.get_property("engine_type", "regex"))
         engine = create_engine(engine_type, {"variant_key": self.variant_key})
-        
+
         payload_uuid = payload_entity.uuid
 
         def _worker():
@@ -245,7 +197,6 @@ class FactoryPart(GamePart):
         return None
 
     def _eject_payload(self, payload_entity: GamePart, edge: str, route_rule: Optional[Dict[str, Any]] = None, floating: bool = False, entities: Optional[List[GamePart]] = None):
-        """Ejects the processed payload, applying targeting calculations if applicable."""
         default_angles = {
             "right": 0.0,
             "top": 90.0,
@@ -373,7 +324,6 @@ class FactoryPart(GamePart):
                 self.queue.put(result_data)
                 break
 
-            # No matching pipe: fallback to legacy physics ejection.
             self.current_payload_uuid = None
             self._eject_payload(payload_entity, edge="left", route_rule=route_rule, entities=entities)
 

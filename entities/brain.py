@@ -9,7 +9,7 @@ import pygame
 
 import constants
 from entities.base import GamePart
-from entities.active import FloatingTextLabel
+from entities.floating_label import FloatingTextLabel
 from utils.asset_manager import asset_manager
 from utils.routing import calculate_ejection_kinematics, find_route
 from utils.sound_manager import sound_manager

@@ -16,7 +16,7 @@ from typing import Any, Dict, List, Optional
 import pymunk
 
 import constants
-from entities.active import FloatingTextLabel
+from entities.floating_label import FloatingTextLabel
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager

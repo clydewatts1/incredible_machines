@@ -7,6 +7,7 @@ import tkinter as tk
 from tkinter import filedialog
 
 import constants
+from agent_engine import FactoryPart
 
 # --- Register Collision Types Dynamically if missing ---
 if not hasattr(constants, 'COLLISION_TYPE_WAREHOUSE'):
@@ -15,7 +16,6 @@ if not hasattr(constants, 'COLLISION_TYPE_PORTAL'):
     constants.COLLISION_TYPE_PORTAL = 11
 
 from entities.base import GamePart
-from entities.active import FactoryPart
 
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
