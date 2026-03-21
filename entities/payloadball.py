@@ -8,7 +8,7 @@ from utils.asset_manager import asset_manager
 class PayloadBallPart(GamePart):
     """A dynamic ball that leaves glowing stigmergic traces and changes color based on payload score."""
 
-    def __init__(self, space, x, y, property_key):
+    def __init__(self, space: pymunk.Space, x: float, y: float, property_key: str):
         super().__init__(space, x, y, property_key)
         
         # --- Stigmergic Trace Properties ---
@@ -21,18 +21,10 @@ class PayloadBallPart(GamePart):
         self.MAX_TRACE_POINTS = 100  # Accumulative to a maximum (prevents memory bloat)
         self.TRACE_INTERVAL = 0.05   # How often to drop a point (20 points per second)
         
-        radius = float(self.get_property('radius', 15.0))
-        
-        if not self.shape:
-            mass = 1.0
-            moment = pymunk.moment_for_circle(mass, 0, radius)
-            self.body = pymunk.Body(mass, moment)
-            self.body.position = (x, y)
-            self.shape = pymunk.Circle(self.body, radius)
-            self.shape.elasticity = 0.8
-            self.shape.friction = 0.5
-            space.add(self.body, self.shape)
-        
+        # Milestone 32 Fix: Duplicate body/shape creation removed. 
+        # GamePart.__init__ already instantiates and registers the main physics body and shape 
+        # based on the "Circle" template in entities.yaml.
+
     def get_color_for_score(self, score: int):
         """Map score to a smooth color gradient."""
         if score >= 100:

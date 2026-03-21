@@ -29,7 +29,7 @@ class FactoryPart(FlowEntity):
         self._set_state("INITIALIZING")
         self._set_state("IDLE")
 
-    # Inherited from FlowEntity: _load_animation_textures, _set_state, draw,
+    # Inherited from FlowEntity: load_animations, _set_state, draw,
     #                             receive_signal, broadcast_status, _process_incoming_signal,
     #                             cleanup, destroy, resolve_exit_path, etc.
 

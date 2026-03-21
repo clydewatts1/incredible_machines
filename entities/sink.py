@@ -1,12 +1,3 @@
-"""
-M24: DataSink entity.
-
-Sensor-based ingestion node that captures payload-carrying entities, queues export
-jobs, and performs asynchronous egestion through registry-selected exporters.
-"""
-
-from __future__ import annotations
-
 import copy
 import queue
 import threading
@@ -16,277 +7,149 @@ from typing import Any, Dict, List, Optional
 import pymunk
 
 import constants
-from entities.floating_label import FloatingTextLabel
 from entities.base import GamePart, FlowEntity
-from utils.asset_manager import asset_manager
-from utils.sprite_manager import sprite_manager
+from entities.floating_label import FloatingTextLabel
 from utils.exporters import get_exporter
-from utils.sound_manager import sound_manager
 
 
 class DataSink(FlowEntity):
-    """Asynchronous sink node for external data egestion.  [M32: inherits FlowEntity]"""
+    """
+    Asynchronous sink node for external data egestion.
+    Terminal node with consumption-based backpressure (M32).
+    """
 
     can_accept_input = True
-
-    VALID_STATES = {"OFF", "INITIALIZING", "IDLE", "INGESTING", "WRITING", "FATAL"}
+    can_provide_output = False
 
     def __init__(self, space: pymunk.Space, x: float, y: float, variant_name: str = "data_sink"):
         super().__init__(space, x, y, variant_name)
 
-        # --- Explicitly register all defaults into self.properties ---
-        # This ensures the Save/Load manager captures these inherited values
+        # --- Default Properties ---
         self.properties.setdefault("accepts_types", ["all"])
         self.properties.setdefault("exporter_type", "null")
         self.properties.setdefault("export", {})
+        self.properties.setdefault("consumption_time", 1.0)
         self.properties.setdefault("width", 96.0)
         self.properties.setdefault("height", 96.0)
 
         self.queue: queue.Queue = queue.Queue()
         self.result_queue: queue.Queue = queue.Queue()
+        self.consumption_timer: float = 0.0
 
-        self._is_destroyed = False
-        self._flush_requested = False
-        self._accept_ingestion = True
+        # Background Worker for Exports
         self._worker_running = True
         self._fatal_latched = False
-        self._last_ingest_state_time = 0.0
-
-        self.accepts_types = self.get_property("accepts_types", ["all"])
-        if isinstance(self.accepts_types, str):
-            self.accepts_types = [self.accepts_types]
-        if not isinstance(self.accepts_types, list):
-            self.accepts_types = ["all"]
-
-        self.exporter_type = str(self.get_property("exporter_type", "null"))
-        self.export_config = copy.deepcopy(self.get_property("export", {}))
-        if not isinstance(self.export_config, dict):
-            self.export_config = {}
-
+        self._is_destroyed = False
+        self._flush_requested = False
         self._processed_entity_uuids = set()
-
-        # Animation textures loaded by FlowEntity.__init__ via _load_animation_textures()
-
-        self._set_state("INITIALIZING")
 
         self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
 
-    # Inherited from FlowEntity: _load_animation_textures, draw
+        self.visual_state = "IDLE"
 
-    def _set_state(self, new_state: str) -> None:
-        """Override adds INGESTING cooldown check on top of FlowEntity._set_state."""
-        if new_state not in self.VALID_STATES:
-            return
-        if new_state == "INGESTING":
-            now = time.time()
-            if (now - self._last_ingest_state_time) < constants.SINK_INGEST_STATE_COOLDOWN:
-                return
-            self._last_ingest_state_time = now
-        super()._set_state(new_state)
-
-
-    def _spawn_fatal_label(self, entities: List[GamePart], reason: str) -> None:
-        label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, reason)
-        entities.append(label)
+    # Redundant text drawing and visual creation methods removed per M32 requirements
 
     def _worker_loop(self) -> None:
         exporter = None
+        exporter_type = str(self.get_property("exporter_type", "null"))
+        export_config = copy.deepcopy(self.get_property("export", {}))
 
         try:
-            exporter = get_exporter(self.exporter_type, self.export_config)
-            self.result_queue.put({"type": "state", "state": "IDLE"})
+            exporter = get_exporter(exporter_type, export_config)
         except Exception as exc:
             self.result_queue.put({"type": "fatal", "error": str(exc)})
-            self._worker_running = False
-            return
 
-        try:
-            while True:
-                should_exit = self._flush_requested and self.queue.empty()
-                if should_exit:
-                    break
-
-                try:
-                    item = self.queue.get(timeout=0.1)
-                except queue.Empty:
-                    continue
-
-                self.result_queue.put({"type": "state", "state": "WRITING"})
-                try:
-                    exporter.export(item)
-                except Exception as exc:
-                    self.result_queue.put({"type": "fatal", "error": str(exc)})
-                finally:
-                    self.queue.task_done()
-                    if self.queue.empty() and not self._fatal_latched:
-                        self.result_queue.put({"type": "state", "state": "IDLE"})
-
-            exporter.flush()
-        except Exception as exc:
-            self.result_queue.put({"type": "fatal", "error": str(exc)})
-        finally:
+        while self._worker_running:
+            if self._fatal_latched:
+                time.sleep(1.0)
+                continue
             try:
-                if exporter is not None:
-                    exporter.cleanup()
+                item = self.queue.get(timeout=0.1)
+                if exporter:
+                    exporter.export(item["data"], item.get("score", 0.0))
+            except queue.Empty:
+                if self._flush_requested: break
+                continue
             except Exception as exc:
                 self.result_queue.put({"type": "fatal", "error": str(exc)})
-            self._worker_running = False
-
-    def accepts_entity(self, entity: GamePart) -> bool:
-        if not self._accept_ingestion or self._is_destroyed or self.visual_state == "FATAL":
-            return False
-        if entity.uuid in self._processed_entity_uuids:
-            return False
-        if "all" in self.accepts_types:
-            return True
-        return entity.variant_key in self.accepts_types
-
-    def _build_queue_item(self, payload_entity: GamePart) -> Dict[str, Any]:
-        payload = getattr(payload_entity, "payload", None)
-        if not isinstance(payload, dict):
-            payload = {}
-
-        data = payload.get("data")
-        if not isinstance(data, dict):
-            data = {}
-
-        score = payload.get("score", 0)
-        try:
-            score = float(score)
-        except (TypeError, ValueError):
-            score = 0.0
-
-        processing_history = payload.get("processing_history", [])
-        if not isinstance(processing_history, list):
-            processing_history = []
-
-        return {
-            "sink_uuid": self.uuid,
-            "payload_uuid": payload_entity.uuid,
-            "data": data,
-            "score": score,
-            "processing_history": processing_history,
-            "ingested_at": time.time(),
-        }
+                break
 
     def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, GamePart] = None) -> bool:
-        if not self.accepts_entity(payload_entity):
+        if self._is_destroyed or self._fatal_latched:
             return False
 
-        self._processed_entity_uuids.add(payload_entity.uuid)
-        self._set_state("INGESTING")
+        # Milestone 32: Standardized Ingestion & Signaling
+        if self.visual_state != "IDLE":
+            print(f"DEBUG: Sink {self.uuid} Rejecting ball - NOT IDLE (state: {self.visual_state})")
+            return False
 
-        item = self._build_queue_item(payload_entity)
-        
-        # M29: Send success feedback to any SmartSplitters in the payload's trace
-        if active_instances:
-            self._send_feedback_to_splitters(payload_entity, "SUCCESS", active_instances)
-        
-        self.queue.put(item)
-        payload_entity.to_delete = True
-        return True
-    
-    def _send_feedback_to_splitters(self, payload_entity: GamePart, feedback: str, active_instances: Dict[str, GamePart]):
-        """
-        M29: Send feedback signals to SmartSplitterPart entities that routed this payload.
-        
-        Inspects the payload's trace array for splitter decisions, extracts the UUID and choice,
-        looks up the splitter in active_instances, and calls receive_signal with the feedback.
-        
-        Args:
-            payload_entity: The payload entity containing the trace.
-            feedback: "SUCCESS" or "FAILURE"
-            active_instances: Map of UUID -> entity for looking up splitters.
-        """
+        # Types check
         payload = getattr(payload_entity, "payload", None)
         if not isinstance(payload, dict):
-            return
+            print(f"DEBUG: Sink {self.uuid} Rejecting ball - No payload dict")
+            return False
         
-        trace = payload.get("trace", [])
-        if not isinstance(trace, list):
-            return
+        accept_list = self.get_property("accepts_types", ["all"])
+        if isinstance(accept_list, str): accept_list = [accept_list]
         
-        # Extract final score for feedback
-        score = payload.get("score", 0.0)
-        try:
-            score = float(score)
-        except (TypeError, ValueError):
-            score = 0.0
+        if "all" not in accept_list:
+            # Fallback to variant_key if payload 'type' is missing
+            p_type = str(payload.get("type", payload_entity.variant_key)).lower()
+            if p_type not in [t.lower() for t in accept_list]:
+                print(f"DEBUG: Sink {self.uuid} Rejecting ball - Type mismatch: {p_type} not in {accept_list}")
+                return False
+
+        print(f"DEBUG: Sink {self.uuid} ACCEPTING ball {payload_entity.uuid}")
+
+        # Ingest
+        self._processed_entity_uuids.add(payload_entity.uuid)
+        self.visual_state = "INGESTING"
+        self.consumption_timer = float(self.get_property("consumption_time", 1.0))
         
-        # Send feedback to each splitter in the trace
-        for trace_item in trace:
-            if not isinstance(trace_item, dict):
-                continue
-            
-            if trace_item.get("type") != "splitter_decision":
-                continue
-            
-            splitter_uuid = trace_item.get("uuid")
-            choice = trace_item.get("choice")
-            
-            if not splitter_uuid or not choice:
-                continue
-            
-            # Look up the splitter and send feedback
-            splitter = active_instances.get(splitter_uuid)
-            if splitter and hasattr(splitter, "receive_signal"):
-                signal_data = {
-                    "feedback": feedback,
-                    "choice": choice,
-                    "score": score
-                }
-                splitter.receive_signal(signal_data)
+        # Immediate signal to upstream neighbors (tells them we are now BUSY/FULL)
+        self.broadcast_status(active_instances or {})
+
+        # Queue for actual export logic
+        self.queue.put({
+            "data": copy.deepcopy(payload.get("data", {})),
+            "score": float(payload.get("score", 0.0))
+        })
+        
+        payload_entity.to_delete = True
+        return True
 
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]) -> None:
-        if self._is_destroyed:
-            return
-
-        polls = 0
-        while not self.result_queue.empty() and polls < constants.MAX_BATCH_QUEUE_POLLS:
-            polls += 1
+        while not self.result_queue.empty():
             event = self.result_queue.get()
-            event_type = event.get("type")
-
-            if event_type == "state":
-                state = event.get("state")
-                if state:
-                    self._set_state(str(state))
-                continue
-
-            if event_type == "fatal":
+            if event.get("type") == "fatal":
                 self._fatal_latched = True
-                self._accept_ingestion = False
-                self._set_state("FATAL")
-                reason = str(event.get("error", "Exporter failure"))
-                self._spawn_fatal_label(entities, reason)
+                self.visual_state = "FATAL"
+                label = FloatingTextLabel(self.body.position.x, self.body.position.y - 40, f"fatal: {event.get('error')}")
+                entities.append(label)
 
     def cleanup(self) -> None:
-        if self._is_destroyed:
-            return
-
         self._is_destroyed = True
+        self._worker_running = False
         self._flush_requested = True
-        self._accept_ingestion = False
-
         if self._worker_thread and self._worker_thread.is_alive():
-            self._worker_thread.join(timeout=constants.SINK_WORKER_JOIN_TIMEOUT_SECONDS)
-            if self._worker_thread.is_alive():
-                print("WARNING: DataSink worker did not terminate before timeout.")
-
-        while not self.result_queue.empty():
-            try:
-                self.result_queue.get_nowait()
-            except queue.Empty:
-                break
+            self._worker_thread.join(timeout=1.0)
 
     def destroy(self) -> None:
         self.cleanup()
 
-    def draw(self, surface, camera=None) -> None:
-        """Delegate to FlowEntity state-based rendering."""
-        super().draw(surface, camera=camera)
-
     def update_logic(self, dt: float, game_state: Dict[str, Any], entities: List[GamePart], active_instances: Optional[Dict[str, GamePart]] = None):
-        # Keep sink behavior stable in both EDIT and PLAY so queued writes can finish.
-        return
+        if game_state.get("mode") != "PLAY":
+            return
+
+        # Milestone 32: Consumption Handshake
+        self._process_incoming_signal() # Handled by FlowEntity; terminal node still observes for state uniformity
+
+        if self.visual_state == "INGESTING":
+            self.consumption_timer -= dt
+            if self.consumption_timer <= 0.0:
+                self.visual_state = "IDLE"
+                # Notify upstream that we are clear to receive again
+                self.broadcast_status(active_instances or {})
+
+        self.poll_results(entities, active_instances or {})

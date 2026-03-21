@@ -55,10 +55,13 @@ class GamePart:
             active_sides = list(self.get_property("active_sides", []))
             if self.get_property("active_side"):
                 active_sides.append(self.get_property("active_side"))
+            
+            if "sink" in self.variant_key:
+                pass
                 
             for side in active_sides:
                 side = side.lower()
-                offset = 1.0 
+                offset = 2.0 
                 hw = width / 2.0
                 hh = height / 2.0
                 if side == "top":
@@ -485,13 +488,13 @@ class FlowEntity(GamePart):
         super().__init__(space, x, y, property_key)
 
         # --- Lifecycle ---
-        self.visual_state: str = "OFF"
+        self.visual_state: str = "IDLE"
         self._is_destroyed: bool = False
 
-        # --- Pause / Signal ---
+        # --- Signaling ---
         self.is_paused: bool = False
+        self.downstream_status: str = "IDLE"
         self.signal_received: bool = False
-        self.signal_state = None
         self.needs_broadcast: bool = False
 
         # --- Cooldown ---
@@ -499,15 +502,16 @@ class FlowEntity(GamePart):
 
         # --- Animation ---
         self._animation_textures: dict = {}
-        self._load_animation_textures()
+        self.load_animations()
 
     # ------------------------------------------------------------------ #
     #  Animation
     # ------------------------------------------------------------------ #
 
-    def _load_animation_textures(self):
+    def load_animations(self):
         """
         Load state-specific textures from YAML `animations` mapping.
+        Supports both single strings (frame base name) and lists of frame names.
         Missing sprites fall back to a procedural surface (grey box + state label).
         """
         from utils.sprite_manager import sprite_manager
@@ -519,7 +523,14 @@ class FlowEntity(GamePart):
         width  = int(float(self.get_property("width",  96)))
         height = int(float(self.get_property("height", 96)))
 
-        for state_name, sprite_name in animations.items():
+        for state_name, frames in animations.items():
+            if isinstance(frames, list) and frames:
+                # M32: if a list is provided, we take the FIRST frame for now.
+                # Future iteration could implement an actual index-based cycler in draw().
+                sprite_name = frames[0]
+            else:
+                sprite_name = frames
+
             surf = sprite_manager.get_sprite(
                 sprite_name, width, height,
                 label=f"{self.__class__.__name__} {state_name}"
@@ -607,39 +618,39 @@ class FlowEntity(GamePart):
     #  Signalling
     # ------------------------------------------------------------------ #
 
-    def receive_signal(self, payload):
+    def receive_signal(self, sender, signal_data: dict):
         """
         Standardised handler for backpressure/flow-control signals.
-        Reads `payload.visual_state` (or a raw dict with key 'feedback').
+        Updates internal downstream_status based on the incoming signal.
         """
-        if hasattr(payload, "visual_state"):
-            self.signal_state = payload.visual_state
+        if isinstance(signal_data, dict):
+            self.downstream_status = signal_data.get("status", "IDLE")
             self.signal_received = True
-        elif isinstance(payload, dict) and "feedback" in payload:
-            # Duck-type: SmartSplitter feedback dicts pass through unchanged.
-            pass
 
     def broadcast_status(self, active_instances: dict):
         """
-        Notifies all connected entities of the current visual_state
-        by calling their receive_signal(self).
+        Notifies all connected entities of current status.
+        Sends {"status": self.visual_state} to each neighbor.
         """
+        status_packet = {"status": self.visual_state}
         for tgt_uuid in self.connected_uuids:
             tgt = active_instances.get(tgt_uuid)
             if tgt and hasattr(tgt, "receive_signal"):
-                tgt.receive_signal(self)
+                tgt.receive_signal(self, status_packet)
 
     def _process_incoming_signal(self):
         """
-        Consume a pending signal and apply pause/resume logic.
+        Consume a pending signal and apply pause logic.
         Call this at the top of update_logic() in subclasses.
         """
         if not self.signal_received:
             return
         self.signal_received = False
-        if self.signal_state == "FULL":
+        
+        # M32 Unified Flow Control
+        if self.downstream_status in ("FULL", "JAMMED", "FATAL", "INGESTING", "WRITING", "POLLING", "EMITTING"):
             self.is_paused = True
-        elif self.signal_state in ("IDLE", "OFF"):
+        else:
             self.is_paused = False
 
     # ------------------------------------------------------------------ #
@@ -687,10 +698,15 @@ class FlowEntity(GamePart):
         """
         from utils.routing import find_route, calculate_ejection_kinematics
 
-        # ── Zero Rule: normalise ──────────────────────────────────────────
+        # ── Zero Rule: set FATAL immediately if result <= 0 ──────────────
         raw = float(state_result)
-        is_error = raw <= 0
-        search_state = 0.0 if is_error else raw
+        if raw <= 0:
+            search_state = 0.0
+            self._set_state("FATAL")
+            is_error = True
+        else:
+            search_state = raw
+            is_error = False
 
         # ── 1. Pipe First ─────────────────────────────────────────────────
         matching_pipe = None
