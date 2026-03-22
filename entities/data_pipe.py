@@ -37,6 +37,7 @@ class DataPipePart(GamePart):
 
     def __init__(self, space, x, y, property_key="data_pipe"):
         super().__init__(space, x, y, property_key)
+        self.space = space
 
         # Purely logical/visual transit queue.
         self.transit_queue = []
@@ -62,6 +63,13 @@ class DataPipePart(GamePart):
         self.properties.setdefault("transit_time", 2.0)
         self.properties.setdefault("route_state", 10.0)
 
+    def apply_draft_overrides(self, new_dict):
+        super().apply_draft_overrides(new_dict)
+        # Clear cached positions to force recalculation if endpoints changed
+        if "source_uuid" in new_dict or "target_uuid" in new_dict:
+            self._cached_start_pos = None
+            self._cached_end_pos = None
+
     def ingest_payload(self, payload_entity):
         capacity = int(self.get_property("capacity", 5))
         if len(self.transit_queue) >= capacity:
@@ -71,6 +79,12 @@ class DataPipePart(GamePart):
         if getattr(payload_entity, "body", None):
             payload_entity.body.velocity = (0.0, 0.0)
             payload_entity.body.angular_velocity = 0.0
+            
+            # Milestone 34/35 Fix: Remove from space so it doesn't stay in sensor areas
+            if self.space:
+                for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
+                    if s and s in self.space.shapes:
+                        self.space.remove(s)
 
         self.transit_queue.append({"entity": payload_entity, "progress": 0.0})
         return True

@@ -30,13 +30,19 @@ class BaseExporter(ABC):
 
     @abstractmethod
     def export(self, data_item: Dict[str, Any]) -> None:
+        """Subclasses must implement this to handle a single outgoing data frame."""
         raise NotImplementedError()
+
+    def close(self) -> None:
+        """Optional: finalize resources (e.g., close files, flush queues)."""
+        pass
 
     def flush(self) -> None:
         """Flush any buffered writes."""
 
     def cleanup(self) -> None:
         """Release resources such as file handles or network sessions."""
+        self.close() # Call the new close method during cleanup
 
     def validate_config(self) -> bool:
         return True
@@ -92,7 +98,11 @@ class BaseFileExporter(BaseExporter):
     def _open_new_file(self) -> None:
         self.rotation_index += 1
         filename = self._build_filename()
-        self.current_path = os.path.join(self.directory, filename)
+        filepath = os.path.abspath(os.path.join(self.directory, filename))
+        print(f"DEBUG: Exporter opening NEW FILE: {filepath}")
+        import sys
+        sys.stdout.flush()
+        self.current_path = filepath
         try:
             self.file_handle = open(self.current_path, "a", encoding="utf-8", newline="")
         except Exception as exc:
@@ -173,6 +183,11 @@ class CSVExporter(BaseFileExporter):
 
         self._writer.writerow(row)
         self.object_count += 1
+        
+        # Milestone 35 Fix: Immediate persistence for test runner
+        self.file_handle.flush()
+        try: os.fsync(self.file_handle.fileno())
+        except: pass
 
 
 class JSONExporter(BaseFileExporter):
@@ -182,6 +197,11 @@ class JSONExporter(BaseFileExporter):
         self._rotate_if_needed()
         self.file_handle.write(json.dumps(data_item, ensure_ascii=True) + "\n")
         self.object_count += 1
+        
+        # Milestone 35 Fix: Immediate persistence for test runner
+        self.file_handle.flush()
+        try: os.fsync(self.file_handle.fileno())
+        except: pass
 
 
 class YAMLExporter(BaseFileExporter):

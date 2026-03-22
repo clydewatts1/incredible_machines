@@ -12,12 +12,12 @@ from typing import Dict, List, Any, Optional
 import pygame
 import pymunk
 
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from utils.routing import calculate_ejection_kinematics
 from utils.sprite_manager import sprite_manager
 
 
-class SmartSplitterPart(GamePart):
+class SmartSplitterPart(FlowEntity):
     """
     A probabilistic payload router with adaptive learning.
     
@@ -152,7 +152,7 @@ class SmartSplitterPart(GamePart):
         payload_entity.body.velocity = (vx, vy)
         payload_entity.is_hidden = False
 
-    def receive_signal(self, signal_data: Dict[str, Any]):
+    def receive_signal(self, sender, signal_data: Dict[str, Any]):
         """
         Receive feedback signal from a DataSink about payload outcome.
         
@@ -165,6 +165,7 @@ class SmartSplitterPart(GamePart):
         This method updates the routing weights based on the outcome.
         
         Args:
+            sender: The entity sending the signal.
             signal_data: Dict with feedback, choice, and optional score.
         """
         if not isinstance(signal_data, dict):

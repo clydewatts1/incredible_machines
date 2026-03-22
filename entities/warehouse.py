@@ -7,12 +7,12 @@ import pymunk
 
 from utils.routing import calculate_ejection_kinematics
 import constants
-from entities.base import GamePart
+from entities.base import GamePart, FlowEntity
 from utils.asset_manager import asset_manager
 from utils.sprite_manager import sprite_manager
 
 
-class WarehousePart(GamePart):
+class WarehousePart(FlowEntity):
     """
     A WOLF-style buffer entity.
     Absorbs balls, stores them up to a capacity, and releases them at a controlled rate.
@@ -47,9 +47,14 @@ class WarehousePart(GamePart):
         height = int(float(self.get_property("height", 96)))
         self.base_texture = sprite_manager.get_sprite(self.variant_key, width, height)
 
-    def receive_signal(self, payload):
+    def receive_signal(self, sender, signal_data: Dict[str, Any]):
         # Extract standardized logic signal, or fallback to the sender's visual state
-        self.signal_state = getattr(payload, "logic_signal", getattr(payload, "visual_state", "IDLE"))
+        if isinstance(signal_data, dict):
+            self.signal_state = signal_data.get("status", "IDLE")
+        else:
+            # Fallback for old callers
+            self.signal_state = getattr(sender, "logic_signal", getattr(sender, "visual_state", "IDLE"))
+        
         self.signal_received = True
 
     def ingest_payload(self, payload_entity: GamePart) -> bool:
@@ -151,10 +156,7 @@ class WarehousePart(GamePart):
             self.logic_signal = new_state # Expose standard protocol
             
             if str(self.get_property("send_full_signal", "true")).lower() == "true":
-                for tgt_uuid in self.connected_uuids:
-                    tgt = active_instances.get(tgt_uuid)
-                    if tgt and hasattr(tgt, 'receive_signal'):
-                        tgt.receive_signal(self)
+                self.broadcast_status(active_instances or {})
 
         # === RELEASE LOGIC ===
         if not self.stored_payload_uuids:

@@ -1,6 +1,7 @@
 import os
 import pygame
 import math
+from collections import OrderedDict
 
 class AssetManager:
     _instance = None
@@ -12,7 +13,8 @@ class AssetManager:
         return cls._instance
         
     def init_manager(self):
-        self.cache = {}
+        self.cache = OrderedDict()
+        self.max_size = 500
         self.base_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
         # Ensure base directories exist
         os.makedirs(os.path.join(self.base_dir, "assets", "sprites"), exist_ok=True)
@@ -49,6 +51,7 @@ class AssetManager:
     def get_image(self, rel_path, fallback_size=(50, 50), text_label="X"):
         """Safe image retrieval: Loads existing or generates fallback without overwriting."""
         if rel_path in self.cache:
+            self.cache.move_to_end(rel_path)
             return self.cache[rel_path]
             
         abs_path = os.path.join(self.base_dir, rel_path)
@@ -57,6 +60,8 @@ class AssetManager:
         if os.path.exists(abs_path):
             try:
                 img = pygame.image.load(abs_path).convert_alpha()
+                if len(self.cache) >= self.max_size:
+                    self.cache.popitem(last=False)
                 self.cache[rel_path] = img
                 return img
             except pygame.error:
@@ -85,6 +90,8 @@ class AssetManager:
             os.makedirs(os.path.dirname(abs_path), exist_ok=True)
             pygame.image.save(surf, abs_path)
         
+        if len(self.cache) >= self.max_size:
+            self.cache.popitem(last=False)
         self.cache[rel_path] = surf
         return surf
 

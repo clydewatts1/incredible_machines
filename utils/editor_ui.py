@@ -238,6 +238,19 @@ class EditorUI:
         )
         grid_btn.user_data = self.callbacks["snap"]
         self.top_elements.append(grid_btn)
+
+        # Milestone 35: Record Test Button
+        rec_color = "#FF0000" if self.game_state.get("record_mode") else "#A0A0A0"
+        rec_text = "● REC" if not self.game_state.get("record_mode") else "■ STOP REC"
+        rec_btn = UIButton(
+            relative_rect=pygame.Rect(right_x - 110, 10, 100, 30),
+            text=rec_text,
+            manager=self.ui_manager,
+            container=self.top_panel,
+            tool_tip_text="Record Test Case (Snapshot I/O)"
+        )
+        rec_btn.user_data = "RECORD_TOGGLE"
+        self.top_elements.append(rec_btn)
         
         flow_btn = UIButton(
             relative_rect=pygame.Rect(right_x + 75, 10, 50, 30),
@@ -376,14 +389,18 @@ class EditorUI:
 
     def rebuild_left_inspector(self):
         """Generates dynamic input fields for the selected entity."""
+        # Clear existing elements
         for el in self.inspector_elements:
             el.kill()
         self.inspector_elements.clear()
+        self.inspector_inputs.clear()
+        self.flow_inputs.clear()
 
         selected = self.game_state.get("selected_instance")
         
-        # Clear title
-        UILabel(relative_rect=pygame.Rect(10, 10, self.side_w - 20, 24), text="Inspector", manager=self.ui_manager, container=self.left_panel)
+        # Inspector title
+        title = UILabel(relative_rect=pygame.Rect(10, 10, self.side_w - 20, 24), text="Inspector", manager=self.ui_manager, container=self.left_panel)
+        self.inspector_elements.append(title)
 
         if selected is None:
             lbl = UILabel(relative_rect=pygame.Rect(0, 0, self.side_w - 40, 30), text="Select an object", manager=self.ui_manager, container=self.left_container)
@@ -491,6 +508,10 @@ class EditorUI:
                 if ud == "SAVE": self.callbacks["save"]()
                 elif ud == "LOAD": self.callbacks["load"]()
                 elif ud == "NEW": self.callbacks["new"]()
+                elif ud == "RECORD_TOGGLE":
+                    if "record_test" in self.callbacks:
+                        self.callbacks["record_test"]()
+                        self.rebuild_top_panel()
                 elif callable(ud):
                     ud()
                 elif ud == "APPLY":

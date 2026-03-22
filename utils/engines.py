@@ -11,6 +11,11 @@ class BaseEngine:
         self.config_dict = config_dict or {}
 
     def process(self, payload: Any, instructions: Dict[str, Any]) -> Any:
+        # Milestone 35 Refinement: Global Mock Toggle for Testing
+        import os
+        if os.environ.get("TEST_MOCK_MODE") == "1":
+            print(f"🤖 [MockEngine] Simulating processing for {instructions.get('engine_type', 'unknown')}...")
+            return instructions.get("default_state", 0)
         raise NotImplementedError("Engines must implement process().")
 
     def validate_config(self, instructions: Optional[Dict[str, Any]] = None) -> bool:

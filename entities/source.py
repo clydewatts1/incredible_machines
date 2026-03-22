@@ -56,6 +56,11 @@ class DataSource(FlowEntity):
             if active_instances is not None:
                 active_instances[ball.uuid] = ball
 
+            # Milestone 35: Recording Hook
+            import builtins
+            if hasattr(builtins, "register_record_input"):
+                builtins.register_record_input(ball.payload)
+
             # Hybrid Routing: Pipe > Vector fallback
             # Sources use state '10' for standardized emission
             self.resolve_exit_path(ball, 10, entities, active_instances)

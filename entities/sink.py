@@ -1,8 +1,11 @@
 import copy
+import os
+import sys
 import queue
 import threading
 import time
 from typing import Any, Dict, List, Optional
+import traceback
 
 import pymunk
 
@@ -43,40 +46,71 @@ class DataSink(FlowEntity):
         self._is_destroyed = False
         self._flush_requested = False
         self._processed_entity_uuids = set()
+        self.exporter = None # Milestone 35 Fix: Prevent AttributeError in worker
 
-        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
+        print(f"DEBUG: Sink {self.uuid} Launching worker thread...")
+        import sys
+        import threading as _th
+        print(f"DEBUG: Active threads before start: {_th.active_count()}")
+        sys.stdout.flush()
+        self._worker_thread = _th.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
+        print(f"DEBUG: Sink {self.uuid} Thread started flag set.")
+        sys.stdout.flush()
 
         self.visual_state = "IDLE"
 
     # Redundant text drawing and visual creation methods removed per M32 requirements
 
     def _worker_loop(self) -> None:
-        exporter = None
-        exporter_type = str(self.get_property("exporter_type", "null"))
-        export_config = copy.deepcopy(self.get_property("export", {}))
-
         try:
-            exporter = get_exporter(exporter_type, export_config)
-        except Exception as exc:
-            self.result_queue.put({"type": "fatal", "error": str(exc)})
+            last_test_dir = None
+            exporter_type = str(self.get_property("exporter_type", "null"))
+            
+            while self._worker_running:
+                if self._fatal_latched:
+                    time.sleep(1.0)
+                    continue
+                try:
+                    item = self.queue.get(timeout=0.1)
+                    
+                    # Milestone 35: Lazy / Dynamic Init via Item Metadata
+                    current_test_dir = item.get("test_output_dir")
+                    if current_test_dir != last_test_dir:
+                        if self.exporter:
+                            try: self.exporter.close()
+                            except: pass
+                        
+                        export_config = copy.deepcopy(self.get_property("export", {}))
+                        if current_test_dir:
+                            export_config["directory"] = current_test_dir
+                            export_config["file_prefix"] = f"result_{self.uuid[:8]}"
+                        
+                        from utils.exporters import get_exporter
+                        self.exporter = get_exporter(exporter_type, export_config)
+                        last_test_dir = current_test_dir
 
-        while self._worker_running:
-            if self._fatal_latched:
-                time.sleep(1.0)
-                continue
-            try:
-                item = self.queue.get(timeout=0.1)
-                if exporter:
-                    data = item.get("data", {})
-                    data["score"] = item.get("score", 0.0)
-                    exporter.export(data)
-            except queue.Empty:
-                if self._flush_requested: break
-                continue
-            except Exception as exc:
-                self.result_queue.put({"type": "fatal", "error": str(exc)})
-                break
+                    if self.exporter:
+                        data = item.get("data", {})
+                        data["score"] = item.get("score", 0.0)
+                        self.exporter.export(data)
+                        
+                        import builtins
+                        if hasattr(builtins, "register_record_output"):
+                            builtins.register_record_output(data)
+                except queue.Empty:
+                    if self._flush_requested: break
+                    continue
+                except Exception:
+                    pass
+                finally:
+                    try: self.queue.task_done()
+                    except: pass
+
+        except Exception as e:
+            self.result_queue.put({"type": "fatal", "error": str(e)})
+        finally:
+            pass
 
     def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, GamePart] = None) -> bool:
         if self._is_destroyed or self._fatal_latched:
@@ -84,13 +118,11 @@ class DataSink(FlowEntity):
 
         # Milestone 32: Standardized Ingestion & Signaling
         if self.visual_state != "IDLE":
-            print(f"DEBUG: Sink {self.uuid} Rejecting ball - NOT IDLE (state: {self.visual_state})")
             return False
 
         # Types check
         payload = getattr(payload_entity, "payload", None)
         if not isinstance(payload, dict):
-            print(f"DEBUG: Sink {self.uuid} Rejecting ball - No payload dict")
             return False
         
         accept_list = self.get_property("accepts_types", ["all"])
@@ -111,14 +143,22 @@ class DataSink(FlowEntity):
         self.consumption_timer = float(self.get_property("consumption_time", 1.0))
         self.current_consuming_payload = payload_entity
         payload_entity.is_hidden = True
+        payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
         
         # Immediate signal to upstream neighbors (tells them we are now BUSY/FULL)
         self.broadcast_status(active_instances or {})
 
         # Queue for actual export logic
+        # Milestone 35 Fix: Handle both nested 'data' and top-level keys
+        export_data = copy.deepcopy(payload.get("data", {}))
+        for k, v in payload.items():
+            if k not in ["data", "origin_uuid"]: # Flatten top-level keys
+                export_data[k] = v
+
         self.queue.put({
-            "data": copy.deepcopy(payload.get("data", {})),
-            "score": float(payload.get("score", 0.0))
+            "data": export_data,
+            "score": float(payload.get("score", 0.0)),
+            "test_output_dir": os.environ.get("TEST_OUTPUT_DIR")
         })
         
         payload_entity.to_delete = False # Explicitly hide and wait for consumption
@@ -138,7 +178,13 @@ class DataSink(FlowEntity):
         self._worker_running = False
         self._flush_requested = True
         if self._worker_thread and self._worker_thread.is_alive():
-            self._worker_thread.join(timeout=1.0)
+            self._worker_thread.join(timeout=2.0)
+        
+        if hasattr(self, 'exporter') and self.exporter:
+            try:
+                self.exporter.close()
+            except Exception:
+                pass
 
     def destroy(self) -> None:
         self.cleanup()
@@ -153,11 +199,16 @@ class DataSink(FlowEntity):
         if self.visual_state == "INGESTING":
             self.consumption_timer -= dt
             if self.consumption_timer <= 0.0:
+                print(f"DEBUG: Sink {self.uuid} transition INGESTING -> IDLE (timer: {self.consumption_timer})")
                 self.visual_state = "IDLE"
                 if self.current_consuming_payload:
                     self.current_consuming_payload.to_delete = True
                     self.current_consuming_payload = None
                 # Notify upstream that we are clear to receive again
                 self.broadcast_status(active_instances or {})
+            else:
+                # Occasional trace
+                if int(self.consumption_timer * 100) % 20 == 0:
+                     pass # too noisy if I print every 5 ticks
 
         self.poll_results(entities, active_instances or {})

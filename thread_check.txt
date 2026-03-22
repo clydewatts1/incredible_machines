@@ -1,0 +1,7 @@
+[1774197639.7920232] sink_1: !!! WORKER LOOP START !!!
+[1774197639.822794] sink_1: INSIDE TRY
+[1774197639.930685] sink_1: TEST_OUTPUT_DIR via queue item: C:\Users\cw171001\OneDrive - Teradata\Documents\GitHub\incredible_machines\tests\basic_smoke\output. Re-initializing exporter.
+[1774197639.9355884] sink_1: Exporter RE-INITIALIZED: <utils.exporters.CSVExporter object at 0x000001788127E510>
+[1774197639.9369955] sink_1: Worker exporting: {'val': 10, 'score': 100.0}
+[1774197639.9783227] sink_1: Worker exporting: {'val': 20, 'score': 150.0}
+[1774197640.0804992] sink_1: Worker Thread STOPPING

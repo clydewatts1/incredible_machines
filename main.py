@@ -7,6 +7,8 @@ import tkinter as tk
 from tkinter import filedialog
 import argparse
 import time
+import glob
+import json
 
 import constants
 from agent_engine import FactoryPart
@@ -29,6 +31,7 @@ from entities.portal import PortalPart
 from entities.payloadball import PayloadBallPart
 from entities.textbox import TextBoxPart
 from entities.splitter import SmartSplitterPart
+from entities.test_source import TestSourcePart
 
 # Import the new Data Pipe!
 from entities.data_pipe import DataPipePart, get_pipe_curve_point
@@ -39,8 +42,9 @@ from utils.config_loader import load_all_variants
 from utils.level_manager import LevelManager
 from utils.camera import Camera
 from utils.physics_events import CollisionManager
-from utils.editor_ui import EditorUI
+from utils.editor_ui import EditorUI, create_icon_surface
 from utils.asset_manager import asset_manager
+from utils.visual_fx_manager import visual_fx_manager
 from utils.icon_manager import icon_manager
 from utils.sprite_manager import sprite_manager
 
@@ -136,6 +140,8 @@ def create_part(space, x, y, variant_key):
         return PayloadBallPart(space, x, y, variant_key)
     elif variant_key in ("data_source", "data_source_csv", "data_source_mcp"):
         return DataSource(space, x, y, variant_key)
+    elif variant_key == "test_source":
+        return TestSourcePart(space, x, y, variant_key)
     elif variant_key.startswith("data_sink"):
         return DataSink(space, x, y, variant_key)
     elif variant_key in ("gear_driver", "gear_follower"):
@@ -148,6 +154,27 @@ def create_part(space, x, y, variant_key):
         return TextBoxPart(space, x, y, variant_key)
         
     return GamePart(space, x, y, variant_key)
+
+def sweep_orphaned_connections(deleted_uuid, entities):
+    """Milestone 34: Global Garbage Collection for machine connections."""
+    if not deleted_uuid:
+        return
+        
+    for entity in entities:
+        # 1. Handshake Sweep
+        if hasattr(entity, 'connected_uuids') and isinstance(entity.connected_uuids, list):
+            if deleted_uuid in entity.connected_uuids:
+                entity.connected_uuids.remove(deleted_uuid)
+                
+        # 2. Routing/Pipe Sweep
+        if hasattr(entity, 'target_uuid') and entity.target_uuid == deleted_uuid:
+            entity.target_uuid = None
+            
+        # 3. Property-based UUID Sweep (strings)
+        if hasattr(entity, 'properties') and isinstance(entity.properties, dict):
+            for key, value in entity.properties.items():
+                if value == deleted_uuid:
+                    entity.properties[key] = ""
 
 def get_wire_curve_point(start_pos, end_pos, t):
     """Calculates a point along an elegant S-Curve Bezier for logic wires, with a gentle wind sway."""
@@ -185,14 +212,31 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Incredible Machines Clone CLI")
     parser.add_argument("-l", "--load", type=str, help="Path to a YAML model file to load on startup")
     parser.add_argument("-s", "--state", type=str, choices=["PLAY", "EDIT"], default="EDIT", help="Initial game state mode (default: EDIT)")
-    parser.add_argument("-t", "--timeout", type=float, help="Countdown timer in minutes. If reached, the game triggers the quit sequence.")
+    parser.add_argument("--timeout", type=float, help="Countdown timer in minutes. If reached, the game triggers the quit sequence.")
     parser.add_argument("-d", "--dump", type=str, help="Filename to save the current world configuration upon exit.")
+    parser.add_argument("-t", "--test", type=str, help="Run automated test(s). Supports wildcards (e.g. 'sort_*' or 'all').")
+    parser.add_argument("-v", "--visible", action="store_true", help="Make tests visible (render Pygame window).")
+    parser.add_argument("--replay", type=str, help="Replay a failure trace from a specific test.")
     return parser.parse_args()
+
+def resolve_test_paths(pattern: str) -> list[str]:
+    """Resolves wildcard patterns against the tests/ directory."""
+    if pattern.lower() == "all":
+        pattern = "*"
+    
+    search_path = os.path.join("tests", pattern)
+    matches = glob.glob(search_path)
+    return [m for m in matches if os.path.isdir(m) and any(f.endswith('.yaml') for f in os.listdir(m))]
 
 def main():
     global UI_TOP_HEIGHT, UI_BOTTOM_HEIGHT, UI_SIDE_WIDTH, UI_RIGHT_SIDE_WIDTH
 
     args = parse_args()
+
+    # Milestone 35: Headless Execution
+    if args.test and not args.visible:
+        os.environ["SDL_VIDEODRIVER"] = "dummy"
+        print("CLI: Running in HEADLESS mode.")
 
     pygame.init()
     sound_manager.initialize()
@@ -270,10 +314,85 @@ def main():
         "is_dirty": False,
         "gravity": [0, 900],
         "damping": 0.99,
-        "wind": [0, 0]
+        "wind": [0, 0],
+        "tick": 0,                      # Milestone 35: Deterministic tick counter
+        "test_mode": False,             # Flag for test-specific logic
+        "active_test_name": ""          # Name of current test running
     }
 
     level_manager = LevelManager()
+
+    def run_replay_mode(test_name):
+        """Milestone 35: Replay frame-by-frame physics trace."""
+        test_dir = os.path.join("tests", test_name)
+        yaml_path = os.path.join(test_dir, f"{test_name}.yaml")
+        trace_path = os.path.join(test_dir, "failure_trace.json")
+        
+        if not os.path.exists(yaml_path) or not os.path.exists(trace_path):
+            print(f"REPLAY Error: Missing YAML or trace JSON in {test_dir}")
+            return
+            
+        with open(trace_path, "r") as f:
+            trace_data = json.load(f)
+            
+        # Load Level
+        level_data, c_data, conn_data, meta = level_manager.load_level(yaml_path)
+        apply_level_data(level_data, c_data, conn_data, meta)
+        
+        game_state["mode"] = "PAUSE"
+        print(f"REPLAY: Loaded trace for '{test_name}' ({len(trace_data)} frames). Press SPACE to step.")
+        
+        frame_idx = 0
+        running = True
+        while running:
+            # 1. Handle Events
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT: running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE: frame_idx = (frame_idx + 1) % len(trace_data)
+                    if event.key == pygame.K_r: frame_idx = 0
+
+            # 2. Update existing entities from trace
+            current_frame = trace_data[frame_idx]
+            trace_uuids = {snap["uuid"] for snap in current_frame}
+            
+            # Sync existing
+            for e in list(entities):
+                snap = next((s for s in current_frame if s["uuid"] == str(getattr(e, "uuid", ""))), None)
+                if snap:
+                    e.body.position = tuple(snap["pos"])
+                    e.body.angle = snap["angle"]
+                    e.visual_state = snap["state"]
+                    e.is_hidden = snap.get("is_hidden", False)
+                elif hasattr(e, "uuid") and str(e.uuid) not in trace_uuids:
+                    # Not in this frame's trace (e.g. dynamic part not yet spawned or already deleted)
+                    e.is_hidden = True 
+
+            # Create missing (payloads spawned mid-sim)
+            for snap in current_frame:
+                if snap["uuid"] not in active_instances:
+                    new_part = create_part(space, snap["pos"][0], snap["pos"][1], snap["variant"])
+                    if new_part:
+                        new_part.uuid = snap["uuid"]
+                        new_part.body.angle = snap["angle"]
+                        new_part.visual_state = snap["state"]
+                        new_part.is_hidden = snap["is_hidden"]
+                        entities.append(new_part)
+                        active_instances[new_part.uuid] = new_part
+
+            # 3. Draw
+            screen.fill((20, 20, 35))
+            for entity in entities:
+                if not getattr(entity, 'is_hidden', False):
+                    if hasattr(entity, 'update_visual'):
+                        entity.update_visual(screen, camera=camera)
+            
+            # Overlay info
+            info_text = font.render(f"REPLAY: {test_name} | Frame: {frame_idx}/{len(trace_data)} (SPACE: Step, R: Reset)", True, (255, 255, 0))
+            screen.blit(info_text, (UI_SIDE_WIDTH + 20, UI_TOP_HEIGHT + 20))
+            
+            pygame.display.flip()
+            clock.tick(30)
     
     def handle_flow_settings():
         game_state["selected_instance"] = "GLOBAL_FLOW"
@@ -310,6 +429,75 @@ def main():
         game_state["selected_instance"] = None
         editor_ui.rebuild_left_inspector()
         editor_ui.rebuild_top_panel()
+
+    recorded_inputs = []
+    recorded_outputs = []
+
+    import builtins
+    def register_record_input(payload):
+        if game_state.get("record_mode"):
+            recorded_inputs.append({
+                "tick": game_state.get("tick", 0),
+                "payload": copy.deepcopy(payload)
+            })
+    def register_record_output(data):
+        if game_state.get("record_mode"):
+            recorded_outputs.append(data)
+            
+    builtins.register_record_input = register_record_input
+    builtins.register_record_output = register_record_output
+
+    def handle_record_test():
+        if not game_state.get("record_mode"):
+            # Start Recording
+            root = tk.Tk()
+            root.withdraw()
+            from tkinter import simpledialog
+            test_name = simpledialog.askstring("Record Test", "Enter Test Name (e.g. basic_sort):")
+            root.destroy()
+            if not test_name: return
+            
+            game_state["active_test_name"] = test_name
+            game_state["record_mode"] = True
+            game_state["tick"] = 0
+            recorded_inputs.clear()
+            recorded_outputs.clear()
+            
+            handle_play()
+            print(f"TEST RECORDER: Recording started for '{test_name}'")
+        else:
+            # Stop Recording
+            game_state["record_mode"] = False
+            test_name = game_state.get("active_test_name")
+            test_dir = os.path.join("tests", test_name)
+            os.makedirs(test_dir, exist_ok=True)
+            
+            # 1. Save YAML Layout
+            yaml_path = os.path.join(test_dir, f"{test_name}.yaml")
+            metadata = {
+                "name": test_name,
+                "description": f"Automated test recorded via UI",
+                "gravity": game_state.get("gravity", [0, 900]),
+                "damping": game_state.get("damping", 0.99)
+            }
+            level_manager.save_level(entities, filepath=yaml_path, metadata=metadata)
+            
+            # 2. Save Inputs JSON
+            with open(os.path.join(test_dir, "inputs.json"), "w") as f:
+                json.dump(recorded_inputs, f, indent=4)
+                
+            # 3. Save Expected Output CSV
+            exp_path = os.path.join(test_dir, "expected_output.csv")
+            if recorded_outputs:
+                import csv
+                keys = sorted(recorded_outputs[0].keys())
+                with open(exp_path, "w", newline="") as f:
+                    writer = csv.DictWriter(f, fieldnames=keys)
+                    writer.writeheader()
+                    writer.writerows(recorded_outputs)
+            
+            print(f"TEST RECORDER: Saved test suite to {test_dir}")
+            handle_edit()
 
     def handle_reimage():
         """Step 6: REIMAGE callback logic."""
@@ -364,6 +552,7 @@ def main():
         "flow_settings": handle_flow_settings,
         "save_flow": handle_save_flow,
         "reimage": handle_reimage,
+        "record_test": lambda: handle_record_test(),
         "dirty_callback": lambda: game_state.update({"is_dirty": True})
     }
     
@@ -407,7 +596,7 @@ def main():
         active_instances.clear()
         
         for data in level_data:
-            variant_key = data.get("entity_id")
+            variant_key = data.get("entity_id") or data.get("variant_key")
             pos = data.get("position", {"x": 0, "y": 0})
             rot = data.get("rotation", 0)
             
@@ -548,6 +737,9 @@ def main():
         active_signals.clear()
         game_state["selected_instance"] = None
         game_state["wiring_source"] = None
+        
+        if "TEST_OUTPUT_DIR" in os.environ:
+            del os.environ["TEST_OUTPUT_DIR"]
         game_state["belt_source"] = None
         game_state["pipe_source"] = None
         game_state["is_dirty"] = False
@@ -558,6 +750,21 @@ def main():
         for entity in entities:
             if hasattr(entity, 'reset_logic'):
                 entity.reset_logic()
+        
+        # Milestone 35: Clear recording buffer
+        import builtins
+        if hasattr(builtins, "captured_test_outputs"):
+            builtins.captured_test_outputs = []
+            
+        editor_ui.rebuild_top_panel()
+
+    def handle_record():
+        """Milestone 35: Toggle Recording Mode"""
+        game_state["record_mode"] = not game_state.get("record_mode", False)
+        if game_state["record_mode"]:
+            print("Recorder: Enabled. Start simulation to capture output.")
+        else:
+            print("Recorder: Disabled.")
         editor_ui.rebuild_top_panel()
 
     def handle_pause():
@@ -567,8 +774,89 @@ def main():
             game_state["mode"] = "PLAY"
         editor_ui.rebuild_top_panel()
 
+    def handle_stop():
+        """Milestone 35: Stop and potentially save recorded test."""
+        if game_state.get("record_mode") and game_state["mode"] in ("PLAY", "PAUSE"):
+            import builtins
+            captured = getattr(builtins, "captured_test_outputs", [])
+            if captured:
+                from tkinter import simpledialog
+                import tkinter as tk
+                import json # Added import for json
+                root = tk.Tk()
+                root.withdraw()
+                test_name = simpledialog.askstring("Save Test", "Enter name for this test case:", parent=root)
+                root.destroy()
+                
+                if test_name:
+                    test_dir = os.path.join("tests", test_name.replace(" ", "_"))
+                    os.makedirs(test_dir, exist_ok=True)
+                    
+                    # 1. Save YAML
+                    yaml_path = os.path.join(test_dir, f"{os.path.basename(test_dir)}.yaml")
+                    metadata = {
+                        "name": game_state.get("name", "Recorded Test"),
+                        "description": game_state.get("description", "Auto-recorded"),
+                        "gravity": game_state.get("gravity", [0, 900]),
+                        "damping": game_state.get("damping", 0.99),
+                        "wind": game_state.get("wind", [0, 0])
+                    }
+                    level_manager.save_level(entities, filepath=yaml_path, metadata=metadata)
+                    
+                    # 2. Save Expected Output (CSV)
+                    csv_path = os.path.join(test_dir, "expected_output.csv")
+                    with open(csv_path, "w", newline="") as f:
+                        if captured:
+                            import csv
+                            header = sorted(captured[0].keys())
+                            writer = csv.DictWriter(f, fieldnames=header)
+                            writer.writeheader()
+                            for row in captured:
+                                writer.writerow(row)
+                    
+                    # 3. Create rich inputs.json
+                    input_path = os.path.join(test_dir, "inputs.json")
+                    if not os.path.exists(input_path):
+                        meta = {
+                            "test_name": test_name,
+                            "test_description": "Automatically recorded test case.",
+                            "evaluator": "strict_csv",
+                            "payload_events": captured_test_inputs
+                        }
+                        with open(input_path, "w") as f:
+                            json.dump(meta, f, indent=2)
+                    
+                    print(f"Recorder: Test '{test_name}' saved to {test_dir}")
+                    game_state["record_mode"] = False
+        
+        handle_edit()
+
     def handle_edit():
+        import gc
         game_state["mode"] = "EDIT"
+        
+        # Milestone 34: Mode Transition Garbage Collection
+        # Clear all existing PayloadBallPart entities immediately
+        to_remove = [e for e in entities if isinstance(e, PayloadBallPart)]
+        for e in to_remove:
+            e.to_delete = True # Flag for logic consistency
+            if hasattr(e, 'cleanup'):
+                e.cleanup()
+            if getattr(e, 'body', None):
+                for constraint in list(e.body.constraints):
+                    if constraint in space.constraints:
+                        space.remove(constraint)
+                for shape in getattr(e, 'shapes', [getattr(e, 'shape', None)]):
+                    if shape and shape in space.shapes:
+                        space.remove(shape)
+                if e.body != space.static_body and e.body in space.bodies:
+                    space.remove(e.body)
+            if e in entities:
+                entities.remove(e)
+            if hasattr(e, 'uuid') and e.uuid in active_instances:
+                del active_instances[e.uuid]
+        
+        gc.collect() # Force immediate reclamation
         editor_ui.rebuild_top_panel()
     def handle_status_panels():
         # Placeholders for any status bar updates if needed
@@ -590,6 +878,221 @@ def main():
     def toggle_traces():
         game_state["show_traces"] = not game_state.get("show_traces", False)
         editor_ui.rebuild_top_panel()
+
+    def run_single_test(test_dir, visible=False):
+        """Milestone 35: Standardized Test Orchestrator"""
+        test_name = os.path.basename(test_dir)
+        yaml_path = os.path.join(test_dir, f"{test_name}.yaml")
+        if not os.path.exists(yaml_path):
+            # Fallback to first .yaml found
+            yaml_files = [f for f in os.listdir(test_dir) if f.endswith(".yaml")]
+            if not yaml_files: 
+                print(f"  [Error] No .yaml found in {test_dir}")
+                return False
+            yaml_path = os.path.join(test_dir, yaml_files[0])
+                  # 1. Standard Setup
+        print(f"\n--- STARTING TEST SUITE ('{test_name}') ---")
+        handle_clear() # Mandatory: shutdown previous threads before touching files
+        
+        # 2. Clear previous outputs
+        cwd = os.getcwd()
+        output_dir = os.path.join(cwd, test_dir, "output")
+        output_dir = os.path.abspath(output_dir)
+        
+        # Milestone 35 Fix: Stable directory cleanup for Windows
+        if os.path.exists(output_dir):
+            import shutil, time as _time
+            for _retry in range(5):
+                try: 
+                    shutil.rmtree(output_dir)
+                    break
+                except: 
+                    _time.sleep(0.1) # Help Windows release folder locks
+        os.makedirs(output_dir, exist_ok=True)
+
+        os.environ["TEST_OUTPUT_DIR"] = output_dir
+        
+        # 3. Load Level
+        # No handle_clear() here - it would wipe TEST_OUTPUT_DIR
+        level_data, constraints_data, connections_data, metadata = level_manager.load_level(yaml_path)
+        apply_level_data(level_data, constraints_data, connections_data, metadata)
+        
+        game_state["mode"] = "PLAY"
+        game_state["tick"] = 0
+        game_state["test_mode"] = True
+        game_state["active_test_name"] = test_name
+        
+        # Notify TestSources to load their inputs
+        for entity in entities:
+            if isinstance(entity, TestSourcePart):
+                entity.load_inputs(test_dir)
+        
+        max_ticks = 1200 # 20 seconds
+        dt = 1.0 / 60.0
+        
+        print(f"  > Executing {test_name} for {max_ticks} ticks...")
+        simulation_trace = []
+        
+        for tick in range(max_ticks):
+            game_state["tick"] = tick
+            if tick % 100 == 0:
+                print(f"  [Tick {tick}]")
+                import sys
+                sys.stdout.flush()
+            
+            # 1. Update logic
+            for entity in list(entities):
+                if hasattr(entity, 'update_logic'):
+                    entity.update_logic(dt, game_state, entities, active_instances)
+            
+            # 2. Update physics
+            space.step(dt)
+            
+            # 3. Clean up deleted entities
+            to_remove = [e for e in entities if getattr(e, 'to_delete', False)]
+            for e in to_remove:
+                if hasattr(e, 'cleanup'): e.cleanup()
+                if e in entities: entities.remove(e)
+                if hasattr(e, 'uuid') and e.uuid in active_instances:
+                    del active_instances[e.uuid]
+            
+            # Milestone 35: Black Box Snapshots (Always capture for potential failure)
+            snapshot = []
+            for e in entities:
+                snapshot.append({
+                    "uuid": str(getattr(e, "uuid", "unknown")),
+                    "pos": [float(e.body.position.x), float(e.body.position.y)],
+                    "angle": float(e.body.angle),
+                    "state": str(getattr(e, "visual_state", "IDLE")),
+                    "variant": str(getattr(e, "variant_key", "unknown")),
+                    "is_hidden": bool(getattr(e, "is_hidden", False))
+                })
+            simulation_trace.append(snapshot)
+
+            # 4. Optional Rendering (Visible mode)
+            if visible:
+                # Basic event pump to keep OS happy
+                for event in pygame.event.get():
+                    if event.type == pygame.QUIT: return False
+                
+                screen.fill((30, 30, 30))
+                # Viewport culling draw (simplified for test)
+                for entity in entities:
+                    if not getattr(entity, 'is_hidden', False):
+                        if hasattr(entity, 'update_visual'):
+                            entity.update_visual(screen, camera=camera)
+                pygame.display.flip()
+                # clock.tick(60) # Don't cap speed unless user wants to watch at real-time
+                
+        # Milestone 35: Finalize & Flush (mandatory for async Sinks)
+        print(f"  > Finalizing entities and flushing sinks...")
+        for entity in list(entities):
+            if hasattr(entity, 'cleanup'):
+                entity.cleanup()
+        
+        # Give async Sinks a moment to finish disk writes
+        print(f"  > Waiting for async workers to settle...")
+        time.sleep(2.0)
+
+        # Assertion Logic
+        success = perform_test_assertion(test_dir)
+        
+        # Milestone 35: Black Box Failure Dump
+        if not success:
+            trace_path = os.path.join(test_dir, "failure_trace.json")
+            try:
+                import json
+                with open(trace_path, "w") as f:
+                    json.dump(simulation_trace, f)
+                print(f"  [Black Box] Failure trace dumped to {trace_path}")
+            except Exception as e:
+                print(f"  [Error] Failed to dump failure trace: {e}")
+
+        return success
+
+    def perform_test_assertion(test_dir):
+        """Milestone 35: Auto-Assertion via CSV comparison."""
+        test_name = os.path.basename(test_dir)
+        expected_path = os.path.join(test_dir, "expected_output.csv")
+        
+        # Milestone 35 Fix: Robust path derivation from test_dir
+        cwd = os.getcwd()
+        output_dir = os.path.join(cwd, test_dir, "output")
+        output_dir = os.path.abspath(output_dir)
+        print(f"  DEBUG: perform_test_assertion using path: {output_dir}")
+        
+        # Milestone 35 Fix: Filesystem stabilization
+        import time as _time
+        all_files = []
+        for attempt in range(10):
+            if os.path.exists(output_dir):
+                all_files = os.listdir(output_dir)
+                if any(f.startswith("result") and f.endswith(".csv") for f in all_files):
+                    break
+            _time.sleep(0.5)
+            
+        print(f"  DEBUG: perform_test_assertion looking in {output_dir}")
+        print(f"  DEBUG: Final Files found: {all_files}")
+        output_files = [f for f in all_files if f.startswith("result") and f.endswith(".csv")]
+        if not output_files:
+            print(f"  [FAIL] {test_name}: No output CSV generated in {output_dir}. Found: {all_files}")
+            return False
+            
+        latest_file = sorted(output_files)[-1]
+        actual_path = os.path.join(output_dir, latest_file)
+        print(f"  DEBUG: Comparing against {actual_path}")
+        
+        # Milestone 35 Refinement: Root metadata discovery for Evaluator selection
+        evaluator_type = "strict_csv"
+        input_path = os.path.join(test_dir, "inputs.json")
+        if os.path.exists(input_path):
+            try:
+                with open(input_path, "r") as f:
+                    meta = json.load(f)
+                    if isinstance(meta, dict):
+                        evaluator_type = meta.get("evaluator", "strict_csv")
+            except: pass
+
+        if evaluator_type == "llm_semantic":
+            from utils.evaluators import evaluate_llm_semantic
+            return evaluate_llm_semantic(actual_path, expected_path)
+
+        # Milestone 35 Fix: High-frequency polling to overcome async disk writing delays
+        import time as _time
+        exp_lines = []
+        act_lines = []
+        
+        for attempt in range(10):
+            try:
+                with open(expected_path, "r") as f_exp, open(actual_path, "r") as f_act:
+                    exp_lines = [l.strip() for l in f_exp.readlines() if l.strip()]
+                    act_lines = [l.strip() for l in f_act.readlines() if l.strip()]
+                
+                if len(act_lines) >= (len(exp_lines) if exp_lines else 1):
+                    break # Found what we need
+            except Exception:
+                pass
+            _time.sleep(0.5)
+                
+        print(f"  DEBUG: Row count - Expected (inc header): {len(exp_lines)}, Actual: {len(act_lines)}")
+        try:
+            if len(exp_lines) != len(act_lines):
+                print(f"  [FAIL] {test_name}: Row count mismatch (Exp: {len(exp_lines)}, Act: {len(act_lines)})")
+                print(f"  DEBUG: Actual lines: {act_lines}")
+                return False
+                
+            for i, (exp, act) in enumerate(zip(exp_lines, act_lines)):
+                if exp.strip() != act.strip():
+                    print(f"  [FAIL] {test_name}: Mismatch at row {i+1}")
+                    print(f"    Expected: {exp.strip()}")
+                    print(f"    Actual:   {act.strip()}")
+                    return False
+            
+            print(f"  [PASS] {test_name}")
+            return True
+        except Exception as e:
+            print(f"  [ERROR] {test_name}: Assertion failed with error: {e}")
+            return False
 
     
     space = pymunk.Space()
@@ -624,6 +1127,35 @@ def main():
             print(f"CLI: Successfully loaded level from {load_path}")
         else:
             print(f"CLI Warning: Load file not found at {load_path}")
+
+    # --- Milestone 35: CLI Test Runner Hook ---
+    if args.test:
+        test_paths = resolve_test_paths(args.test)
+        if not test_paths:
+            print(f"ERROR: No tests found matching '{args.test}'")
+            pygame.quit()
+            sys.exit(1)
+            
+        print(f"\n--- STARTING TEST SUITE ('{args.test}') ---")
+        test_results = []
+        for tp in test_paths:
+            res = run_single_test(tp, args.visible)
+            test_results.append((tp, res))
+            
+        # Final Aggregate Reporting
+        total = len(test_results)
+        passed = sum(1 for _, s in test_results if s)
+        print(f"\n--- TEST SUITE COMPLETE ---")
+        print(f"TOTAL: {total} | PASS: {passed} | FAIL: {total - passed}")
+        
+    # --- Milestone 35: Failure Replay Mode ---
+    if args.replay:
+        run_replay_mode(args.replay)
+        pygame.quit()
+        sys.exit(0)
+        
+        pygame.quit()
+        sys.exit(0 if passed == total else 1)
 
     grabbed_body = None
     prev_mode = game_state["mode"]
@@ -786,6 +1318,10 @@ def main():
                 elif event.key in (pygame.K_DELETE, pygame.K_BACKSPACE) and current_mode == "EDIT":
                     entity_to_delete = game_state.get("selected_instance")
                     if entity_to_delete:
+                        # Milestone 34: Connection Sweeping
+                        deleted_uuid = getattr(entity_to_delete, 'uuid', None)
+                        sweep_orphaned_connections(deleted_uuid, entities)
+
                         if hasattr(entity_to_delete, 'cleanup'):
                             entity_to_delete.cleanup()
                         
@@ -796,6 +1332,7 @@ def main():
                             entities.remove(entity_to_delete)
                         
                         if hasattr(entity_to_delete, 'body') and entity_to_delete.body:
+                            # Rule: Constraints MUST be removed BEFORE bodies
                             for constraint in list(entity_to_delete.body.constraints):
                                 if constraint in space.constraints:
                                     space.remove(constraint)
@@ -841,10 +1378,15 @@ def main():
                     info = space.point_query_nearest(world_click_pos, 5.0, pymunk.ShapeFilter())
                     if info and info.shape and info.shape.body != space.static_body:
                         for entity in list(entities):
-                            if info.shape in getattr(entity, 'shapes', [entity.shape]):
+                            if info.shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
+                                # Milestone 34: Connection Sweeping
+                                deleted_uuid = getattr(entity, 'uuid', None)
+                                sweep_orphaned_connections(deleted_uuid, entities)
+
                                 if hasattr(entity, 'cleanup'):
                                     entity.cleanup()
                                 if getattr(entity, 'body', None):
+                                    # Rule: Constraints MUST be removed BEFORE bodies
                                     for constraint in list(entity.body.constraints):
                                         if constraint in space.constraints:
                                             space.remove(constraint)
@@ -1032,18 +1574,45 @@ def main():
                 if hasattr(entity, 'body') and entity.body and entity.body.position.y > 5000:
                     entity.to_delete = True
 
-                if getattr(entity, 'to_delete', False):
-                    if hasattr(entity, 'cleanup'):
-                        entity.cleanup()
-                    
-                    # Milestone 34: Explicit Memory Cleanup
-                    if hasattr(entity, 'payload') and isinstance(entity.payload, dict):
-                        entity.payload.clear()
-                    if hasattr(entity, 'trace_history') and isinstance(entity.trace_history, list):
-                        entity.trace_history.clear()
+            # Milestone 34: Safe Deletion Batching (Phase 9)
+            to_delete_batch = [e for e in entities if getattr(e, 'to_delete', False)]
+            
+            for entity in to_delete_batch:
+                # 1. Connection Sweeping (GC)
+                deleted_uuid = getattr(entity, 'uuid', None)
+                sweep_orphaned_connections(deleted_uuid, entities)
 
-                    # Remove from space
+                # 2. Component Cleanup
+                if hasattr(entity, 'cleanup'):
+                    entity.cleanup()
+                
+                # 3. Explicit Memory Clearing
+                if hasattr(entity, 'payload') and isinstance(entity.payload, dict):
+                    entity.payload.clear()
+                if hasattr(entity, 'trace_history') and isinstance(entity.trace_history, list):
+                    entity.trace_history.clear()
+
+                # 4. Object Pooling vs Physics Removal
+                is_recycled = False
+                if isinstance(entity, PayloadBallPart):
+                    entity.is_hidden = True
+                    entity.to_delete = False # Reset for pooling safety
+                    if entity.body:
+                        entity.body.velocity = (0, 0)
+                        entity.body.angular_velocity = 0
+                        entity.body.position = (-5000, -5000)
+                        
+                        if entity.body in space.bodies:
+                            space.remove(entity.body)
+                        for s in entity.shapes:
+                            if s in space.shapes:
+                                space.remove(s)
+                    payload_pool.append(entity)
+                    is_recycled = True
+                
+                if not is_recycled:
                     if getattr(entity, 'body', None):
+                        # Rule: Constraints MUST be removed BEFORE bodies
                         for constraint in list(entity.body.constraints):
                             if constraint in space.constraints:
                                 space.remove(constraint)
@@ -1055,24 +1624,19 @@ def main():
                     if hasattr(entity, 'body') and entity.body:
                         if entity.body != space.static_body and entity.body in space.bodies:
                             space.remove(entity.body)
-                    
-                    # Remove from lookup directories and lists
-                    if entity in entities:
-                        entities.remove(entity)
-                    
-                    uuid = getattr(entity, 'uuid', None)
-                    if uuid and uuid in active_instances:
-                        del active_instances[uuid]
-
-                    # Milestone 34: Object Pooling Logic
-                    if getattr(entity, 'variant_key', None) == "payload_ball":
-                        entity.to_delete = False
-                        entity.is_hidden = True
-                        if entity not in payload_pool:
-                            payload_pool.append(entity)
-                    
-                    continue
                 
+                # 5. Final Lookup Removal
+                if deleted_uuid and deleted_uuid in active_instances:
+                    # Double check if it's the right entity
+                    if active_instances[deleted_uuid] == entity:
+                        del active_instances[deleted_uuid]
+
+            # 6. Final Batch Removal from main entity list
+            if to_delete_batch:
+                entities[:] = [e for e in entities if not getattr(e, 'to_delete', False)]
+
+            # 7. Update logic for remaining entities
+            for entity in entities:
                 if hasattr(entity, 'update_logic'):
                     entity.update_logic(constants.PHYSICS_STEP, game_state, entities, active_instances)
                     
@@ -1114,6 +1678,10 @@ def main():
         if world_screen_bottom < window_height:
             pygame.draw.rect(screen, void_color, pygame.Rect(0, world_screen_bottom, window_width, window_height - world_screen_bottom))
         
+        # Phase 14: Global Visual FX Budget (Stigmergy Traces)
+        if game_state.get("show_traces", False):
+            visual_fx_manager.draw(screen, camera=camera)
+
         for entity in entities:
             if hasattr(entity, 'body') and entity.body:
                 world_x, world_y = entity.body.position.x, entity.body.position.y
@@ -1162,14 +1730,25 @@ def main():
                 if hasattr(entity, 'connected_uuids') and getattr(entity, 'body', None):
                     world_start_x, world_start_y = entity.body.position.x, entity.body.position.y
                     screen_start = camera.world_to_screen(world_start_x, world_start_y)
-                    start_pos = (int(screen_start[0]), int(screen_start[1]))
+                    start_x, start_y = screen_start[0], screen_start[1]
                     
                     for tgt_uuid in entity.connected_uuids:
                         tgt = active_instances.get(tgt_uuid)
                         if tgt and getattr(tgt, 'body', None):
                             world_end_x, world_end_y = tgt.body.position.x, tgt.body.position.y
                             screen_end = camera.world_to_screen(world_end_x, world_end_y)
-                            end_pos = (int(screen_end[0]), int(screen_end[1]))
+                            end_x, end_y = screen_end[0], screen_end[1]
+                            
+                            # Phase 12: Viewport Rendering Culling (Wires)
+                            # Only draw if at least one endpoint is near the viewport (200px padding)
+                            if not (
+                                (-200 < start_x < constants.WINDOW_WIDTH + 200 and -200 < start_y < constants.WINDOW_HEIGHT + 200) or
+                                (-200 < end_x < constants.WINDOW_WIDTH + 200 and -200 < end_y < constants.WINDOW_HEIGHT + 200)
+                            ):
+                                continue
+
+                            start_pos = (int(start_x), int(start_y))
+                            end_pos = (int(end_x), int(end_y))
                             
                             flash = getattr(entity, 'flash_timer', 0)
                             
@@ -1214,6 +1793,13 @@ def main():
                 sx, sy = camera.world_to_screen(sender.body.position.x, sender.body.position.y)
                 ex, ey = camera.world_to_screen(tgt.body.position.x, tgt.body.position.y)
                 
+                # Phase 12: Viewport Rendering Culling (Signals)
+                if not (
+                    (-200 < sx < constants.WINDOW_WIDTH + 200 and -200 < sy < constants.WINDOW_HEIGHT + 200) or
+                    (-200 < ex < constants.WINDOW_WIDTH + 200 and -200 < ey < constants.WINDOW_HEIGHT + 200)
+                ):
+                    continue
+
                 pt = get_wire_curve_point((sx, sy), (ex, ey), sig["progress"])
                 px, py = pt.x, pt.y
                 

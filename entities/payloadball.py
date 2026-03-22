@@ -1,8 +1,10 @@
 import pygame
 import pymunk
+import math
 
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
+from utils.visual_fx_manager import visual_fx_manager
 
 
 class PayloadBallPart(GamePart):
@@ -11,10 +13,9 @@ class PayloadBallPart(GamePart):
     def __init__(self, space: pymunk.Space, x: float, y: float, property_key: str):
         super().__init__(space, x, y, property_key)
         
-        # --- Stigmergic Trace Properties ---
-        self.trace_history = [] # Format: [(x, y, timestamp_added), ...]
+        # --- Visual Stigmergy Settings ---
         self.trace_timer = 0.0
-        self.show_traces = False
+        self.idle_timer = 0.0 # Milestone 34: Stuck ball protection
         
         # Configuration Constraints
         self.TRACE_LIFETIME = 5.0    # Fades completely after 5 seconds
@@ -42,27 +43,25 @@ class PayloadBallPart(GamePart):
     def update_logic(self, dt, game_state, entities, active_instances=None):
         super().update_logic(dt, game_state, entities, active_instances)
         
-        # Sync toggle state from UI
-        self.show_traces = game_state.get("show_traces", False)
-        current_time = pygame.time.get_ticks() / 1000.0
-        
-        if game_state.get("mode") == "PLAY" and self.show_traces:
+        # Global Visual FX Budget (Phase 14)
+        if game_state.get("mode") == "PLAY" and game_state.get("show_traces", False):
             if not getattr(self, "is_hidden", False) and self.body:
                 self.trace_timer += dt
-                # Drop a coordinate "breadcrumb" on interval
-                if self.trace_timer >= self.TRACE_INTERVAL:  
-                    self.trace_history.append((self.body.position.x, self.body.position.y, current_time))
+                if self.trace_timer >= 0.05: # Interval: 20 points per sec
+                    score = self.payload.get("score", 100) if hasattr(self, "payload") else 100
+                    color = self.get_color_for_score(score)
+                    visual_fx_manager.add_trace(self.body.position.x, self.body.position.y, color)
                     self.trace_timer = 0.0
-                    
-            # Rule 1: Purge points older than 5 seconds
-            self.trace_history = [p for p in self.trace_history if current_time - p[2] <= self.TRACE_LIFETIME]
-            
-            # Rule 2: Cap at maximum accumulative points
-            if len(self.trace_history) > self.MAX_TRACE_POINTS:
-                self.trace_history = self.trace_history[-self.MAX_TRACE_POINTS:]
-                
-        elif not self.show_traces and self.trace_history:
-            self.trace_history.clear() # Wipe memory instantly when toggled off
+
+        # Rule 4: Stale Payload Timeout (Milestone 34)
+        if game_state.get("mode") == "PLAY" and self.body:
+            vx, vy = self.body.velocity
+            if math.hypot(vx, vy) < 5.0:  # Near stationary
+                self.idle_timer += dt
+                if self.idle_timer > 30.0:
+                    self.to_delete = True
+            else:
+                self.idle_timer = 0.0
 
     def draw(self, surface, camera=None):
         if not self.body:
@@ -81,29 +80,7 @@ class PayloadBallPart(GamePart):
         radius = float(self.get_property('radius', 15.0))
         current_time = pygame.time.get_ticks() / 1000.0
 
-        # --- Rule 3: Draw Glowing Trace Trail (Underneath the ball) ---
-        if self.show_traces and self.trace_history:
-            for p in self.trace_history:
-                age = current_time - p[2]
-                
-                # Clamp age for safety bounds
-                if age < 0: age = 0
-                if age > self.TRACE_LIFETIME: age = self.TRACE_LIFETIME
-                
-                # Life ratio goes from 1.0 (just spawned) down to 0.0 (5 seconds old)
-                life_ratio = 1.0 - (age / self.TRACE_LIFETIME)
-                
-                # Shrink radius as it fades out
-                trail_radius = max(1, int(radius * 0.8 * life_ratio))
-                
-                # Cap max opacity at ~120/255 (less than 50%) so it doesn't overdisplay
-                alpha = int(120 * life_ratio) 
-                
-                sx, sy = camera.world_to_screen(p[0], p[1]) if camera else (p[0], p[1])
-                
-                trace_surf = pygame.Surface((trail_radius * 2, trail_radius * 2), pygame.SRCALPHA)
-                pygame.draw.circle(trace_surf, (*color, alpha), (trail_radius, trail_radius), trail_radius)
-                surface.blit(trace_surf, (int(sx - trail_radius), int(sy - trail_radius)))
+        # --- Global Trace Trail (Phase 14: Handled by visual_fx_manager) ---
 
         # 1. Main Base Sprite
         pygame.draw.circle(surface, color, (int(screen_x), int(screen_y)), int(radius))

@@ -187,6 +187,30 @@ class GamePart:
                 "processing_history": [],
             }
 
+    def trim_payload(self):
+        """Milestone 34: Recursively limits depth, string length, and list size in self.payload."""
+        if not isinstance(self.payload, dict):
+            return
+
+        def _recursive_limit(data, depth=0):
+            if depth > 3:
+                return "{...DEPTH_LIMIT...}"
+            if isinstance(data, dict):
+                # Filter out verbose internal logs
+                return {k: _recursive_limit(v, depth + 1) for k, v in data.items() 
+                        if k not in ("_logs", "_debug", "transitional_data")}
+            elif isinstance(data, list):
+                # Cap list size to 20 elements
+                return [_recursive_limit(item, depth + 1) for item in data[:20]]
+            elif isinstance(data, str):
+                # Cap string size to 1024 chars
+                if len(data) > 1024:
+                    return data[:1021] + "..."
+                return data
+            return data
+
+        self.payload = _recursive_limit(self.payload)
+
     def update_visual(self, surface, camera=None, **kwargs):
         """
         Reads the Pymunk body position and rotation to render the Pygame visual.
@@ -310,8 +334,8 @@ class GamePart:
                     rate = -rate
                 self.motor_constraint.rate = rate
 
-    def receive_signal(self, payload=None):
-        """Phase 3/17: Standard logical interface triggered by connected Sender entities."""
+    def receive_signal(self, sender, signal_data=None):
+        """Phase 3/17/34: Standard logical interface triggered by connected Sender entities."""
         if self.variant_key == "cannon":
             self.force_shoot = True
         elif self.variant_key == "conveyor_belt":

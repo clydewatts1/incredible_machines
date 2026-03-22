@@ -8,27 +8,33 @@ class LevelManager:
         # Ensure the saves directory exists
         os.makedirs(self.save_dir, exist_ok=True)
 
-    def save_level(self, entities, flow_name=None, metadata=None):
+    def save_level(self, entities, flow_name=None, metadata=None, filepath=None):
         """
-        Saves the flow into a project directory structure:
-        saves/[Flow_Name]/[Flow_Name].yaml
+        Saves the flow into a project directory structure or a custom filepath.
+        Default: saves/[Flow_Name]/[Flow_Name].yaml
         """
         if metadata is None:
             metadata = {}
             
-        if not flow_name:
-            flow_name = metadata.get("flow_name", "Untitled_Flow")
-        
-        # Normalize flow name for directory
-        flow_dir_name = flow_name.replace(" ", "_")
-        project_dir = os.path.join(self.save_dir, flow_dir_name)
-        os.makedirs(project_dir, exist_ok=True)
-        
-        # Ensure subdirectories for assets
-        for sub in ["icons", "sprites", "images"]:
-            os.makedirs(os.path.join(project_dir, sub), exist_ok=True)
+        if filepath:
+            path = filepath
+            # Ensure parent directories exist
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            flow_name = flow_name or metadata.get("name", "Recorded_Test")
+        else:
+            if not flow_name:
+                flow_name = metadata.get("flow_name", "Untitled_Flow")
             
-        path = os.path.join(project_dir, f"{flow_dir_name}.yaml")
+            # Normalize flow name for directory
+            flow_dir_name = flow_name.replace(" ", "_")
+            project_dir = os.path.join(self.save_dir, flow_dir_name)
+            os.makedirs(project_dir, exist_ok=True)
+            
+            # Ensure subdirectories for assets
+            for sub in ["icons", "sprites", "images"]:
+                os.makedirs(os.path.join(project_dir, sub), exist_ok=True)
+                
+            path = os.path.join(project_dir, f"{flow_dir_name}.yaml")
 
         level_data = []
         for entity in entities:

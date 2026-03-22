@@ -203,6 +203,8 @@ class BrainPart(FlowEntity):
                 if not isinstance(payload_entity.payload.get("data"), dict):
                     payload_entity.payload["data"] = {}
                 payload_entity.payload["data"].update(injected_data)
+            
+            payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
 
             # Standardized Routing
             self.resolve_exit_path(payload_entity, route_state, entities, active_instances)

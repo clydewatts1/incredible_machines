@@ -645,3 +645,15 @@ variants:
     learning_rate: 2.0        # How much to adjust weights on feedback
     exit_velocity: 150.0      # Speed at which payloads exit
     exit_angle: 0.0           # Angle offset for ejection
+
+  test_source:
+    template: "Circle"
+    label: "Test Source"
+    category: "sources"
+    radius: 30
+    is_static: True
+    active_side: "Bottom"
+    exit_velocity: 200.0
+    exit_angle: 0.0
+    color: [255, 100, 255] # Pink/Magenta for test markers
+    description: "Specialized data source for automated testing. Emits payloads at exact physics ticks defined in inputs.json."
