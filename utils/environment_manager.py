@@ -16,6 +16,8 @@ class EnvironmentManager:
         # Load YAML configuration
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f) or {}
+            
+        self.active_project = None # Currently active project name
 
         # Allow environment.yaml to override window size.
         self.window_width = self._to_int(self.config.get("window_width"), screen_width)

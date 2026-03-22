@@ -88,6 +88,7 @@ class EditorUI:
         self.categories = categories
         self.game_state = game_state
         self.callbacks = callbacks
+        self.dirty_callback = callbacks.get("dirty_callback")
 
         # Initialize pygame-gui UIManager with the correct theme file
         theme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "theme.json")
@@ -166,6 +167,8 @@ class EditorUI:
         self.category_tabs = []
         self.inspector_elements = []
         self.palette_elements = []
+        self.inspector_inputs = {}
+        self.flow_inputs = {}
 
     def rebuild_top_panel(self):
         """Builds the professional menu bar with transport and file ops."""
@@ -177,7 +180,7 @@ class EditorUI:
         file_actions = [
             ("SAVE", self.callbacks["save"]),
             ("LOAD", self.callbacks["load"]),
-            ("CLEAR", self.callbacks["clear"])
+            ("NEW", self.callbacks["new"])
         ]
         
         btn_x = 10
@@ -237,7 +240,7 @@ class EditorUI:
         self.top_elements.append(grid_btn)
         
         flow_btn = UIButton(
-            relative_rect=pygame.Rect(right_x + 75, 10, 70, 30),
+            relative_rect=pygame.Rect(right_x + 75, 10, 50, 30),
             text="Flow",
             manager=self.ui_manager,
             container=self.top_panel,
@@ -245,6 +248,16 @@ class EditorUI:
         )
         flow_btn.user_data = self.callbacks["flow_settings"]
         self.top_elements.append(flow_btn)
+
+        reimage_btn = UIButton(
+            relative_rect=pygame.Rect(right_x + 130, 10, 70, 30),
+            text="REIMAGE",
+            manager=self.ui_manager,
+            container=self.top_panel,
+            tool_tip_text="Regenerate all project assets"
+        )
+        reimage_btn.user_data = self.callbacks["reimage"]
+        self.top_elements.append(reimage_btn)
 
     def set_score(self, score):
         self.score_label.set_text(f"Score: {score}")
@@ -430,19 +443,40 @@ class EditorUI:
         self.inspector_elements.append(lbl)
         y_off += 22
         name_in = UITextEntryLine(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 30), manager=self.ui_manager, container=self.left_container)
-        name_in.set_text(self.game_state.get("flow_name", ""))
+        name_in.set_text(self.game_state.get("name", ""))
         self.inspector_elements.append(name_in)
+        self.flow_inputs["name"] = name_in
         y_off += 35
         
         lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 20), text="Description", manager=self.ui_manager, container=self.left_container)
         self.inspector_elements.append(lbl)
         y_off += 22
-        desc_in = UITextEntryBox(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 100), manager=self.ui_manager, container=self.left_container, initial_text=self.game_state.get("flow_description", ""))
+        desc_in = UITextEntryBox(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 60), manager=self.ui_manager, container=self.left_container, initial_text=self.game_state.get("description", ""))
         self.inspector_elements.append(desc_in)
-        y_off += 105
+        self.flow_inputs["description"] = desc_in
+        y_off += 65
+
+        # Physics Settings
+        physics_fields = [
+            ("Gravity X", "gravity_x", self.game_state.get("gravity", [0, 900])[0]),
+            ("Gravity Y", "gravity_y", self.game_state.get("gravity", [0, 900])[1]),
+            ("Damping", "damping", self.game_state.get("damping", 0.99)),
+            ("Wind X", "wind_x", self.game_state.get("wind", [0, 0])[0]),
+            ("Wind Y", "wind_y", self.game_state.get("wind", [0, 0])[1])
+        ]
+
+        for label_text, key, val in physics_fields:
+            lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 20), text=label_text, manager=self.ui_manager, container=self.left_container)
+            self.inspector_elements.append(lbl)
+            y_off += 22
+            inp = UITextEntryLine(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 30), manager=self.ui_manager, container=self.left_container)
+            inp.set_text(str(val))
+            self.inspector_elements.append(inp)
+            self.flow_inputs[key] = inp
+            y_off += 35
         
-        flow_save = UIButton(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 30), text="Save Flow", manager=self.ui_manager, container=self.left_container)
-        flow_save.user_data = ("SAVE_FLOW", name_in, desc_in)
+        flow_save = UIButton(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 30), text="Save Flow Settings", manager=self.ui_manager, container=self.left_container)
+        flow_save.user_data = "SAVE_FLOW_TRIGGER"
         self.inspector_elements.append(flow_save)
         
         self.left_container.set_scrollable_area_dimensions((self.side_w - 20, y_off + 50))
@@ -456,16 +490,35 @@ class EditorUI:
                 ud = event.ui_element.user_data
                 if ud == "SAVE": self.callbacks["save"]()
                 elif ud == "LOAD": self.callbacks["load"]()
-                elif ud == "CLEAR": self.callbacks["clear"]()
+                elif ud == "NEW": self.callbacks["new"]()
                 elif callable(ud):
                     ud()
                 elif ud == "APPLY":
                     self._apply_inspector_changes()
-                elif isinstance(ud, tuple) and ud[0] == "SAVE_FLOW":
-                    self.game_state["flow_name"] = ud[1].get_text()
-                    self.game_state["flow_description"] = ud[2].get_text()
-                    self.game_state["selected_instance"] = None
-                    self.rebuild_left_inspector()
+                elif ud == "SAVE_FLOW_TRIGGER":
+                    name = self.flow_inputs["name"].get_text()
+                    desc = self.flow_inputs["description"].get_text()
+                    
+                    # Parse physics values
+                    try:
+                        gx = float(self.flow_inputs["gravity_x"].get_text())
+                        gy = float(self.flow_inputs["gravity_y"].get_text())
+                        damp = float(self.flow_inputs["damping"].get_text())
+                        wx = float(self.flow_inputs["wind_x"].get_text())
+                        wy = float(self.flow_inputs["wind_y"].get_text())
+                    except:
+                        gx, gy, damp, wx, wy = 0, 900, 0.99, 0, 0
+
+                    if "save_flow" in self.callbacks:
+                        self.callbacks["save_flow"](name, desc, [gx, gy], damp, [wx, wy])
+                    else:
+                        self.game_state["flow_name"] = name
+                        self.game_state["flow_description"] = desc
+                        self.game_state["gravity"] = [gx, gy]
+                        self.game_state["damping"] = damp
+                        self.game_state["wind"] = [wx, wy]
+                        self.game_state["selected_instance"] = None
+                        self.rebuild_left_inspector()
                 elif ud in self.all_variants:
                     self.game_state["active_tool"] = ud
                 elif ud in ["all"] + self.categories:
@@ -479,12 +532,44 @@ class EditorUI:
 
         return self.ui_manager.get_focus_set() is not None or self.ui_manager.get_hovering_any_element()
 
-    def _apply_inspector_changes(self):
+    def sync_ui_to_state(self):
+        """Commits pending UI entries to state before a global save."""
+        selected = self.game_state.get("selected_instance")
+        if selected == "GLOBAL_FLOW":
+            if "name" in self.flow_inputs:
+                self.game_state["name"] = self.flow_inputs["name"].get_text()
+            if "description" in self.flow_inputs:
+                self.game_state["description"] = self.flow_inputs["description"].get_text()
+            
+            # Sync physics values
+            try:
+                if "gravity_x" in self.flow_inputs:
+                    gx = float(self.flow_inputs["gravity_x"].get_text())
+                    gy = float(self.flow_inputs["gravity_y"].get_text())
+                    self.game_state["gravity"] = [gx, gy]
+                if "damping" in self.flow_inputs:
+                    self.game_state["damping"] = float(self.flow_inputs["damping"].get_text())
+                if "wind_x" in self.flow_inputs:
+                    wx = float(self.flow_inputs["wind_x"].get_text())
+                    wy = float(self.flow_inputs["wind_y"].get_text())
+                    self.game_state["wind"] = [wx, wy]
+            except:
+                pass
+        elif selected is not None:
+            self._apply_inspector_changes(clear_selection=False)
+
+    def _apply_inspector_changes(self, clear_selection=True):
         import ast
         selected = self.game_state["selected_instance"]
+        if selected is None or selected == "GLOBAL_FLOW":
+            return
+            
         new_overrides = {}
         for k, field in self.inspector_inputs.items():
-            txt = field.get_text()
+            if hasattr(field, 'get_text'):
+                txt = field.get_text()
+            else:
+                continue
             
             try:
                 if txt.startswith("[") or txt.startswith("{"): new_overrides[k] = ast.literal_eval(txt)
@@ -493,8 +578,12 @@ class EditorUI:
             except: new_overrides[k] = txt
             
         selected.apply_draft_overrides(new_overrides)
-        self.game_state["selected_instance"] = None
-        self.rebuild_left_inspector()
+        if self.dirty_callback:
+            self.dirty_callback()
+            
+        if clear_selection:
+            self.game_state["selected_instance"] = None
+            self.rebuild_left_inspector()
 
     def update(self, time_delta):
         self.ui_manager.update(time_delta)

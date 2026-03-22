@@ -40,11 +40,15 @@ from utils.level_manager import LevelManager
 from utils.camera import Camera
 from utils.physics_events import CollisionManager
 from utils.editor_ui import EditorUI
+from utils.asset_manager import asset_manager
+from utils.icon_manager import icon_manager
+from utils.sprite_manager import sprite_manager
 
 UI_TOP_HEIGHT = 50
 UI_BOTTOM_HEIGHT = 40
 UI_SIDE_WIDTH = 260
 UI_RIGHT_SIDE_WIDTH = 320
+payload_pool = [] # Milestone 34: Global Object Pool for Payload Recycling
 
 def create_boundaries(space, playable_rect):
     static_body = space.static_body
@@ -107,6 +111,28 @@ def create_part(space, x, y, variant_key):
             part.shape.collision_type = constants.COLLISION_TYPE_PORTAL
         return part
     elif variant_key == "payload_ball":
+        if payload_pool:
+            ball = payload_pool.pop(0)
+            ball.body.position = (x, y)
+            ball.body.velocity = (0, 0)
+            ball.body.angular_velocity = 0
+            ball.is_hidden = False
+            ball.to_delete = False
+            if hasattr(ball, 'payload'):
+                if isinstance(ball.payload, dict):
+                    ball.payload.clear()
+                else:
+                    ball.payload = {}
+            if hasattr(ball, 'trace_history'):
+                ball.trace_history.clear()
+            if hasattr(ball, 'trace_timer'):
+                ball.trace_timer = 0.0
+            # Re-add to space
+            if ball.body not in space.bodies:
+                space.add(ball.body)
+            if hasattr(ball, 'shape') and ball.shape not in space.shapes:
+                space.add(ball.shape)
+            return ball
         return PayloadBallPart(space, x, y, variant_key)
     elif variant_key in ("data_source", "data_source_csv", "data_source_mcp"):
         return DataSource(space, x, y, variant_key)
@@ -238,22 +264,96 @@ def main():
         "wiring_source": None,
         "belt_source": None,
         "pipe_source": None,
-        "flow_name": "New Flow",
-        "flow_description": "Initial flow description.",
-        "speed_multiplier": 1.0
+        "name": "New Flow",
+        "description": "Initial flow description.",
+        "speed_multiplier": 1.0,
+        "is_dirty": False,
+        "gravity": [0, 900],
+        "damping": 0.99,
+        "wind": [0, 0]
     }
 
     level_manager = LevelManager()
     
     def handle_flow_settings():
         game_state["selected_instance"] = "GLOBAL_FLOW"
+        game_state["is_creating_new"] = False
         editor_ui.rebuild_left_inspector()
+
+    def handle_save_flow(name, desc, gravity=[0, 900], damping=0.99, wind=[0, 0]):
+        if not name or name.strip() == "":
+            print("Save Flow Error: Name cannot be empty.")
+            return
+
+        # If we were in "NEW" mode, clear the canvas now that we have a name
+        if game_state.get("is_creating_new"):
+            handle_clear()
+            game_state["is_creating_new"] = False
+
+        game_state["name"] = name
+        game_state["description"] = desc
+        game_state["gravity"] = gravity
+        game_state["damping"] = damping
+        game_state["wind"] = wind
+        
+        env_manager.active_project = name.replace(" ", "_")
+        env_manager.active_flow_name = name
+        env_manager.active_flow_description = desc
+        
+        # Apply physics to space
+        space.gravity = tuple(gravity)
+        space.damping = damping
+        
+        # Sync UI then save
+        editor_ui.sync_ui_to_state()
+        handle_quick_save()
+        game_state["selected_instance"] = None
+        editor_ui.rebuild_left_inspector()
+        editor_ui.rebuild_top_panel()
+
+    def handle_reimage():
+        """Step 6: REIMAGE callback logic."""
+        from utils.asset_manager import asset_manager
+        from utils.icon_manager import icon_manager
+        from utils.sprite_manager import sprite_manager
+        
+        project_name = getattr(env_manager, 'active_project', None)
+        if not project_name:
+            print("REIMAGE Error: No active project.")
+            return
+
+        # 1. Delete local .png files in icons and sprites
+        project_dir = os.path.join("saves", project_name)
+        for sub in ["icons", "sprites"]:
+            local_path = os.path.join(project_dir, sub)
+            if os.path.exists(local_path):
+                for f in os.listdir(local_path):
+                    if f.endswith(".png"):
+                        try:
+                            os.remove(os.path.join(local_path, f))
+                        except Exception as e:
+                            print(f"REIMAGE Warning: Could not delete {f}: {e}")
+        
+        # 2. Clear Pygame asset cache
+        asset_manager.cache.clear()
+        
+        # 3. Trigger fresh generation
+        print(f"REIMAGE: Regenerating assets for project '{project_name}'...")
+        for vk, vd in all_variants.items():
+            icon_manager.get_icon(vk, vd.get("label"), skip_global=True)
+            
+        for entity in entities:
+            sprite_manager.get_sprite(entity.variant_key, overrides=entity.overrides, skip_global=True)
+            
+        # 4. Refresh UI
+        editor_ui.rebuild_right_palette()
+        print(f"REIMAGE: Assets for '{project_name}' have been regenerated.")
 
     callbacks = {
         "play": lambda: handle_play(),
         "pause": lambda: handle_pause(),
         "edit": lambda: handle_edit(),
-        "clear": lambda: handle_clear(),
+        "new": lambda: handle_new_flow(),
         "snap": lambda: toggle_snap_to_grid(),
         "trace": lambda: toggle_traces(),
         "q_save": lambda: handle_quick_save(),
@@ -261,7 +361,10 @@ def main():
         "save": lambda: handle_save(),
         "load": lambda: handle_load(),
         "quit": lambda: handle_quit(),
-        "flow_settings": handle_flow_settings
+        "flow_settings": handle_flow_settings,
+        "save_flow": handle_save_flow,
+        "reimage": handle_reimage,
+        "dirty_callback": lambda: game_state.update({"is_dirty": True})
     }
     
     editor_ui = EditorUI(
@@ -276,9 +379,16 @@ def main():
     )
     playable_rect = editor_ui.playable_rect
     
-    def apply_level_data(level_data, constraints_data=None, connections_data=None):
+    def apply_level_data(level_data, constraints_data=None, connections_data=None, metadata=None):
         if not level_data:
             return
+            
+        if metadata:
+            game_state["gravity"] = metadata.get("gravity", [0, 900])
+            game_state["damping"] = metadata.get("damping", 0.99)
+            game_state["wind"] = metadata.get("wind", [0, 0])
+            space.gravity = tuple(game_state["gravity"])
+            space.damping = game_state["damping"]
             
         for entity in list(entities):
             if hasattr(entity, 'cleanup'):
@@ -344,18 +454,25 @@ def main():
                     active_instances[sender_uid].connected_uuids.append(receiver_uid)
             
     def handle_quick_save():
+        editor_ui.sync_ui_to_state()
         metadata = {
-            "flow_name": game_state.get("flow_name", ""),
-            "flow_description": game_state.get("flow_description", "")
+            "name": game_state.get("name", ""),
+            "description": game_state.get("description", ""),
+            "gravity": game_state.get("gravity", [0, 900]),
+            "damping": game_state.get("damping", 0.99),
+            "wind": game_state.get("wind", [0, 0])
         }
         level_manager.save_level(entities, metadata=metadata)
+        env_manager.active_project = game_state.get("name", "Untitled").replace(" ", "_")
+        game_state["is_dirty"] = False
         
     def handle_quick_load():
         handle_clear()
         level_data, constraints_data, connections_data, metadata = level_manager.load_level()
-        apply_level_data(level_data, constraints_data, connections_data)
-        game_state["flow_name"] = metadata.get("flow_name", "Untitled")
-        game_state["flow_description"] = metadata.get("flow_description", "")
+        apply_level_data(level_data, constraints_data, connections_data, metadata=metadata)
+        game_state["name"] = metadata.get("name", metadata.get("flow_name", "Untitled"))
+        game_state["description"] = metadata.get("description", metadata.get("flow_description", ""))
+        env_manager.active_project = game_state["name"].replace(" ", "_")
         game_state["mode"] = "EDIT"
         editor_ui.rebuild_top_panel()
 
@@ -370,11 +487,16 @@ def main():
         )
         root.destroy()
         if filepath:
+            editor_ui.sync_ui_to_state()
             metadata = {
-                "flow_name": game_state.get("flow_name", ""),
-                "flow_description": game_state.get("flow_description", "")
+                "name": game_state.get("name", ""),
+                "description": game_state.get("description", ""),
+                "gravity": game_state.get("gravity", [0, 900]),
+                "damping": game_state.get("damping", 0.99),
+                "wind": game_state.get("wind", [0, 0])
             }
             level_manager.save_level(entities, filepath=filepath, metadata=metadata)
+            env_manager.active_project = game_state.get("name", "").replace(" ", "_")
             
     def handle_load():
         root = tk.Tk()
@@ -389,11 +511,22 @@ def main():
         if filepath:
             handle_clear()
             level_data, constraints_data, connections_data, metadata = level_manager.load_level(filepath)
-            apply_level_data(level_data, constraints_data, connections_data)
-            game_state["flow_name"] = metadata.get("flow_name", "Untitled")
-            game_state["flow_description"] = metadata.get("flow_description", "")
+            apply_level_data(level_data, constraints_data, connections_data, metadata=metadata)
+            game_state["name"] = metadata.get("name", metadata.get("flow_name", "Untitled"))
+            game_state["description"] = metadata.get("description", metadata.get("flow_description", ""))
+            env_manager.active_project = game_state["name"].replace(" ", "_")
             game_state["mode"] = "EDIT"
             editor_ui.rebuild_top_panel()
+
+    def handle_new_flow():
+        """Refines the NEW workflow: prompt first, clear later."""
+        game_state["is_creating_new"] = True
+        game_state["selected_instance"] = "GLOBAL_FLOW"
+        # Reset physics to defaults for a new flow
+        game_state["gravity"] = [0, 900]
+        game_state["damping"] = 0.99
+        game_state["wind"] = [0, 0]
+        editor_ui.rebuild_left_inspector()
 
     def handle_clear():
         for entity in list(entities):
@@ -411,6 +544,14 @@ def main():
                     space.remove(entity.body)
         entities.clear()
         active_instances.clear()
+        signal_queue.clear()
+        active_signals.clear()
+        game_state["selected_instance"] = None
+        game_state["wiring_source"] = None
+        game_state["belt_source"] = None
+        game_state["pipe_source"] = None
+        game_state["is_dirty"] = False
+        print("LevelManager: Canvas cleared.")
 
     def handle_play():
         game_state["mode"] = "PLAY"
@@ -478,6 +619,7 @@ def main():
             apply_level_data(level_data, constraints_data, connections_data)
             game_state["flow_name"] = metadata.get("flow_name", "Untitled")
             game_state["flow_description"] = metadata.get("flow_description", "")
+            env_manager.active_project = game_state["flow_name"].replace(" ", "_")
             editor_ui.rebuild_top_panel()
             print(f"CLI: Successfully loaded level from {load_path}")
         else:
@@ -524,6 +666,7 @@ def main():
                         src.connected_uuids.append(target_entity.uuid)
                         target_entity.play_event_sound("spawn_sound")
                     game_state["wiring_source"] = None
+                    game_state["is_dirty"] = True
                 else:
                     game_state["wiring_source"] = None
 
@@ -546,6 +689,7 @@ def main():
                     active_instances[new_pipe.uuid] = new_pipe
                     target_entity.play_event_sound("spawn_sound")
                     game_state["pipe_source"] = None
+                    game_state["is_dirty"] = True
                 else:
                     game_state["pipe_source"] = None
 
@@ -558,10 +702,10 @@ def main():
                     if game_state.get("belt_source") is None:
                         game_state["belt_source"] = target_axle
                         target_axle.play_event_sound("spawn_sound")
-                    elif game_state["belt_source"] != target_axle:
                         game_state["belt_source"].connect_belt(target_axle)
                         target_axle.play_event_sound("spawn_sound")
                         game_state["belt_source"] = None
+                        game_state["is_dirty"] = True
                     else:
                         game_state["belt_source"] = None
                 else:
@@ -584,6 +728,7 @@ def main():
             entities.append(new_part)
             active_instances[new_part.uuid] = new_part
             new_part.play_event_sound("spawn_sound")
+            game_state["is_dirty"] = True
             
         else:
             # Clicked empty space with no spawn tool -> clear selection
@@ -668,6 +813,7 @@ def main():
                             trash_can_visible = False
                             
                         game_state["selected_instance"] = None
+                        game_state["is_dirty"] = True
                         editor_ui.rebuild_left_inspector()
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
@@ -714,6 +860,7 @@ def main():
                                 entities.remove(entity)
                                 if entity.uuid in active_instances:
                                     del active_instances[entity.uuid]
+                                game_state["is_dirty"] = True
                                 break
             
             elif event.type == pygame.MOUSEMOTION:
@@ -766,6 +913,8 @@ def main():
                             if entity_to_delete.body != space.static_body and entity_to_delete.body in space.bodies:
                                 space.remove(entity_to_delete.body)
                 
+                if grabbed_body:
+                    game_state["is_dirty"] = True
                 grabbed_body = None
                 trash_can_visible = False
                 
@@ -780,6 +929,7 @@ def main():
                             target = info.shape.body
                     if target:
                         target.angle += event.y * 0.1
+                        game_state["is_dirty"] = True
                         space.reindex_shapes_for_body(target)
 
         if editor_ui.ui_manager.get_focus_set() is None:
@@ -802,7 +952,19 @@ def main():
         dt = clock.tick(60) / 1000.0
         editor_ui.update(dt)
 
+        # Autosave check
+        if game_state.get("is_dirty") and game_state["mode"] == "EDIT":
+            handle_quick_save()
+            game_state["is_dirty"] = False
+
         if current_mode == "PLAY":
+            # Apply wind force
+            wind = game_state.get("wind", [0, 0])
+            if wind[0] != 0 or wind[1] != 0:
+                for body in space.bodies:
+                    if body.body_type == pymunk.Body.DYNAMIC:
+                        body.apply_force_at_world_point(tuple(wind), body.position)
+
             space.step(constants.PHYSICS_STEP * game_state.get("speed_multiplier", 1.0))
             
             while signal_queue:
@@ -866,9 +1028,21 @@ def main():
                 if hasattr(entity, 'poll_results'):
                     entity.poll_results(entities, active_instances)
 
+                # Milestone 34: Kill Z Volume
+                if hasattr(entity, 'body') and entity.body and entity.body.position.y > 5000:
+                    entity.to_delete = True
+
                 if getattr(entity, 'to_delete', False):
                     if hasattr(entity, 'cleanup'):
                         entity.cleanup()
+                    
+                    # Milestone 34: Explicit Memory Cleanup
+                    if hasattr(entity, 'payload') and isinstance(entity.payload, dict):
+                        entity.payload.clear()
+                    if hasattr(entity, 'trace_history') and isinstance(entity.trace_history, list):
+                        entity.trace_history.clear()
+
+                    # Remove from space
                     if getattr(entity, 'body', None):
                         for constraint in list(entity.body.constraints):
                             if constraint in space.constraints:
@@ -877,13 +1051,26 @@ def main():
                     for shape in getattr(entity, 'shapes', [getattr(entity, 'shape', None)]):
                         if shape and shape in space.shapes:
                             space.remove(shape)
+                            
                     if hasattr(entity, 'body') and entity.body:
                         if entity.body != space.static_body and entity.body in space.bodies:
                             space.remove(entity.body)
+                    
+                    # Remove from lookup directories and lists
                     if entity in entities:
                         entities.remove(entity)
-                    if entity.uuid in active_instances:
-                        del active_instances[entity.uuid]
+                    
+                    uuid = getattr(entity, 'uuid', None)
+                    if uuid and uuid in active_instances:
+                        del active_instances[uuid]
+
+                    # Milestone 34: Object Pooling Logic
+                    if getattr(entity, 'variant_key', None) == "payload_ball":
+                        entity.to_delete = False
+                        entity.is_hidden = True
+                        if entity not in payload_pool:
+                            payload_pool.append(entity)
+                    
                     continue
                 
                 if hasattr(entity, 'update_logic'):
@@ -1091,7 +1278,14 @@ def main():
     # --- Handle CLI Auto-Dump Argument ---
     if args.dump:
         dump_path = os.path.abspath(args.dump)
-        level_manager.save_level(entities, filepath=dump_path)
+        metadata = {
+            "name": game_state.get("name", "CLI_Dump"),
+            "description": game_state.get("description", "Automated CLI Dump"),
+            "gravity": game_state.get("gravity", [0, 900]),
+            "damping": game_state.get("damping", 0.99),
+            "wind": game_state.get("wind", [0, 0])
+        }
+        level_manager.save_level(entities, filepath=dump_path, metadata=metadata)
         print(f"CLI: Automatically dumped world configuration to {dump_path}")
 
     pygame.quit()

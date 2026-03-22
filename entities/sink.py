@@ -35,6 +35,7 @@ class DataSink(FlowEntity):
         self.queue: queue.Queue = queue.Queue()
         self.result_queue: queue.Queue = queue.Queue()
         self.consumption_timer: float = 0.0
+        self.current_consuming_payload: Optional[GamePart] = None
 
         # Background Worker for Exports
         self._worker_running = True
@@ -67,7 +68,9 @@ class DataSink(FlowEntity):
             try:
                 item = self.queue.get(timeout=0.1)
                 if exporter:
-                    exporter.export(item["data"], item.get("score", 0.0))
+                    data = item.get("data", {})
+                    data["score"] = item.get("score", 0.0)
+                    exporter.export(data)
             except queue.Empty:
                 if self._flush_requested: break
                 continue
@@ -106,6 +109,8 @@ class DataSink(FlowEntity):
         self._processed_entity_uuids.add(payload_entity.uuid)
         self.visual_state = "INGESTING"
         self.consumption_timer = float(self.get_property("consumption_time", 1.0))
+        self.current_consuming_payload = payload_entity
+        payload_entity.is_hidden = True
         
         # Immediate signal to upstream neighbors (tells them we are now BUSY/FULL)
         self.broadcast_status(active_instances or {})
@@ -116,7 +121,7 @@ class DataSink(FlowEntity):
             "score": float(payload.get("score", 0.0))
         })
         
-        payload_entity.to_delete = True
+        payload_entity.to_delete = False # Explicitly hide and wait for consumption
         return True
 
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]) -> None:
@@ -149,6 +154,9 @@ class DataSink(FlowEntity):
             self.consumption_timer -= dt
             if self.consumption_timer <= 0.0:
                 self.visual_state = "IDLE"
+                if self.current_consuming_payload:
+                    self.current_consuming_payload.to_delete = True
+                    self.current_consuming_payload = None
                 # Notify upstream that we are clear to receive again
                 self.broadcast_status(active_instances or {})
 
