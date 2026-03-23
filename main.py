@@ -1224,8 +1224,13 @@ def main():
                     mid_y = (src.body.position.y + tgt.body.position.y) / 2
                     
                     new_pipe = create_part(space, mid_x, mid_y, "data_pipe")
-                    new_pipe.properties["source_uuid"] = src.uuid
-                    new_pipe.properties["target_uuid"] = tgt.uuid
+                    # Milestone 36 Fix: Save to overrides for persistence
+                    new_pipe.overrides["source_uuid"] = src.uuid
+                    new_pipe.overrides["target_uuid"] = tgt.uuid
+                    
+                    # Milestone 36 Fix: Auto-bridge source and target entities
+                    src.overrides["target_uuid"] = new_pipe.uuid
+                    tgt.overrides["source_uuid"] = new_pipe.uuid
                     
                     entities.append(new_pipe)
                     active_instances[new_pipe.uuid] = new_pipe

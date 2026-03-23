@@ -1,4 +1,4 @@
-name: Untitled_Flow
+name: simple_portal_tube
 description: Automated test recorded via UI
 gravity:
 - 0.0
@@ -28,7 +28,7 @@ entities:
     mass: 1.0
     max_threshold_count: 10
     spawn_sound: spawn.wav
-    target_uuid: ''
+    target_uuid: '2c8c735a-d994-418a-950b-19b78f0ca5cb'
     transit_time: 0.5
     width: 64
 - uuid: portal_exit
@@ -60,7 +60,9 @@ entities:
     x: 644.0
     y: 318.5
   rotation: 0.0
-  overrides: {}
+  overrides:
+    source_uuid: 'portal_entry'
+    target_uuid: 'portal_exit'
 - uuid: 789a7c0b-c44a-49b6-85c7-f7a76f370578
   entity_id: data_source
   position:
@@ -68,53 +70,18 @@ entities:
     y: 197.0
   rotation: 0.0
   overrides: {}
-- uuid: 5e811ed7-337b-438a-bd18-75903a1d6e38
+- uuid: c69131b1-d1df-4d72-9d42-45c866abf9e3
   entity_id: bouncy_ball
   position:
     x: 521.0
-    y: 4985.050238492346
+    y: 1790.9269613734596
   rotation: 0.0
   overrides: {}
-- uuid: e7680ba3-fb31-40b5-83ae-fa6897003d5b
+- uuid: 52563792-bbb6-44d3-a4bb-e205d00a6e22
   entity_id: bouncy_ball
   position:
     x: 521.0
-    y: 4956.371381617319
-  rotation: 0.0
-  overrides: {}
-- uuid: ac84ed81-6b61-4c62-836b-1f5dce9fbe94
-  entity_id: bouncy_ball
-  position:
-    x: 521.0
-    y: 3074.376898436133
-  rotation: 0.0
-  overrides: {}
-- uuid: 7e9aa9b6-499b-4c40-99ba-dfac2cb9c529
-  entity_id: bouncy_ball
-  position:
-    x: 521.0
-    y: 3166.4925366544226
-  rotation: 0.0
-  overrides: {}
-- uuid: d2aefd6a-ec1f-40f2-9b50-9f54bf9b74da
-  entity_id: bouncy_ball
-  position:
-    x: 521.0
-    y: 4138.490641076657
-  rotation: 0.0
-  overrides: {}
-- uuid: 57ebf3b1-6c34-4632-ab95-f5d59b1468ca
-  entity_id: bouncy_ball
-  position:
-    x: 521.0
-    y: 2977.1312177800205
-  rotation: 0.0
-  overrides: {}
-- uuid: 45e3b4f7-9eed-4e6e-b647-3d0a9bded3ac
-  entity_id: bouncy_ball
-  position:
-    x: 521.0
-    y: 442.41464364706815
+    y: 316.0
   rotation: 0.0
   overrides: {}
 connections: []

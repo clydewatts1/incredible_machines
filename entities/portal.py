@@ -57,6 +57,10 @@ class PortalPart(GamePart):
         if len(self.transit_queue) >= capacity:
             return False
             
+        # Milestone 36 Bugfix: Prevent duplicate entry in queue for same payload
+        if any(item["payload_uuid"] == payload_entity.uuid for item in self.transit_queue):
+            return False
+            
         # Milestone 35: Teleport Counter & Threshold Logic
         if not hasattr(payload_entity, "payload") or payload_entity.payload is None:
             payload_entity.payload = {}
@@ -86,6 +90,19 @@ class PortalPart(GamePart):
         if getattr(payload_entity, "body", None):
             payload_entity.body.velocity = (0, 0)
             payload_entity.body.angular_velocity = 0
+            # M36 Fix: Move to portal center as staging area
+            payload_entity.body.position = self.body.position
+            
+            # Milestone 36 Fix: Remove from space so it doesn't stay in sensor areas
+            if self.body.space:
+                space = self.body.space
+                # 1. Remove Shapes
+                for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
+                    if s and s in space.shapes:
+                        space.remove(s)
+                # 2. Remove Body
+                if payload_entity.body and payload_entity.body in space.bodies:
+                    space.remove(payload_entity.body)
             
         self.transit_queue.append({
             "entity": payload_entity,
@@ -115,6 +132,9 @@ class PortalPart(GamePart):
                 if target_portal:
                     # M36: Data Pipe Hand-off support
                     if getattr(target_portal, 'variant_key', '') == 'data_pipe' and hasattr(target_portal, 'ingest_payload'):
+                        # M36 Fix: Re-add to space before pipe ingestion so pipe can remove it again 
+                        # (or just assume pipe handle it if we pass it logically)
+                        # Actually pipe.ingest_payload(e) handles removal itself.
                         accepted = target_portal.ingest_payload(item["entity"])
                         if accepted:
                             target_portal.flash_timer = 15 # Visual sync
@@ -131,18 +151,70 @@ class PortalPart(GamePart):
                         payload.body.position = (px, py + 50)
                         payload.body.velocity = (0, 150) # Shoot out
                         
-                        # Physics Re-indexing: Ensure the engine detects the teleportation immediately
+                        # Milestone 36 Fix: Re-add to space upon ejection (Body FIRST)
                         if self.body and self.body.space:
-                            self.body.space.reindex_shapes_for_body(payload.body)
+                            space = self.body.space
+                            if payload.body and payload.body not in space.bodies:
+                                space.add(payload.body)
+                                
+                            for s in getattr(payload, "shapes", [getattr(payload, "shape", None)]):
+                                if s and s not in space.shapes:
+                                    space.add(s)
+                            space.reindex_shapes_for_body(payload.body)
                         
                         target_portal.flash_timer = 15
                         item["to_remove"] = True
                 else:
                     # Target missing/deleted/None, dump it back out of THIS portal
-                    item["entity"].is_hidden = False
+                    payload = item["entity"]
+                    payload.is_hidden = False
+                    
+                    # M36 Fix: Also update position for local ejection
+                    px, py = self.body.position
+                    payload.body.position = (px, py + 50)
+                    payload.body.velocity = (0, 150)
+                    
+                    # Milestone 36 Fix: Re-add to space upon ejection (Body FIRST)
+                    if self.body.space:
+                        space = self.body.space
+                        if payload.body and payload.body not in space.bodies:
+                            space.add(payload.body)
+                            
+                        for s in getattr(payload, "shapes", [getattr(payload, "shape", None)]):
+                            if s and s not in space.shapes:
+                                space.add(s)
+                        space.reindex_shapes_for_body(payload.body)
+                    
                     item["to_remove"] = True
 
         self.transit_queue = [item for item in self.transit_queue if not item.get("to_remove")]
+
+    def cleanup(self):
+        """M36 Extension: Drop payloads at current portal position if destroyed."""
+        for item in self.transit_queue:
+            payload = item.get("entity")
+            if payload is None:
+                continue
+                
+            payload.is_hidden = False
+            if getattr(payload, "body", None):
+                payload.body.velocity = (0.0, 0.0)
+                payload.body.angular_velocity = 0.0
+                payload.body.position = self.body.position
+                
+                # Re-add to space (Body FIRST)
+                if self.body.space:
+                    space = self.body.space
+                    if payload.body and payload.body not in space.bodies:
+                        space.add(payload.body)
+                        
+                    for s in getattr(payload, "shapes", [getattr(payload, "shape", None)]):
+                        if s and s not in space.shapes:
+                            space.add(s)
+                    space.reindex_shapes_for_body(payload.body)
+
+        self.transit_queue.clear()
+        super().cleanup()
 
     def draw(self, surface, camera=None):
         super().draw(surface, camera)

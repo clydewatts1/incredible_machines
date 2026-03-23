@@ -80,11 +80,15 @@ class DataPipePart(GamePart):
             payload_entity.body.velocity = (0.0, 0.0)
             payload_entity.body.angular_velocity = 0.0
             
-            # Milestone 34/35 Fix: Remove from space so it doesn't stay in sensor areas
+            # Milestone 34/35/36 Fix: Remove from space so it doesn't stay in sensor areas
             if self.space:
+                # 1. Remove Shapes
                 for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
                     if s and s in self.space.shapes:
                         self.space.remove(s)
+                # 2. Remove Body
+                if payload_entity.body and payload_entity.body in self.space.bodies:
+                    self.space.remove(payload_entity.body)
 
         self.transit_queue.append({"entity": payload_entity, "progress": 0.0})
         return True
@@ -137,6 +141,10 @@ class DataPipePart(GamePart):
                 if accepted:
                     self.transit_queue.pop(i)
                     continue
+                else:
+                    # If rejected, we must re-add to space if it's dropping out of world?
+                    # Or just wait for re-attempt. For now, backpressure handles it.
+                    pass
 
             # Backpressure: remain queued at end of pipe.
             item["progress"] = 1.0
@@ -206,6 +214,15 @@ class DataPipePart(GamePart):
                 payload_entity.body.velocity = (0.0, 0.0)
                 payload_entity.body.angular_velocity = 0.0
                 payload_entity.body.position = (drop_point.x, drop_point.y)
+                
+                # Milestone 36 Fix: Re-add to space (Body FIRST)
+                if self.space:
+                    if payload_entity.body and payload_entity.body not in self.space.bodies:
+                        self.space.add(payload_entity.body)
+                    for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
+                        if s and s not in self.space.shapes:
+                            self.space.add(s)
+                    self.space.reindex_shapes_for_body(payload_entity.body)
 
         self.transit_queue.clear()
         super().cleanup()

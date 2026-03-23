@@ -1,0 +1,36 @@
+name: tmp_persistence.yaml
+description: ''
+gravity:
+- 0
+- 900
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: PORTAL_A
+  entity_id: portal
+  position:
+    x: 100.0
+    y: 100.0
+  rotation: 0.0
+  overrides:
+    target_uuid: PIPE_123
+- uuid: PORTAL_B
+  entity_id: portal
+  position:
+    x: 400.0
+    y: 100.0
+  rotation: 0.0
+  overrides:
+    source_uuid: PIPE_123
+- uuid: PIPE_123
+  entity_id: data_pipe
+  position:
+    x: 250.0
+    y: 100.0
+  rotation: 0.0
+  overrides:
+    source_uuid: PORTAL_A
+    target_uuid: PORTAL_B
+connections: []
