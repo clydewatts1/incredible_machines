@@ -1,0 +1,263 @@
+name: portal_infinite_loop
+description: Quick verification of teleportation logic between linked portals.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: portal_entry
+  entity_id: portal
+  position:
+    x: 397.0
+    y: 422.0
+  rotation: 0.0
+  overrides:
+    custom_name: Entrance
+    target_uuid: portal_exit
+    transit_time: 0.5
+    custom_description: ''
+    capacity: 5
+    category: logic
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 64
+- uuid: portal_exit
+  entity_id: portal
+  position:
+    x: 392.0
+    y: 292.0
+  rotation: 0.0
+  overrides:
+    custom_name: Exit
+    target_uuid: portal_entry
+    custom_description: ''
+    capacity: 5
+    category: logic
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    transit_time: 0.5
+    width: 64
+- uuid: portal_02_entry
+  entity_id: portal
+  position:
+    x: 393.0
+    y: 526.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    capacity: 5
+    category: logic
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    transit_time: 0.5
+    width: 64
+    error_entity_id: ''
+    max_threshold_count: 10
+    target_uuid: ''
+- uuid: 67e44af6-3c65-44e8-a132-9315faa66fe6
+  entity_id: long_ramp
+  position:
+    x: 307.0
+    y: 653.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3c85d948-1639-413e-8686-4748f9a128fb
+  entity_id: long_ramp
+  position:
+    x: 398.0
+    y: 652.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3cb08904-17db-4823-917d-2dcf6b03c1b3
+  entity_id: long_ramp
+  position:
+    x: 493.0
+    y: 650.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 1f46b905-ea6f-4532-8d6d-b82d69d39597
+  entity_id: long_ramp
+  position:
+    x: 556.0
+    y: 649.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 70d49001-426a-4cda-99bb-ad80f21033e0
+  entity_id: long_ramp
+  position:
+    x: 630.0
+    y: 651.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 6b21ddf7-9ded-48db-b9d3-9e35eb0ded32
+  entity_id: long_ramp
+  position:
+    x: 702.0
+    y: 654.0
+  rotation: 0.0
+  overrides: {}
+- uuid: fbc3f49d-5600-480b-a229-5339eed99cdd
+  entity_id: long_ramp
+  position:
+    x: 775.0
+    y: 652.0
+  rotation: 0.0
+  overrides: {}
+- uuid: dc4a4467-9b06-4aa6-aca7-54b86a54bbb0
+  entity_id: long_ramp
+  position:
+    x: 860.0
+    y: 653.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3286e613-6d4b-43ff-9e47-229cd638e11e
+  entity_id: long_ramp
+  position:
+    x: 938.0
+    y: 652.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 28fade75-c2e2-41a5-a51e-1be175c07a88
+  entity_id: box
+  position:
+    x: 933.0
+    y: 626.0
+  rotation: 0.0
+  overrides: {}
+- uuid: bbdd4e7c-8e90-48cb-bf96-faeb374627e3
+  entity_id: box
+  position:
+    x: 933.0
+    y: 593.0
+  rotation: 0.0
+  overrides: {}
+- uuid: c0b0af5c-acba-434c-bb6a-2174385e6eff
+  entity_id: box
+  position:
+    x: 930.0
+    y: 555.0
+  rotation: 0.0
+  overrides: {}
+- uuid: b62e416c-87af-4eb1-84b8-7f511363fdf3
+  entity_id: box
+  position:
+    x: 931.0
+    y: 519.0
+  rotation: 0.0
+  overrides: {}
+- uuid: f406f62b-d7ff-4556-bfeb-a05f8d59c2e1
+  entity_id: box
+  position:
+    x: 930.0
+    y: 486.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 1234032b-262b-4647-b033-47092d77cc92
+  entity_id: box
+  position:
+    x: 277.0
+    y: 629.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    friction: 0.5
+    height: 40
+    is_static: 'True'
+    key_bind: 6
+    spawn_sound: spawn.wav
+    width: 40
+- uuid: 8e3a15c3-303c-4a92-bb24-c4f2ca336095
+  entity_id: box
+  position:
+    x: 265.0
+    y: 595.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 9bf734b7-e533-4781-aed5-fe159b069046
+  entity_id: box
+  position:
+    x: 272.0
+    y: 561.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3bc320e9-5ad5-4ad5-803a-7dba8fb7e6ce
+  entity_id: data_source_csv
+  position:
+    x: 376.0
+    y: 97.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    active_side: Left
+    animations:
+      false: data_source_off
+      INITIALIZING: data_source_initializing_csv
+      IDLE: data_source_idle_csv
+      POLLING: data_source_polling_csv
+      EMITTING: data_source_emitting_csv
+      EXHAUSTED: data_source_exhausted_csv
+      FATAL: data_source_fatal_csv
+    category: sources
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    emit_interval: 2.0
+    engine_type: csv
+    exit_angle: 180.0
+    exit_velocity: 150.0
+    friction: 0.5
+    height: 96
+    instructions:
+      filepath: data/fatal.csv
+      debug: false
+      loop: false
+      skip_header: true
+      delimiter: ','
+    is_static: 'True'
+    mass: 1.0
+    output_variant: payload_ball
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+- uuid: 15f7474a-210b-4a0a-939a-aab27e97a65a
+  entity_id: portal
+  position:
+    x: 382.0
+    y: 204.0
+  rotation: 0.0
+  overrides: {}
+connections:
+- sender: portal_entry
+  receiver: portal_exit
+- sender: portal_02_entry
+  receiver: 15f7474a-210b-4a0a-939a-aab27e97a65a

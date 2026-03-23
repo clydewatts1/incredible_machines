@@ -8,109 +8,25 @@ wind:
 - 0
 - 0
 entities:
-- uuid: 395ca4e4-a1ce-4e8a-a034-d7d84d52f708
-  entity_id: bouncy_ball
+- uuid: 25b72692-bd7e-481f-bd14-9fec201c7e17
+  entity_id: portal
   position:
-    x: 443.6420738476925
-    y: 665.0671668974189
-  rotation: -15.53567077589346
-  overrides: {}
-- uuid: c7763ade-c4a3-4f08-a543-8a03c8f765d3
-  entity_id: cannon
-  position:
-    x: 360.0
-    y: 480.0
+    x: 612.0
+    y: 466.0
   rotation: 0.0
   overrides: {}
-- uuid: e235b019-e679-452a-87f4-6c11f66b888d
-  entity_id: bouncy_ball
+- uuid: 62a991ac-b9c7-4faf-aecb-9b8d0c220eca
+  entity_id: portal
   position:
-    x: 281.0742332878851
-    y: 665.0814428851022
-  rotation: 35.47651892086967
-  overrides: {}
-- uuid: 12cb5ba0-4c6a-4a4a-ae6b-07bb82b7680d
-  entity_id: bouncy_ball
-  position:
-    x: 478.813155143951
-    y: 665.0252047637638
-  rotation: 25.858448855767875
-  overrides: {}
-- uuid: 16d1ccff-b7bc-4b82-a474-1b924257018a
-  entity_id: bouncy_ball
-  position:
-    x: 312.9200697385183
-    y: 665.0276275083489
-  rotation: 20.881968503005872
-  overrides: {}
-- uuid: d02b1808-a845-494e-b0e4-2bd551d89963
-  entity_id: bouncy_ball
-  position:
-    x: 397.03998983166
-    y: 664.9980482239827
-  rotation: 38.70011886864283
-  overrides: {}
-- uuid: 9827e1c0-6063-43cc-b6d3-9c8710736b93
-  entity_id: bouncy_ball
-  position:
-    x: 324.6748095822136
-    y: 630.9301654830977
-  rotation: -0.581242802057153
-  overrides: {}
-- uuid: 194f7381-8953-4465-868d-8e3ebd6fa09f
-  entity_id: bouncy_ball
-  position:
-    x: 626.1565890916767
-    y: 664.0471735072407
-  rotation: 29.13508729344936
-  overrides: {}
-- uuid: f19939d5-8eee-48bb-bea2-56489e13fae9
-  entity_id: bouncy_ball
-  position:
-    x: 439.1513439622508
-    y: 622.3856398710351
-  rotation: 23.552071466666703
-  overrides: {}
-- uuid: 40bdf4d2-7f93-46d2-afee-e3a0b44dd2e4
-  entity_id: bouncy_ball
-  position:
-    x: 876.2561799622496
-    y: 607.8339999965726
-  rotation: 4.195000000000001
-  overrides: {}
-- uuid: 9fff02db-58b6-4279-ae90-2604ee078e0a
-  entity_id: spring
-  position:
-    x: 960.0
-    y: 640.0
+    x: 603.0
+    y: 211.0
   rotation: 0.0
   overrides: {}
-- uuid: 710ef959-c78c-47d6-8221-20ff162c9e7a
-  entity_id: spring
+- uuid: a9b015b7-9768-4e81-a962-c960c83816ac
+  entity_id: data_pipe
   position:
-    x: 920.0
-    y: 640.0
-  rotation: 0.0
-  overrides: {}
-- uuid: b978cea6-3341-4c6b-a380-b440a3daca41
-  entity_id: spring
-  position:
-    x: 880.0
-    y: 640.0
-  rotation: 0.0
-  overrides: {}
-- uuid: 5faf122c-d385-4edf-aac9-6339150fef75
-  entity_id: spring
-  position:
-    x: 880.0
-    y: 640.0
-  rotation: 0.0
-  overrides: {}
-- uuid: ddfee179-aed1-426f-ae07-4edf9edd461b
-  entity_id: spring
-  position:
-    x: 840.0
-    y: 640.0
+    x: 607.5
+    y: 338.5
   rotation: 0.0
   overrides: {}
 connections: []

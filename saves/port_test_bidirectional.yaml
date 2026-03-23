@@ -1,0 +1,136 @@
+name: portal_test
+description: Quick verification of teleportation logic between linked portals.
+gravity:
+- 0
+- 900
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: portal_entry
+  entity_id: portal
+  position:
+    x: 400.0
+    y: 200.0
+  rotation: 0.0
+  overrides:
+    custom_name: Entrance
+    target_uuid: portal_exit
+    transit_time: 0.5
+- uuid: portal_exit
+  entity_id: portal
+  position:
+    x: 600.0
+    y: 200.0
+  rotation: 0.0
+  overrides:
+    custom_name: Exit
+    target_uuid: portal_entry
+- uuid: catcher
+  entity_id: basket
+  position:
+    x: 600.0
+    y: 550.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 7d02c092-7eec-4e01-8f60-c0daefb2e07a
+  entity_id: cannon
+  position:
+    x: 315.0
+    y: 122.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    active_side: right
+    ammo_id: bouncy_ball
+    category: active
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    exit_angle: 0.0
+    exit_velocity: 800.0
+    friction: 0.5
+    height: 30
+    is_static: 'True'
+    mass: 1.0
+    max_count: 10
+    shoot_frequency: 1.0
+    spawn_sound: spawn.wav
+    width: 60
+- uuid: dfe55090-391c-4819-96af-c79be127b749
+  entity_id: cannon
+  position:
+    x: 886.0
+    y: 121.0
+  rotation: -2.8000000000000007
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    active_side: right
+    ammo_id: payload_ball
+    category: active
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    exit_angle: 0.0
+    exit_velocity: 800.0
+    friction: 0.5
+    height: 30
+    is_static: 'True'
+    mass: 1.0
+    max_count: 10
+    shoot_frequency: 1.0
+    spawn_sound: spawn.wav
+    width: 60
+- uuid: 94410345-344c-414d-aa1d-495187e85ce5
+  entity_id: bouncy_ball
+  position:
+    x: 587.6844840039895
+    y: 4350.925581942594
+  rotation: 2.38249320837033
+  overrides: {}
+- uuid: 920d0f0c-f162-4e42-bde9-6dab5c574e2a
+  entity_id: bouncy_ball
+  position:
+    x: 400.0
+    y: 2792.718029512843
+  rotation: -3.7664420740663336
+  overrides: {}
+- uuid: 19f6818a-22ee-4cd6-9b23-f33b0d76aac3
+  entity_id: bouncy_ball
+  position:
+    x: 400.0
+    y: 1106.4172285244188
+  rotation: -2.174567227708634
+  overrides: {}
+- uuid: b1a97036-26cd-474b-8d55-544013dd147f
+  entity_id: payload_ball
+  position:
+    x: 613.200364401633
+    y: 406.48742640183224
+  rotation: -1.255383341107493
+  overrides: {}
+- uuid: 442d3ffa-9bd5-4251-882b-17a4bd4103eb
+  entity_id: bouncy_ball
+  position:
+    x: 400.0
+    y: 307.69668647006614
+  rotation: -0.5666128374483271
+  overrides: {}
+- uuid: 16fb2a5b-db8f-4c38-a5cd-86005075fa8f
+  entity_id: payload_ball
+  position:
+    x: 359.19114341760894
+    y: 120.6738694714107
+  rotation: -2.565261739579131
+  overrides: {}
+- uuid: 13858e6a-418a-49d7-9302-fa98f4ed7f20
+  entity_id: bouncy_ball
+  position:
+    x: 373.3333333333333
+    y: 122.0
+  rotation: 0.0
+  overrides: {}
+connections:
+- sender: portal_entry
+  receiver: portal_exit

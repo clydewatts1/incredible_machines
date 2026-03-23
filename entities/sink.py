@@ -186,6 +186,11 @@ class DataSink(FlowEntity):
             except Exception:
                 pass
 
+    def reset_flow_logic(self):
+        super().reset_flow_logic()
+        self.consumption_timer = 0.0
+        self.current_consuming_payload = None
+
     def destroy(self) -> None:
         self.cleanup()
 

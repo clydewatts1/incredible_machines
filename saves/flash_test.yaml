@@ -1,0 +1,48 @@
+name: New Flow
+description: Initial flow description.
+gravity:
+- 0
+- 900
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 25115afc-19ae-4a02-9ca9-b29a8881cc8d
+  entity_id: box
+  position:
+    x: 436.0
+    y: 376.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 1
+    flash_duration: 20
+    friction: 0.5
+    height: 40
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 6
+    spawn_sound: spawn.wav
+    width: 40
+- uuid: f33b9d1f-a589-420c-9510-8fb4bf517990
+  entity_id: bouncy_ball
+  position:
+    x: 437.0
+    y: 224.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: payloads
+    collision_sound: bounce.wav
+    elasticity: 1
+    friction: 0.3
+    key_bind: 1
+    mass: 1.0
+    radius: 15
+    spawn_sound: spawn.wav
+connections: []

@@ -54,16 +54,16 @@ UI_SIDE_WIDTH = 260
 UI_RIGHT_SIDE_WIDTH = 320
 payload_pool = [] # Milestone 34: Global Object Pool for Payload Recycling
 
-def create_boundaries(space, playable_rect):
+def create_boundaries(space, playable_rect=None):
     static_body = space.static_body
     thickness = 50.0  # Thick walls prevent high-speed balls from tunneling through
 
-    left = playable_rect.left
-    right = playable_rect.right
-    top = playable_rect.top
-    bottom = playable_rect.bottom
+    # Milestone 35 Fix: Boundaries are now at the WORLD limits, not the viewport.
+    left = 0
+    right = constants.WORLD_WIDTH
+    top = 0
+    bottom = constants.WORLD_HEIGHT
     
-    # Offset the segments by 'thickness' so their inner edges align perfectly with the green box
     segments = [
         pymunk.Segment(static_body, (left, bottom + thickness), (right, bottom + thickness), thickness), 
         pymunk.Segment(static_body, (left - thickness, top), (left - thickness, bottom), thickness), 
@@ -244,9 +244,9 @@ def main():
 
     window_width = env_manager.get_int("window_width", constants.WINDOW_WIDTH)
     window_height = env_manager.get_int("window_height", constants.WINDOW_HEIGHT)
-    world_width = env_manager.get_int("world_width", constants.WORLD_WIDTH)
-    world_height = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
-
+    world_width = constants.WORLD_WIDTH
+    world_height = constants.WORLD_HEIGHT
+    
     UI_TOP_HEIGHT = env_manager.get_int("ui_top_height", UI_TOP_HEIGHT)
     UI_BOTTOM_HEIGHT = env_manager.get_int("ui_bottom_height", UI_BOTTOM_HEIGHT)
     UI_SIDE_WIDTH = env_manager.get_int("ui_left_panel_width", UI_SIDE_WIDTH)
@@ -290,7 +290,7 @@ def main():
     })
     
     screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
-    pygame.display.set_caption("The Incredible Machine Clone - Milestone 24")
+    pygame.display.set_caption("Fuath an Mhadra (Wolf Bane):  Mechanical 2 D Simulated Agentic Workflow")
     clock = pygame.time.Clock()
 
     font = pygame.font.SysFont(None, 24)
@@ -312,6 +312,7 @@ def main():
         "description": "Initial flow description.",
         "speed_multiplier": 1.0,
         "is_dirty": False,
+        "last_change_time": 0, # Initialized here
         "gravity": [0, 900],
         "damping": 0.99,
         "wind": [0, 0],
@@ -553,7 +554,7 @@ def main():
         "save_flow": handle_save_flow,
         "reimage": handle_reimage,
         "record_test": lambda: handle_record_test(),
-        "dirty_callback": lambda: game_state.update({"is_dirty": True})
+        "dirty_callback": lambda: game_state.update({"is_dirty": True, "last_change_time": time.time()})
     }
     
     editor_ui = EditorUI(
@@ -743,6 +744,7 @@ def main():
         game_state["belt_source"] = None
         game_state["pipe_source"] = None
         game_state["is_dirty"] = False
+        game_state["last_change_time"] = time.time() # Update last_change_time on clear
         print("LevelManager: Canvas cleared.")
 
     def handle_play():
@@ -846,9 +848,10 @@ def main():
                 for constraint in list(e.body.constraints):
                     if constraint in space.constraints:
                         space.remove(constraint)
-                for shape in getattr(e, 'shapes', [getattr(e, 'shape', None)]):
-                    if shape and shape in space.shapes:
-                        space.remove(shape)
+            for shape in getattr(e, 'shapes', [getattr(e, 'shape', None)]):
+                if shape and shape in space.shapes:
+                    space.remove(shape)
+            if hasattr(e, 'body') and e.body:
                 if e.body != space.static_body and e.body in space.bodies:
                     space.remove(e.body)
             if e in entities:
@@ -856,6 +859,11 @@ def main():
             if hasattr(e, 'uuid') and e.uuid in active_instances:
                 del active_instances[e.uuid]
         
+        # New M35/M32 Reset Hook: Clear queues and threads for Logic & I/O
+        for entity in entities:
+            if hasattr(entity, 'reset_flow_logic'):
+                entity.reset_flow_logic()
+
         gc.collect() # Force immediate reclamation
         editor_ui.rebuild_top_panel()
     def handle_status_panels():
@@ -965,7 +973,8 @@ def main():
                     "angle": float(e.body.angle),
                     "state": str(getattr(e, "visual_state", "IDLE")),
                     "variant": str(getattr(e, "variant_key", "unknown")),
-                    "is_hidden": bool(getattr(e, "is_hidden", False))
+                    "is_hidden": bool(getattr(e, "is_hidden", False)),
+                    "flash_timer": float(getattr(e, "flash_timer", 0.0))
                 })
             simulation_trace.append(snapshot)
 
@@ -1199,6 +1208,7 @@ def main():
                         target_entity.play_event_sound("spawn_sound")
                     game_state["wiring_source"] = None
                     game_state["is_dirty"] = True
+                    game_state["last_change_time"] = time.time() # Update last_change_time
                 else:
                     game_state["wiring_source"] = None
 
@@ -1222,6 +1232,7 @@ def main():
                     target_entity.play_event_sound("spawn_sound")
                     game_state["pipe_source"] = None
                     game_state["is_dirty"] = True
+                    game_state["last_change_time"] = time.time() # Update last_change_time
                 else:
                     game_state["pipe_source"] = None
 
@@ -1238,6 +1249,7 @@ def main():
                         target_axle.play_event_sound("spawn_sound")
                         game_state["belt_source"] = None
                         game_state["is_dirty"] = True
+                        game_state["last_change_time"] = time.time() # Update last_change_time
                     else:
                         game_state["belt_source"] = None
                 else:
@@ -1261,6 +1273,7 @@ def main():
             active_instances[new_part.uuid] = new_part
             new_part.play_event_sound("spawn_sound")
             game_state["is_dirty"] = True
+            game_state["last_change_time"] = time.time() # Update last_change_time
             
         else:
             # Clicked empty space with no spawn tool -> clear selection
@@ -1351,6 +1364,7 @@ def main():
                             
                         game_state["selected_instance"] = None
                         game_state["is_dirty"] = True
+                        game_state["last_change_time"] = time.time() # Update last_change_time
                         editor_ui.rebuild_left_inspector()
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 2:
@@ -1403,6 +1417,7 @@ def main():
                                 if entity.uuid in active_instances:
                                     del active_instances[entity.uuid]
                                 game_state["is_dirty"] = True
+                                game_state["last_change_time"] = time.time() # Update last_change_time
                                 break
             
             elif event.type == pygame.MOUSEMOTION:
@@ -1457,6 +1472,7 @@ def main():
                 
                 if grabbed_body:
                     game_state["is_dirty"] = True
+                    game_state["last_change_time"] = time.time()
                 grabbed_body = None
                 trash_can_visible = False
                 
@@ -1472,6 +1488,7 @@ def main():
                     if target:
                         target.angle += event.y * 0.1
                         game_state["is_dirty"] = True
+                        game_state["last_change_time"] = time.time()
                         space.reindex_shapes_for_body(target)
 
         if editor_ui.ui_manager.get_focus_set() is None:
@@ -1494,10 +1511,11 @@ def main():
         dt = clock.tick(60) / 1000.0
         editor_ui.update(dt)
 
-        # Autosave check
+        # Milestone 35 Fix: Debounced Autosave (2.0s delay after last change)
         if game_state.get("is_dirty") and game_state["mode"] == "EDIT":
-            handle_quick_save()
-            game_state["is_dirty"] = False
+            if time.time() - game_state.get("last_change_time", 0) > 2.0:
+                handle_quick_save()
+                game_state["is_dirty"] = False
 
         if current_mode == "PLAY":
             # Apply wind force

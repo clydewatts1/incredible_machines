@@ -45,18 +45,28 @@ Welcome to **Incredible Machines**, a vibe-coded 2D physics-based puzzle sandbox
 
 ## 💻 Command Line Interface (CLI)
 
-The game supports several command-line arguments for automation and testing:
+The game supports several command-line arguments for automation, testing, and debugging:
 
 | Flag | Argument | Description |
 | :--- | :--- | :--- |
 | `-l` / `--load` | `<path>` | Path to a YAML level file to load on startup. |
 | `-s` / `--state` | `PLAY` or `EDIT` | Sets the initial game mode (default: `EDIT`). |
-| `-t` / `--timeout` | `<minutes>` | Sets a countdown timer. The game automatically quits when reached. |
+| `-t` / `--test` | `<pattern>` | Run automated test(s). Supports wildcards (e.g. `sort_*` or `all`). Runs HEADLESS by default. |
+| `-v` / `--visible` | (flag) | If passed with `--test`, renders the Pygame window during tests. |
+| `--replay` | `<testname>` | **Black Box Replay**: Visually play back a failure trace from a previously failed test. |
+| `--timeout` | `<minutes>` | Sets a countdown timer. The game automatically quits when reached. |
 | `-d` / `--dump` | `<path>` | Filename to save the current world configuration upon exit. |
 
 **Example Usage:**
 ```bash
-python main.py --load saves/quicksave.yaml --state PLAY --timeout 5 --dump saves/sim_result.yaml
+# Run all sorting tests in headless mode
+python main.py --test sort_*
+
+# Watch a specific smoke test
+python main.py --test basic_smoke --visible
+
+# Debug a failure visually
+python main.py --replay basic_smoke
 ```
 
 ---

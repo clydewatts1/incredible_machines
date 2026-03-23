@@ -49,10 +49,39 @@ class PortalPart(GamePart):
                 pass
 
     def ingest_payload(self, payload_entity: GamePart) -> bool:
+        """M36: Logical interface for incoming payloads from Pipes/Logic entities."""
+        return self.warp_payload(payload_entity)
+
+    def warp_payload(self, payload_entity: GamePart, entities: List[GamePart] = None) -> bool:
         capacity = int(self.get_property("capacity", 5))
         if len(self.transit_queue) >= capacity:
             return False
             
+        # Milestone 35: Teleport Counter & Threshold Logic
+        if not hasattr(payload_entity, "payload") or payload_entity.payload is None:
+            payload_entity.payload = {}
+        
+        counts = payload_entity.payload.setdefault("teleport_count", {})
+        counts[self.uuid] = counts.get(self.uuid, 0) + 1
+        current_visit = counts[self.uuid]
+        
+        max_threshold = int(self.get_property("max_threshold_count", 10))
+        error_target = self.get_property("error_entity_id")
+        
+        # Determine Target UUID branch
+        if current_visit <= max_threshold:
+            # Normal routing: check override property then fall back to wiring
+            chosen_target_uuid = self.get_property("target_uuid")
+            if not chosen_target_uuid and hasattr(self, 'connected_uuids') and self.connected_uuids:
+                chosen_target_uuid = self.connected_uuids[0]
+        else:
+            # Threshold Exceeded branch
+            if error_target:
+                chosen_target_uuid = error_target
+            else:
+                # No error portal defined -> Ejection logic (teleport back to entrance)
+                chosen_target_uuid = self.uuid
+
         payload_entity.is_hidden = True
         if getattr(payload_entity, "body", None):
             payload_entity.body.velocity = (0, 0)
@@ -61,7 +90,8 @@ class PortalPart(GamePart):
         self.transit_queue.append({
             "entity": payload_entity,
             "payload_uuid": payload_entity.uuid,
-            "timer": float(self.get_property("transit_time", 0.5))
+            "timer": float(self.get_property("transit_time", 0.5)),
+            "target_uuid": chosen_target_uuid  # Store at entry time
         })
         self.flash_timer = 15
         return True
@@ -75,31 +105,40 @@ class PortalPart(GamePart):
         if self.flash_timer > 0:
             self.flash_timer -= 1
             
-        target_uuid = self.get_property("target_uuid")
-        target_portal = active_instances.get(target_uuid) if active_instances else None
-        
         for item in self.transit_queue:
             item["timer"] -= dt
             
             if item["timer"] <= 0:
-                if target_portal and hasattr(target_portal, "body") and target_portal.body:
-                    # Eject from target portal
-                    payload = item["entity"]
-                    payload.is_hidden = False
-                    
-                    # Eject downwards slightly below the target portal
-                    px, py = target_portal.body.position
-                    payload.body.position = (px, py + 50)
-                    payload.body.velocity = (0, 150) # Shoot out
-                    
-                    # Physics Re-indexing: Ensure the engine detects the teleportation immediately
-                    if self.body and self.body.space:
-                        self.body.space.reindex_shapes_for_body(payload.body)
-                    
-                    target_portal.flash_timer = 15
-                    item["to_remove"] = True
+                target_uuid = item.get("target_uuid")
+                target_portal = active_instances.get(target_uuid) if active_instances and target_uuid else None
+
+                if target_portal:
+                    # M36: Data Pipe Hand-off support
+                    if getattr(target_portal, 'variant_key', '') == 'data_pipe' and hasattr(target_portal, 'ingest_payload'):
+                        accepted = target_portal.ingest_payload(item["entity"])
+                        if accepted:
+                            target_portal.flash_timer = 15 # Visual sync
+                            item["to_remove"] = True
+                            continue
+                            
+                    if hasattr(target_portal, "body") and target_portal.body:
+                        # Eject from target portal
+                        payload = item["entity"]
+                        payload.is_hidden = False
+                        
+                        # Eject downwards slightly below the target portal
+                        px, py = target_portal.body.position
+                        payload.body.position = (px, py + 50)
+                        payload.body.velocity = (0, 150) # Shoot out
+                        
+                        # Physics Re-indexing: Ensure the engine detects the teleportation immediately
+                        if self.body and self.body.space:
+                            self.body.space.reindex_shapes_for_body(payload.body)
+                        
+                        target_portal.flash_timer = 15
+                        item["to_remove"] = True
                 else:
-                    # Target missing/deleted, dump it back out of THIS portal
+                    # Target missing/deleted/None, dump it back out of THIS portal
                     item["entity"].is_hidden = False
                     item["to_remove"] = True
 

@@ -19,7 +19,7 @@ class CollisionManager:
         self.signal_queue = signal_queue
 
     def post_solve(self, arbiter, space, data):
-        if arbiter.total_impulse.length > 200:
+        if arbiter.total_impulse.length > 50:
             shape_a, shape_b = arbiter.shapes
             for entity in self.entities:
                 # Milestone 8: Improved collision detection for multifarious shapes
@@ -138,6 +138,9 @@ class CollisionManager:
         # Resolve entities from shapes
         for entity in list(self.entities):
             if getattr(entity, 'shape', None) == incoming_shape or incoming_shape in getattr(entity, 'shapes', []):
+                # Milestone 35 Fix: Ignore non-payload entities that have sensor shapes for selection
+                if str(getattr(entity, 'variant_key', '')).lower() in ("text_box", "data_pipe"):
+                    return True
                 incoming_entity = entity
             if getattr(entity, 'shape', None) == sink_shape or sink_shape in getattr(entity, 'shapes', []):
                 sink_entity = entity

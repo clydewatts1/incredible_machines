@@ -139,10 +139,13 @@ class BrainPart(FlowEntity):
         
         model_name = str(self.get_property("model", "llama3.2"))
         system_prompt = str(self.get_property("system_prompt", "Determine routing state."))
+        
+        # Milestone 35: Logic Generation snapshot for cancellation
+        worker_gen = self.logic_generation
 
         def _worker():
             if not AI_AVAILABLE:
-                if not self._is_destroyed:
+                if not self._is_destroyed and self.logic_generation == worker_gen:
                     self.queue.put({"payload_uuid": payload_uuid, "result": "fatal: AI dependencies missing"})
                 return
 
@@ -150,6 +153,9 @@ class BrainPart(FlowEntity):
                 client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
                 data_str = json.dumps(payload_copy.get("data", payload_copy))
                 
+                if self.logic_generation != worker_gen: return # Abort Before Call
+
+                print(f"DEBUG: Brain {self.uuid} Calling AI with payload: {data_str}")
                 response = client.beta.chat.completions.parse(
                     model=model_name,
                     messages=[
@@ -159,16 +165,31 @@ class BrainPart(FlowEntity):
                     response_format=BrainDecision,
                 )
                 
+                if self.logic_generation != worker_gen: return # Abort After Call
+
                 decision = response.choices[0].message.parsed
                 if not self._is_destroyed:
+                    # Milestone 35: Strict Fallback Logic
+                    final_state = decision.route_state
+                    fallback_state = int(self.get_property("fallback_state", 0))
+                    
+                    if final_state is None:
+                        print(f"WARNING: Brain {self.uuid} AI returned None for route_state. Using fallback {fallback_state}.")
+                        final_state = fallback_state
+                    
+                    print(f"DEBUG: Brain {self.uuid} AI Thought: {decision.thought}")
+                    print(f"DEBUG: Brain {self.uuid} Route State: {final_state}")
+                    
                     self.queue.put({
                         "payload_uuid": payload_uuid, 
-                        "route_state": decision.route_state,
-                        "injected_data": decision.injected_data
+                        "route_state": final_state,
+                        "injected_data": decision.injected_data,
+                        "thought": decision.thought
                     })
                     
             except Exception as exc:
-                if not self._is_destroyed:
+                if not self._is_destroyed and self.logic_generation == worker_gen:
+                    print(f"DEBUG: Brain {self.uuid} AI ERROR: {exc}")
                     self.queue.put({"payload_uuid": payload_uuid, "result": f"fatal: AI Error: {exc}"})
 
         thread = threading.Thread(target=_worker, daemon=True)
@@ -207,7 +228,9 @@ class BrainPart(FlowEntity):
             payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
 
             # Standardized Routing
-            self.resolve_exit_path(payload_entity, route_state, entities, active_instances)
+            print(f"DEBUG: Brain {self.uuid} Resolving exit for {payload_uuid} with state {route_state}")
+            exit_code = self.resolve_exit_path(payload_entity, route_state, entities, active_instances)
+            print(f"DEBUG: Brain {self.uuid} Routing result: {exit_code}")
             self.current_payload_uuid = None
 
         # Return to IDLE and broadcast updated status to neighbors

@@ -1,0 +1,38 @@
+name: portal_threshold_test
+description: Verification of portal threshold-based redirection to error portal.
+gravity: [0, 900]
+damping: 0.99
+wind: [0, 0]
+entities:
+- uuid: source_1
+  entity_id: data_source
+  position: {x: 400.0, y: 50.0}
+  rotation: 0.0
+  overrides:
+    emit_interval: 10.0
+    output_variant: payload_ball
+- uuid: portal_main
+  entity_id: portal
+  position: {x: 400.0, y: 150.0}
+  rotation: 0.0
+  overrides:
+    custom_name: Main Portal
+    target_uuid: portal_top
+    max_threshold_count: 2
+    error_entity_id: portal_error
+    transit_time: 0.1
+- uuid: portal_top
+  entity_id: portal
+  position: {x: 400.0, y: 100.0}
+  rotation: 0.0
+  overrides:
+    custom_name: Top Portal
+    target_uuid: portal_main
+    transit_time: 0.1
+- uuid: portal_error
+  entity_id: portal
+  position: {x: 600.0, y: 500.0} # Escape route!
+  rotation: 0.0
+  overrides:
+    custom_name: Error Portal
+connections: []

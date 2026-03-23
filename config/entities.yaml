@@ -84,6 +84,8 @@ variants:
     width: 100
     height: 10
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
 
 
   diamond:
@@ -95,6 +97,8 @@ variants:
     height: 40
     mass: 50.0
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
     color: [255, 0, 0]
 
   half_circle:
@@ -106,6 +110,8 @@ variants:
     segments: 15
     mass: 5.0
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
     color: [0, 200, 200]
 
   quarter_circle:
@@ -116,6 +122,8 @@ variants:
     radius: 50
     segments: 15
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
     mass: 5.0
     color: [200, 200, 0]
 
@@ -137,6 +145,8 @@ variants:
     width: 40
     height: 40
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
     elasticity: 0.5
 
 
@@ -149,6 +159,8 @@ variants:
     width: 20
     height: 40
     is_static: True
+    is_reactive: true
+    flash_duration: 0.3
     elasticity: 1.2
 
   bouncy:
@@ -159,6 +171,8 @@ variants:
     width: 40
     height: 40
     is_static: True 
+    is_reactive: true
+    flash_duration: 0.3
     elasticity: 1.5
 
 
@@ -292,7 +306,7 @@ variants:
     output_variant: "payload_ball"  # Emitted entity variant (defaults to bouncy_ball if omitted)
     engine_type: "csv"
     instructions:
-      filepath: "data/samples.csv"
+      filepath: "data/samples_NO_FILE.csv"
       debug: false
       loop: true
       skip_header: true
@@ -618,6 +632,10 @@ variants:
     width: 64
     height: 64
     is_static: True
+    target_uuid: ""
+    max_threshold_count: 10
+    error_entity_id: ""
+    transit_time: 0.5
 
 # Added in 2026-03-19 - data pipe
   data_pipe:

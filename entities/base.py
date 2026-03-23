@@ -166,6 +166,7 @@ class GamePart:
         
         # Texture Loading & Caching (Milestone 8 & 16)
         from utils.asset_manager import asset_manager
+        import os
         
         texture_rel_path = str(self.get_property("texture_path", ""))
         tex_path = texture_rel_path if texture_rel_path else f"assets/sprites/{self.variant_key}.png"
@@ -176,6 +177,25 @@ class GamePart:
             fallback_size=(int(tex_width), int(tex_height)), 
             text_label=label_text
         )
+
+        # M36: Reactive Geometry
+        self.is_reactive = self.get_property("is_reactive", False)
+        self.flash_timer = 0.0
+        self.active_texture = None
+        
+        if self.is_reactive and self.base_texture:
+            # Check for explicit active sprite
+            active_sprite_path = f"assets/sprites/{self.variant_key}_active.png"
+            if os.path.exists(active_sprite_path):
+                self.active_texture = asset_manager.get_image(
+                    active_sprite_path,
+                    fallback_size=(int(tex_width), int(tex_height)),
+                    text_label=f"{label_text} ACTIVE"
+                )
+            else:
+                # Procedural brightness boost (20%)
+                self.active_texture = self.base_texture.copy()
+                self.active_texture.fill((50, 50, 50), special_flags=pygame.BLEND_RGB_ADD)
 
         # New payload defaults are primarily used by Factory processing pipelines.
         if self.template == "Circle":
@@ -292,12 +312,16 @@ class GamePart:
         if not self.base_texture or not self.body:
             return
             
-        import math
         # 1. Constitution Sec 10: Invert degrees for Pygame logic constraints
         angle_degrees = -math.degrees(self.body.angle)
         
-        # 2. Re-rotate exactly once per render cycle
-        rotated_surface = pygame.transform.rotate(self.base_texture, angle_degrees)
+        # 2. Reactive Flash?
+        tex = self.base_texture
+        if self.is_reactive and self.flash_timer > 0 and self.active_texture:
+            tex = self.active_texture
+            
+        # 3. Re-rotate exactly once per render cycle
+        rotated_surface = pygame.transform.rotate(tex, angle_degrees)
         
         # 3. Get world-space position
         world_x, world_y = self.body.position.x, self.body.position.y
@@ -411,11 +435,20 @@ class GamePart:
                 if direction == "counter-clockwise":
                     rate = -rate
                 self.motor_constraint.rate = rate
+                
+    def handle_collision(self, arbiter):
+        """M36: Triggers visual reaction on impact for reactive geometry."""
+        if self.is_reactive:
+            self.flash_timer = float(self.get_property("flash_duration", 0.3))
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
         """
         Executes active logic (e.g. Cannon spawning) during PLAY state.
         """
+        # Reactive Flash Decay
+        if self.flash_timer > 0:
+            self.flash_timer -= dt
+            
         if self.variant_key == "cannon" and game_state.get("mode") == "PLAY":
             freq = float(self.get_property("shoot_frequency", 1.0))
             max_count = int(self.get_property("max_count", -1))
@@ -478,6 +511,12 @@ class GamePart:
                         active_instances[new_part.uuid] = new_part
                     self.play_event_sound("spawn_sound")
 
+    def collect_projectile(self, projectile):
+        """Milestone 12: Handles ball ingestion into Basket and Cannon sensors."""
+        if self.variant_key == "basket":
+            projectile.to_delete = True
+            self.play_event_sound("collision_sound")
+
 
 # ---------------------------------------------------------------------------
 #  M32: FlowEntity – Unified Base for all I/O and Processing Nodes
@@ -520,6 +559,9 @@ class FlowEntity(GamePart):
         self.downstream_status: str = "IDLE"
         self.signal_received: bool = False
         self.needs_broadcast: bool = False
+
+        # --- Logic Generation (M35 Cancellation) ---
+        self.logic_generation: int = 0
 
         # --- Cooldown ---
         self.cooldown_timer: float = 0.0
@@ -803,6 +845,23 @@ class FlowEntity(GamePart):
     def cleanup(self):
         """Mark destroyed and drain the work queue if one exists."""
         self._is_destroyed = True
+        q = getattr(self, "queue", None)
+        if q is not None:
+            while not q.empty():
+                try:
+                    q.get_nowait()
+                except Exception:
+                    break
+
+    def reset_flow_logic(self):
+        """
+        Clears pending queues and increments the generation counter
+        to invalidate any background workers currently in flight.
+        """
+        self.logic_generation += 1
+        self.visual_state = "IDLE"
+        self.is_paused = False
+        
         q = getattr(self, "queue", None)
         if q is not None:
             while not q.empty():
