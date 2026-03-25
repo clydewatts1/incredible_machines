@@ -2,7 +2,7 @@ import pygame
 import pymunk
 import os
 import math
-from typing import List, Dict
+from typing import List, Dict, Any
 from entities.base import GamePart
 from utils.asset_manager import asset_manager
 
@@ -48,7 +48,7 @@ class PortalPart(GamePart):
             except Exception:
                 pass
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
         """M36: Logical interface for incoming payloads from Pipes/Logic entities."""
         return self.warp_payload(payload_entity)
 

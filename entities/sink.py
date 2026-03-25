@@ -48,15 +48,8 @@ class DataSink(FlowEntity):
         self._processed_entity_uuids = set()
         self.exporter = None # Milestone 35 Fix: Prevent AttributeError in worker
 
-        print(f"DEBUG: Sink {self.uuid} Launching worker thread...")
-        import sys
-        import threading as _th
-        print(f"DEBUG: Active threads before start: {_th.active_count()}")
-        sys.stdout.flush()
         self._worker_thread = _th.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
-        print(f"DEBUG: Sink {self.uuid} Thread started flag set.")
-        sys.stdout.flush()
 
         self.visual_state = "IDLE"
 
@@ -112,7 +105,7 @@ class DataSink(FlowEntity):
         finally:
             pass
 
-    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, GamePart] = None) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
         if self._is_destroyed or self._fatal_latched:
             return False
 
@@ -132,10 +125,7 @@ class DataSink(FlowEntity):
             # Fallback to variant_key if payload 'type' is missing
             p_type = str(payload.get("type", payload_entity.variant_key)).lower()
             if p_type not in [t.lower() for t in accept_list]:
-                print(f"DEBUG: Sink {self.uuid} Rejecting ball - Type mismatch: {p_type} not in {accept_list}")
                 return False
-
-        print(f"DEBUG: Sink {self.uuid} ACCEPTING ball {payload_entity.uuid}")
 
         # Ingest
         self._processed_entity_uuids.add(payload_entity.uuid)
@@ -204,7 +194,6 @@ class DataSink(FlowEntity):
         if self.visual_state == "INGESTING":
             self.consumption_timer -= dt
             if self.consumption_timer <= 0.0:
-                print(f"DEBUG: Sink {self.uuid} transition INGESTING -> IDLE (timer: {self.consumption_timer})")
                 self.visual_state = "IDLE"
                 if self.current_consuming_payload:
                     self.current_consuming_payload.to_delete = True

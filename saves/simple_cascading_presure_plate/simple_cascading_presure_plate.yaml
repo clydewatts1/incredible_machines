@@ -1,0 +1,396 @@
+name: simple_cascading_presure_plate
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 4c7de019-fd26-46a0-b8b6-4fe9dbf0320b
+  entity_id: effect_box
+  position:
+    x: 594.0
+    y: 527.0
+  rotation: 0.5
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    daisy_chain: 'True'
+    effect_type: flare
+    elasticity: 0.5
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 64
+    cooldown_duration: 0.5
+    delay_duration: 0.0
+    firing_duration: 1.0
+    trigger_on_impact: 'False'
+- uuid: ac660208-bcd6-45b5-8c97-e53caf7211d0
+  entity_id: effect_box
+  position:
+    x: 669.0
+    y: 530.0
+  rotation: 0.30000000000000004
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    daisy_chain: 'True'
+    effect_type: glitter
+    elasticity: 1
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 64
+    cooldown_duration: 0.5
+    delay_duration: 0.1
+    firing_duration: 1.0
+    trigger_on_impact: 'False'
+- uuid: 506f54a9-3f7c-4384-9914-cc24855e5da2
+  entity_id: effect_box
+  position:
+    x: 743.0
+    y: 538.0
+  rotation: 0.0
+  overrides:
+    daisy_chain: 'True'
+    custom_name: ''
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    cooldown_duration: 0.5
+    delay_duration: 0.1
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    effect_type: balloon
+    elasticity: 0.5
+    firing_duration: 1.0
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    trigger_on_impact: 'False'
+    width: 64
+- uuid: db4377a7-d03a-4fc7-b7f8-9e79c54de90f
+  entity_id: effect_box
+  position:
+    x: 818.0
+    y: 539.0
+  rotation: -0.2
+  overrides:
+    daisy_chain: 'True'
+    custom_name: ''
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    cooldown_duration: 0.5
+    delay_duration: 1
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    effect_type: firework
+    elasticity: 0.5
+    firing_duration: 1.0
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    trigger_on_impact: 'False'
+    width: 64
+- uuid: 2301da1c-2b13-489c-8be8-2606333a64ed
+  entity_id: pressure_plate
+  position:
+    x: 564.0
+    y: 448.0
+  rotation: -0.4
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: visuals
+    collision_sound: default_collision.wav
+    color:
+    - 180
+    - 180
+    - 180
+    cooldown: 0.5
+    description: Detects when a dynamic body is on top and broadcasts a signal.
+    elasticity: 1
+    friction: 0.5
+    height: 10
+    is_sensor: 'False'
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 80
+- uuid: 0d10f4e1-4df1-416b-b37d-95565978d257
+  entity_id: portal
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: 0.0
+  overrides:
+    target_uuid: 4ecccfe3-34cf-42f2-9b56-65a3e6349b99
+    custom_name: ''
+    custom_description: ''
+    capacity: 5
+    category: logic
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    error_entity_id: ''
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    max_threshold_count: 10
+    spawn_sound: spawn.wav
+    transit_time: 0.5
+    width: 64
+- uuid: 4cabdef4-db4a-4458-9133-1a149567a10b
+  entity_id: long_ramp
+  position:
+    x: 387.0
+    y: 478.0
+  rotation: -1.8000000000000005
+  overrides: {}
+- uuid: 2e6d37d4-14cf-401c-9266-c231b7ccbcbc
+  entity_id: long_ramp
+  position:
+    x: 360.0
+    y: 373.0
+  rotation: -1.9000000000000004
+  overrides: {}
+- uuid: b403a219-673f-496f-8e26-6ecd33876713
+  entity_id: long_ramp
+  position:
+    x: 350.0
+    y: 560.0
+  rotation: 0.7999999999999999
+  overrides: {}
+- uuid: fba46137-6840-4974-b785-9fcdbea8bc38
+  entity_id: portal
+  position:
+    x: 538.0
+    y: 300.0
+  rotation: 0.0
+  overrides:
+    source_uuid: 4ecccfe3-34cf-42f2-9b56-65a3e6349b99
+- uuid: 4ecccfe3-34cf-42f2-9b56-65a3e6349b99
+  entity_id: data_pipe
+  position:
+    x: 496.5
+    y: 432.0
+  rotation: 0.0
+  overrides:
+    source_uuid: 0d10f4e1-4df1-416b-b37d-95565978d257
+    target_uuid: fba46137-6840-4974-b785-9fcdbea8bc38
+- uuid: f50f2fd6-3193-4c8b-ac97-bbfba8e56411
+  entity_id: data_pipe
+  position:
+    x: 815.0
+    y: 460.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 1ba967df-05ed-46de-aae3-3b818b48295d
+  entity_id: effect_box
+  position:
+    x: 896.0
+    y: 540.0
+  rotation: -0.2
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    cooldown_duration: 0.5
+    daisy_chain: 'False'
+    delay_duration: 0.0
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    effect_type: confetti
+    elasticity: 0.5
+    firing_duration: 1.0
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    trigger_on_impact: 'False'
+    width: 64
+- uuid: 340d81dd-7637-4cc8-9278-eff849404574
+  entity_id: cannon
+  position:
+    x: 570.0
+    y: 186.0
+  rotation: 1.7000000000000002
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    active_side: right
+    ammo_id: bouncy_ball
+    category: active
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    exit_angle: 0.0
+    exit_velocity: 800.0
+    friction: 0.5
+    height: 30
+    is_static: 'True'
+    mass: 1.0
+    max_count: 10
+    shoot_frequency: 1.0
+    spawn_sound: spawn.wav
+    width: 60
+- uuid: 418471d4-b2b4-4be6-8c54-be035c0d9ac4
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -14.38596987153939
+  overrides: {}
+- uuid: 425993a9-e174-4c80-b93a-7363de005bb7
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -15.648811414332455
+  overrides: {}
+- uuid: 9d759292-c6dd-438b-bda9-280cb03d554d
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -9.303361978138735
+  overrides: {}
+- uuid: cc65fd41-f75b-4498-9136-1ae47a83bbeb
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -18.064783384402315
+  overrides: {}
+- uuid: c7721c69-3b2d-4690-bbd9-797c3daeeea2
+  entity_id: bouncy_ball
+  position:
+    x: 420.0674258328712
+    y: 515.557845342335
+  rotation: -13.138690178180134
+  overrides: {}
+- uuid: 1fba5a79-0c24-4a95-8586-a3262abd5041
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 300.0
+  rotation: -15.288924958689384
+  overrides: {}
+- uuid: 707c892c-4036-44b3-a474-095d954197bf
+  entity_id: bouncy_ball
+  position:
+    x: 502.08397931636114
+    y: 433.31996805975956
+  rotation: -5.314352614304558
+  overrides: {}
+- uuid: 70122494-dc10-4e1a-a0fe-f8b25b49ed45
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 300.0
+  rotation: -8.138380833608856
+  overrides: {}
+- uuid: 0cd0790a-9cfe-44a2-8398-d7a22d2187aa
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -4.9718110941864975
+  overrides: {}
+- uuid: 60898ed1-c43b-43a5-aa1b-a0ae8019ac3b
+  entity_id: bouncy_ball
+  position:
+    x: 533.5158889721761
+    y: 405.89921588500613
+  rotation: 2.479612797037056
+  overrides: {}
+- uuid: 9a3ecc49-fd6f-4368-bbb0-3eb2d0010f75
+  entity_id: text_box
+  position:
+    x: 586.0
+    y: 600.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 4c7b81be-6a4e-4c19-9710-2bf18de886a7
+  entity_id: text_box
+  position:
+    x: 684.0
+    y: 99.0
+  rotation: 0.0
+  overrides: {}
+connections:
+- sender: 4c7de019-fd26-46a0-b8b6-4fe9dbf0320b
+  receiver: ac660208-bcd6-45b5-8c97-e53caf7211d0
+- sender: ac660208-bcd6-45b5-8c97-e53caf7211d0
+  receiver: 506f54a9-3f7c-4384-9914-cc24855e5da2
+- sender: 506f54a9-3f7c-4384-9914-cc24855e5da2
+  receiver: db4377a7-d03a-4fc7-b7f8-9e79c54de90f
+- sender: db4377a7-d03a-4fc7-b7f8-9e79c54de90f
+  receiver: 1ba967df-05ed-46de-aae3-3b818b48295d
+- sender: 2301da1c-2b13-489c-8be8-2606333a64ed
+  receiver: 4c7de019-fd26-46a0-b8b6-4fe9dbf0320b
+- sender: 0d10f4e1-4df1-416b-b37d-95565978d257
+  receiver: 4ecccfe3-34cf-42f2-9b56-65a3e6349b99
+- sender: 1ba967df-05ed-46de-aae3-3b818b48295d
+  receiver: 340d81dd-7637-4cc8-9278-eff849404574

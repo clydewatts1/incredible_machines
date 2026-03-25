@@ -74,7 +74,7 @@ class SmartSplitterPart(FlowEntity):
             
             self.base_texture = surf
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
         """
         Receive a payload and route it probabilistically.
         

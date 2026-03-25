@@ -2,6 +2,7 @@ import math
 
 import pygame
 import pymunk
+from typing import Any, Dict
 
 from entities.base import GamePart
 
@@ -70,7 +71,21 @@ class DataPipePart(GamePart):
             self._cached_start_pos = None
             self._cached_end_pos = None
 
-    def ingest_payload(self, payload_entity):
+    def receive_signal(self, sender, signal_data: Dict[str, Any]):
+        """Forward signals to target for event-driven workflows."""
+        if signal_data.get("status") == "REFRESH":
+            pass
+
+        target_uuid = self.get_property("target_uuid")
+        # Milestone 38 Fix: Favor signal_data instances over cached ref to avoid race conditions
+        instances = signal_data.get("active_instances", getattr(self, "active_instances_ref", {}))
+        
+        if target_uuid and instances:
+            target = instances.get(target_uuid)
+            if target and hasattr(target, "receive_signal"):
+                target.receive_signal(self, signal_data)
+
+    def ingest_payload(self, payload_entity, active_instances: Dict[str, Any] = None, **kwargs):
         capacity = int(self.get_property("capacity", 5))
         if len(self.transit_queue) >= capacity:
             return False
@@ -99,10 +114,17 @@ class DataPipePart(GamePart):
         if not isinstance(active_instances, dict):
             return
 
+        # Milestone 38 Fix: Store reference for signal forwarding
+        self.active_instances_ref = active_instances
+
         source_uuid = self.get_property("source_uuid", "")
         target_uuid = self.get_property("target_uuid", "")
         source = active_instances.get(source_uuid) if source_uuid else None
         target = active_instances.get(target_uuid) if target_uuid else None
+
+        # Auto-Register with source for signal distribution
+        if source and self.uuid not in source.connected_uuids:
+            source.connected_uuids.append(self.uuid)
 
         if source and getattr(source, "body", None):
             self._cached_start_pos = (source.body.position.x, source.body.position.y)
@@ -137,14 +159,10 @@ class DataPipePart(GamePart):
                 continue
 
             if target and hasattr(target, "ingest_payload"):
-                accepted = bool(target.ingest_payload(payload_entity))
+                accepted = bool(target.ingest_payload(payload_entity, active_instances))
                 if accepted:
                     self.transit_queue.pop(i)
                     continue
-                else:
-                    # If rejected, we must re-add to space if it's dropping out of world?
-                    # Or just wait for re-attempt. For now, backpressure handles it.
-                    pass
 
             # Backpressure: remain queued at end of pipe.
             item["progress"] = 1.0

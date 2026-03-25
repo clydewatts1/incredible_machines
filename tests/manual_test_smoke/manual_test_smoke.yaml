@@ -1,0 +1,51 @@
+name: Guard_Manual_Pipe_Test
+description: "Guard manual test with Data Pipes"
+gravity: [0.0, 900.0]
+damping: 0.99
+wind: [0.0, 0.0]
+entities:
+- uuid: warehouse_01
+  entity_id: warehouse
+  position: {x: 569.0, y: 190.0}
+  rotation: 0.0
+  overrides:
+    auto_release: 'False'
+    capacity: 20
+    input_side: top
+    output_side: bottom
+
+- uuid: guard_01
+  entity_id: guard
+  position: {x: 590.0, y: 359.0}
+  rotation: 0.0
+  overrides:
+    guard_query: 'amount >= 1000'
+    sort_order: desc
+
+- uuid: data_sink_01
+  entity_id: data_sink
+  position: {x: 577.0, y: 498.0}
+  rotation: 0.0
+  overrides: {}
+
+- uuid: pipe_inlet
+  entity_id: data_pipe
+  position: {x: 580.0, y: 275.0}
+  rotation: 0.0
+  overrides:
+    source_uuid: warehouse_01
+    target_uuid: guard_01
+
+- uuid: pipe_outlet
+  entity_id: data_pipe
+  position: {x: 583.0, y: 428.0}
+  rotation: 0.0
+  overrides:
+    source_uuid: guard_01
+    target_uuid: data_sink_01
+
+connections:
+- {sender: warehouse_01, receiver: pipe_inlet}
+- {sender: pipe_inlet, receiver: guard_01}
+- {sender: guard_01, receiver: pipe_outlet}
+- {sender: pipe_outlet, receiver: data_sink_01}

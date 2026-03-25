@@ -80,7 +80,7 @@ class CollisionManager:
                 payload_entity = entity
 
         if wh_entity and payload_entity and hasattr(wh_entity, "ingest_payload"):
-            wh_entity.ingest_payload(payload_entity)
+            wh_entity.ingest_payload(payload_entity, self.active_instances)
         return True
 
     def portal_sensor_begin(self, arbiter, space, data):
@@ -98,7 +98,7 @@ class CollisionManager:
                 payload_entity = entity
 
         if portal_entity and payload_entity and hasattr(portal_entity, "warp_payload"):
-            portal_entity.warp_payload(payload_entity, self.entities)
+            portal_entity.warp_payload(payload_entity, self.active_instances)
         return True
 
     def factory_sensor_pre_solve(self, arbiter, space, data):

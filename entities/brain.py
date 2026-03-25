@@ -50,6 +50,9 @@ class BrainPart(FlowEntity):
         self.properties.setdefault("cost_modifier", -10.0)
         self.properties.setdefault("width", 96.0)
         self.properties.setdefault("height", 96.0)
+        self.properties.setdefault("auto_release", True)
+        
+        self.stored_payload_uuids = []
 
         self.visual_state = "IDLE"
 
@@ -100,7 +103,7 @@ class BrainPart(FlowEntity):
 
         return "healthy"
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
         if self._is_destroyed:
             return False
 
@@ -195,6 +198,19 @@ class BrainPart(FlowEntity):
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
 
+    def extract_payload(self, uuid: str, active_instances: Dict[str, Any]) -> Optional[GamePart]:
+        """
+        Milestone 38: Atomic extraction for pull-based WOLF logic.
+        """
+        if uuid in self.stored_payload_uuids:
+            self.stored_payload_uuids.remove(uuid)
+            payload = active_instances.get(uuid)
+            if payload:
+                # Flash for visual confirmation of the pull
+                self.flash_timer = 15
+                return payload
+        return None
+
     def poll_results(self, entities: List[GamePart], active_instances: Dict[str, GamePart]):
         if self._is_destroyed:
             return
@@ -226,6 +242,17 @@ class BrainPart(FlowEntity):
                 payload_entity.payload["data"].update(injected_data)
             
             payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
+            
+            # Milestone 38: WOLF Interaction Mode
+            if not self.get_bool_property("auto_release", True):
+                print(f"DEBUG: Brain {self.uuid} Holding {payload_uuid} in interaction buffer.")
+                if payload_uuid not in self.stored_payload_uuids:
+                    self.stored_payload_uuids.append(payload_uuid)
+                self.current_payload_uuid = None
+                
+                # Milestone 38: Event-Driven WOLF
+                self.broadcast_status(active_instances or {}, custom_signal={"status": "REFRESH"})
+                continue
 
             # Standardized Routing
             print(f"DEBUG: Brain {self.uuid} Resolving exit for {payload_uuid} with state {route_state}")

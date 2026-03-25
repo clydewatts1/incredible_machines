@@ -39,6 +39,7 @@ class WarehousePart(FlowEntity):
         self.properties.setdefault("width", 96.0)
         self.properties.setdefault("height", 96.0)
         self.properties.setdefault("send_full_signal", True)
+        self.properties.setdefault("auto_release", True)
 
         self._create_default_visuals()
 
@@ -57,7 +58,17 @@ class WarehousePart(FlowEntity):
         
         self.signal_received = True
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: "GamePart", active_instances: Dict[str, Any] = None, skip_proximity: bool = False, **kwargs) -> bool:
+        """
+        Standardized ingestion with backpressure support.
+        """
+        # Store active_instances ref for later signal broadcasting
+        if active_instances:
+            self.active_instances_ref = active_instances
+
+        if self.visual_state != "IDLE":
+            return False
+
         if not getattr(payload_entity, 'body', None) or payload_entity.body.body_type != pymunk.Body.DYNAMIC:
             return False
 
@@ -66,14 +77,15 @@ class WarehousePart(FlowEntity):
             return False 
 
         input_side = str(self.get_property("input_side", "top")).lower()
-        dx = payload_entity.body.position.x - self.body.position.x
-        dy = payload_entity.body.position.y - self.body.position.y
+        if not skip_proximity:
+            dx = payload_entity.body.position.x - self.body.position.x
+            dy = payload_entity.body.position.y - self.body.position.y
+            
+            if input_side == "top" and dy > 5: return False
+            elif input_side == "left" and dx > 5: return False
+            elif input_side == "right" and dx < -5: return False
+            elif input_side == "bottom" and dy < -5: return False
         
-        if input_side == "top" and dy > 5: return False
-        elif input_side == "left" and dx > 5: return False
-        elif input_side == "right" and dx < -5: return False
-        elif input_side == "bottom" and dy < -5: return False
-
         if not hasattr(payload_entity, "payload") or not isinstance(payload_entity.payload, dict):
             payload_entity.payload = {}
             
@@ -84,7 +96,28 @@ class WarehousePart(FlowEntity):
             self.stored_payload_uuids.append(payload_entity.uuid)
         
         self.flash_timer = 10
+        
+        # Milestone 38: Event-Driven WOLF
+        # Force a refresh signal so downstream guards wake up immediately
+        print(f"DEBUG: Warehouse {self.uuid} Ingested ball. Broadcasting REFRESH to {len(self.connected_uuids)} connections.")
+        self.broadcast_status(active_instances or {}, {"status": "REFRESH"})
+        
         return True
+
+    def extract_payload(self, uuid: str, active_instances: Dict[str, Any]) -> Optional[GamePart]:
+        """
+        Milestone 38: Atomic extraction for pull-based WOLF logic.
+        Surgically removes the payload from the buffer and returns the entity.
+        Returns None if already removed (prevents double-processing by multiple guards).
+        """
+        if uuid in self.stored_payload_uuids:
+            self.stored_payload_uuids.remove(uuid)
+            payload = active_instances.get(uuid)
+            if payload:
+                # Visual feedback on extraction
+                self.flash_timer = 15
+                return payload
+        return None
 
     def _eject_payload(self, payload_entity: GamePart):
         # Get properties
@@ -160,6 +193,10 @@ class WarehousePart(FlowEntity):
 
         # === RELEASE LOGIC ===
         if not self.stored_payload_uuids:
+            return
+            
+        # Milestone 38: Interaction State (Passive buffer mode)
+        if not self.get_bool_property("auto_release", True):
             return
 
         self.release_timer -= dt

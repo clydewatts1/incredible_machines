@@ -1,9 +1,16 @@
 import pygame
 import os
 import pygame_gui
-from pygame_gui.elements import UIButton, UIPanel, UILabel, UIScrollingContainer, UITextEntryLine, UITextBox, UIDropDownMenu, UITextEntryBox
+from pygame_gui.elements import UIButton, UIPanel, UILabel, UIScrollingContainer, UITextEntryLine, UITextBox, UIDropDownMenu, UITextEntryBox, UIImage, UIHorizontalScrollBar, UIVerticalScrollBar
 from utils.asset_manager import asset_manager
 from utils.sound_manager import sound_manager
+
+# Milestone 42 Safeguard: In some versions of pygame_gui (e.g. 0.6.14), 
+# these constants are missing from the module root.
+if not hasattr(pygame_gui, "UI_HORIZONTAL_SCROLLBAR_CHANGED"):
+    pygame_gui.UI_HORIZONTAL_SCROLLBAR_CHANGED = pygame.USEREVENT + 1000
+if not hasattr(pygame_gui, "UI_VERTICAL_SCROLLBAR_CHANGED"):
+    pygame_gui.UI_VERTICAL_SCROLLBAR_CHANGED = pygame.USEREVENT + 1001
 
 def create_icon_surface(variant_key, variant_data):
     """
@@ -140,6 +147,26 @@ class EditorUI:
             manager=self.ui_manager,
             container=self.right_panel,
             object_id="#right_panel_scroller"
+        )
+        
+        # Milestone 42: Window Scrollbars
+        # Horizontal scrollbar at bottom of playable area
+        sb_h = 16
+        # World limits (from constants or camera)
+        from constants import WORLD_WIDTH, WORLD_HEIGHT
+        vis_pct_h = self.playable_rect.width / WORLD_WIDTH
+        vis_pct_v = self.playable_rect.height / WORLD_HEIGHT
+
+        self.h_scrollbar = UIHorizontalScrollBar(
+            relative_rect=pygame.Rect(self.side_w, self.h - self.bot_h - sb_h, self.playable_rect.width - sb_h, sb_h),
+            manager=self.ui_manager,
+            visible_percentage=vis_pct_h
+        )
+        # Vertical scrollbar at right of playable area
+        self.v_scrollbar = UIVerticalScrollBar(
+            relative_rect=pygame.Rect(self.w - self.right_w - sb_h, self.top_h, sb_h, self.playable_rect.height),
+            manager=self.ui_manager,
+            visible_percentage=vis_pct_v
         )
         
         # Bottom Bar Labels
@@ -354,8 +381,24 @@ class EditorUI:
             )
             self.palette_elements.append(card)
 
-            # Icon button sits inside the card with inner padding
+            # Milestone fix: Decouple icon from button to prevent state-based disappearing
             btn_w = card_w - 2 * PAD
+            icon_surf = create_icon_surface(vk, vd)
+            if icon_surf:
+                icon_scaled = pygame.transform.smoothscale(icon_surf, (40, 40))
+                # Center the 40x40 icon inside the card's button area
+                img_x = PAD + (btn_w - 40) // 2
+                img_y = PAD + (ICON_BTN_SIZE - 40) // 2
+                img = UIImage(
+                    relative_rect=pygame.Rect(img_x, img_y, 40, 40),
+                    image_surface=icon_scaled,
+                    manager=self.ui_manager,
+                    container=card,
+                    object_id="#palette_icon"
+                )
+                self.palette_elements.append(img)
+
+            # Interactive button sits on top, transparent but handling clicks/hover
             btn = UIButton(
                 relative_rect=pygame.Rect(PAD, PAD, btn_w, ICON_BTN_SIZE),
                 text="",
@@ -364,11 +407,12 @@ class EditorUI:
                 tool_tip_text=f"{label_text}: {desc}",
                 object_id="#palette_btn"
             )
-            icon_surf = create_icon_surface(vk, vd)
-            if icon_surf:
-                icon_scaled = pygame.transform.smoothscale(icon_surf, (40, 40))
-                btn.set_image(icon_scaled)
             btn.user_data = vk
+            
+            # Milestone fix: highlight the active tool
+            if vk == self.game_state.get("active_tool"):
+                btn.select()
+                
             self.palette_elements.append(btn)
 
             # Label beneath the button inside the card
@@ -500,6 +544,8 @@ class EditorUI:
 
     def process_event(self, event):
         """Delegates events to pygame-gui and handles internal callbacks."""
+        # DEBUG: If you see this, the latest file is being loaded.
+        # print("DEBUG: EditorUI process_event running...")
         self.ui_manager.process_events(event)
         
         if event.type == pygame_gui.UI_BUTTON_PRESSED:
@@ -547,11 +593,36 @@ class EditorUI:
                     self.rebuild_category_tabs()
                     self.rebuild_right_palette()
         
-        elif event.type == pygame_gui.UI_DROP_DOWN_MENU_CHANGED:
-            # Dropdowns are now only used for the category tabs / property editor if at all.
-            pass
-
         return self.ui_manager.get_focus_set() is not None or self.ui_manager.get_hovering_any_element()
+
+    def _update_camera_from_scrollbars(self):
+        """Update camera offsets based on scrollbar positions."""
+        # start_percentage in 0.6.14 is 0.0 to (1.0 - vis_pct)
+        # We normalize this to 0.0 - 1.0 for the camera
+        vis_h = self.h_scrollbar.visible_percentage
+        fx = self.h_scrollbar.start_percentage / max(0.001, 1.0 - vis_h)
+        
+        vis_v = self.v_scrollbar.visible_percentage
+        fy = self.v_scrollbar.start_percentage / max(0.001, 1.0 - vis_v)
+        
+        if "camera" in self.callbacks:
+            cam = self.callbacks["camera"]()
+            if cam:
+                cam.set_offsets_from_fractions(fx, fy)
+
+    def sync_scrollbars_to_camera(self, camera):
+        """Update scrollbar knob positions to match current camera offset."""
+        if not camera or not hasattr(self, 'h_scrollbar'):
+            return
+            
+        fx, fy = camera.get_scroll_fractions()
+        
+        # Convert 0.0-1.0 fractions back to start_percentages (0.0 to 1.0-vis_pct)
+        sp_h = fx * (1.0 - self.h_scrollbar.visible_percentage)
+        sp_v = fy * (1.0 - self.v_scrollbar.visible_percentage)
+        
+        self.h_scrollbar.set_scroll_from_start_percentage(sp_h)
+        self.v_scrollbar.set_scroll_from_start_percentage(sp_v)
 
     def sync_ui_to_state(self):
         """Commits pending UI entries to state before a global save."""
@@ -608,6 +679,12 @@ class EditorUI:
 
     def update(self, time_delta):
         self.ui_manager.update(time_delta)
+        
+        # Milestone 42 Fix: Polling for scrollbar movement
+        # (Version 0.6.14 lacks UI_HORIZONTAL_SCROLLBAR_CHANGED event at module root)
+        if hasattr(self, 'h_scrollbar') and hasattr(self, 'v_scrollbar'):
+            if self.h_scrollbar.has_moved_recently or self.v_scrollbar.has_moved_recently:
+                self._update_camera_from_scrollbars()
 
     def draw(self, surface):
         # Paint the left panel container background explicitly (UIScrollingContainer

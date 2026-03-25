@@ -18,7 +18,29 @@ class FloatingTextLabel:
         self.elapsed = 0.0
         self.to_delete = False
         self.is_hovered = False
-        self.body = None
+        
+        # Milestone 38: MockBody for system compatibility (prevents crashes in test runner/renderer)
+        class MockPos:
+            def __init__(self, owner): self.owner = owner
+            @property
+            def x(self): return self.owner.x
+            @x.setter
+            def x(self, val): self.owner.x = float(val)
+            @property
+            def y(self): return self.owner.y
+            @y.setter
+            def y(self, val): self.owner.y = float(val)
+        
+        class MockBodyObj:
+            def __init__(self, owner):
+                self.position = MockPos(owner)
+                self.angle = 0.0
+                self.velocity = (0, 0)
+                self.angular_velocity = 0.0
+                self.constraints = []
+                self.body_type = 1 # Static
+                
+        self.body = MockBodyObj(self)
         self.shape = None
         self.shapes = []
         self.connected_uuids = []

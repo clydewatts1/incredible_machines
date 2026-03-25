@@ -1,0 +1,53 @@
+metadata:
+  name: "test_etl_flow"
+  description: "Automated test for Milestone 40 Synthetic Data Pipeline."
+
+entities:
+  - uuid: "faker_source_01"
+    entity_id: "faker_source"
+    x: 100
+    y: 100
+    properties:
+      emit_interval: 1.0
+      faker_schema:
+        name: "name"
+        email: "email"
+      random_seed: 42
+      exit_velocity: 0.0 # Vertical drop
+
+  - uuid: "faker_factory_01"
+    entity_id: "faker_factory"
+    x: 100
+    y: 300
+    properties:
+      engine_type: "faker"
+      instructions:
+        schema:
+          job: "job"
+        state: 10
+      exit_velocity: 0.0
+
+  - uuid: "file_sink_01"
+    entity_id: "file_sink"
+    x: 100
+    y: 500
+    properties:
+      output_directory: "exports/test_etl_results"
+
+  - uuid: "pipe_01"
+    entity_id: "data_pipe"
+    x: 100
+    y: 150
+    properties:
+      source_uuid: "faker_source_01"
+      target_uuid: "faker_factory_01"
+      transit_time: 0.5
+
+  - uuid: "pipe_02"
+    entity_id: "data_pipe"
+    x: 100
+    y: 350
+    properties:
+      source_uuid: "faker_factory_01"
+      target_uuid: "file_sink_01"
+      transit_time: 0.5

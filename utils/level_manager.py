@@ -23,7 +23,7 @@ class LevelManager:
             flow_name = flow_name or metadata.get("name", "Recorded_Test")
         else:
             if not flow_name:
-                flow_name = metadata.get("flow_name", "Untitled_Flow")
+                flow_name = metadata.get("flow_name", metadata.get("name", "Untitled_Flow"))
             
             # Normalize flow name for directory
             flow_dir_name = flow_name.replace(" ", "_")
@@ -38,7 +38,8 @@ class LevelManager:
 
         level_data = []
         for entity in entities:
-            if not getattr(entity, "body", None):
+            # Skip entities without a body or variant_key (diagnostic/non-persistent objects)
+            if not getattr(entity, "body", None) or not hasattr(entity, "variant_key"):
                 continue
             data = {
                 "uuid": entity.uuid,

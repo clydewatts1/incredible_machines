@@ -1,0 +1,52 @@
+name: FX Verification Level
+description: Test level for all 5 effect types.
+entities:
+  - uuid: source_01
+    variant_key: data_source
+    position: {x: 100, y: 100}
+    properties:
+      emit_interval: 3.0
+      target_uuid: pipe_01
+  
+  - uuid: pipe_01
+    variant_key: data_pipe
+    position: {x: 300, y: 100}
+    properties:
+      source_uuid: source_01
+      target_uuid: fx_box_01
+      transit_time: 1.0
+
+  - uuid: fx_box_01
+    variant_key: effect_box
+    position: {x: 500, y: 100}
+    properties:
+      effect_type: "confetti"
+      auto_trigger_interval: 0.0
+
+  - uuid: fx_box_02
+    variant_key: effect_box
+    position: {x: 500, y: 200}
+    properties:
+      effect_type: "firework"
+      auto_trigger_interval: 5.0
+
+  - uuid: fx_box_03
+    variant_key: effect_box
+    position: {x: 500, y: 300}
+    properties:
+      effect_type: "flare"
+      auto_trigger_interval: 1.0
+
+  - uuid: fx_box_04
+    variant_key: effect_box
+    position: {x: 500, y: 400}
+    properties:
+      effect_type: "glitter"
+      auto_trigger_interval: 2.0
+
+  - uuid: fx_box_05
+    variant_key: effect_box
+    position: {x: 500, y: 500}
+    properties:
+      effect_type: "balloon"
+      auto_trigger_interval: 4.0

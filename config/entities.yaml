@@ -214,6 +214,22 @@ variants:
     direction: "clockwise"
     color: [200, 100, 50]
 
+  guard:
+    template: "Rectangle"
+    label: "Guard"
+    category: "logic"
+    width: 64
+    height: 64
+    is_static: True
+    texture_path: ""
+    guard_query: "True"
+    sort_by: ""
+    sort_order: "desc"
+    scan_interval: 0.5
+    source_uuid: ""
+    target_uuid: ""
+    color: [0, 150, 255]
+
   logic_factory:
     template: "Rectangle"
     label: "Logic Factory"
@@ -624,6 +640,20 @@ variants:
     release_interval: 1.0
     input_side: "top"
     output_side: "bottom"
+    animations:
+      OFF: "warehouse_off"
+      INITIALIZING: "warehouse_initializing"
+      IDLE: "warehouse_idle"
+      INGESTING: "warehouse_ingesting"
+      WRITING: "warehouse_writing"
+      FATAL: "warehouse_fatal"
+    sounds:
+      OFF: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
 
   portal:
     label: "Quantum Portal"
@@ -675,3 +705,79 @@ variants:
     exit_angle: 0.0
     color: [255, 100, 255] # Pink/Magenta for test markers
     description: "Specialized data source for automated testing. Emits payloads at exact physics ticks defined in inputs.json."
+
+# Milestone 40: Synthetic Data Pipeline (ETL)
+  faker_source:
+    label: "Faker Source"
+    category: "sources"
+    template: "Rectangle"
+    width: 96
+    height: 96
+    is_static: True
+    color: [180, 100, 255]
+    faker_schema:
+      name: "name"
+      email: "email"
+      job: "job"
+    emit_interval: 2.0
+    exit_velocity: 150.0
+    active_side: "bottom"
+
+  faker_factory:
+    label: "Faker Factory"
+    category: "logic"
+    template: "Rectangle"
+    width: 96
+    height: 96
+    is_static: True
+    color: [100, 255, 180]
+    engine_type: "faker"
+    instructions:
+      schema:
+        company_email: "company_email"
+        phone: "phone_number"
+      state: 10
+    description: "Mutates payload data using the Faker library."
+
+  file_sink:
+    label: "File Sink"
+    category: "sinks"
+    template: "Rectangle"
+    width: 96
+    height: 96
+    is_static: True
+    color: [255, 180, 100]
+    output_directory: "exports/synthetic_data"
+
+# Milestone 41: Visuals & Triggers
+  pressure_plate:
+    label: "Pressure Plate"
+    category: "visuals"
+    template: "Rectangle"
+    width: 80
+    height: 10
+    is_static: True
+    is_sensor: False
+    cooldown: 0.5
+    color: [180, 180, 180]
+    description: "Detects when a dynamic body is on top and broadcasts a signal."
+
+  effect_box:
+    label: "Effect Box"
+    category: "active"
+    template: "Rectangle"
+    width: 64
+    height: 64
+    is_static: True
+    color: [240, 240, 240]
+    effect_type: "confetti"
+    auto_trigger_interval: 0.0
+    daisy_chain: False
+    trigger_on_impact: False
+    firing_duration: 1.0
+    delay_duration: 0.0
+    cooldown_duration: 0.5
+    animations:
+      IDLE: "effect_box_idle"
+      EMITTING: "effect_box_emitting"
+    description: "Visual emitter that triggers particles like confetti or fireworks via signals."

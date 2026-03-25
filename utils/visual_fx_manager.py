@@ -1,71 +1,182 @@
 import pygame
-from collections import deque
+import random
+import math
 import time
+from collections import deque
+from typing import List, Tuple, Optional
+
+class Particle:
+    """Represents a single visual particle in the system."""
+    def __init__(self, x, y, dx, dy, color, lifetime, shape="circle", size=4, gravity=0.1, friction=1.0, alpha_fade=True):
+        self.x = x
+        self.y = y
+        self.dx = dx
+        self.dy = dy
+        self.color = color
+        self.max_life = lifetime
+        self.life = lifetime
+        self.shape = shape # "circle", "rect", "flare", "balloon"
+        self.size = size
+        self.gravity = gravity
+        self.friction = friction
+        self.alpha_fade = alpha_fade
+        self.spawn_time = time.time()
+        
+        # Sub-effect state (e.g., for fireworks)
+        self.has_exploded = False
+        self.angle = random.uniform(0, math.pi * 2)
+        self.spin_speed = random.uniform(-0.1, 0.1)
+
+    def update(self, dt):
+        self.life -= dt
+        self.dx *= self.friction
+        self.dy *= self.friction
+        self.dy += self.gravity
+        self.x += self.dx * dt * 60 # Scale to roughly 60fps
+        self.y += self.dy * dt * 60
+        self.angle += self.spin_speed
+
+    def is_dead(self):
+        return self.life <= 0
 
 class VisualFXManager:
     """
-    Milestone 34: Global Visual FX Budget.
-    Manages stigmergy traces using a global ring buffer to cap memory and render overhead.
+    Enhanced Visual FX Manager.
+    Supports legacy stigmergy traces AND a high-performance particle system.
     """
-    def __init__(self, max_points=5000):
+    def __init__(self, max_points=2000, max_particles=1000):
         self.max_points = max_points
-        # Each point: (x, y, color, timestamp)
         self.trace_buffer = deque(maxlen=max_points)
-        self.points_per_second = 20
         self.trace_lifetime = 5.0
+        
+        self.max_particles = max_particles
+        self.particles: List[Particle] = []
 
     def add_trace(self, x, y, color):
-        """Adds a new trace point to the global buffer."""
         self.trace_buffer.append((x, y, color, time.time()))
 
+    # --- EFFECT EMITTERS (Milestone 41) ---
+
+    def spawn_confetti(self, x, y):
+        """Instant explosion of spinning rectangles."""
+        for _ in range(30):
+            dx = random.uniform(-4, 4)
+            dy = random.uniform(-10, -5)
+            color = random.choice([(255, 50, 50), (50, 255, 50), (50, 50, 255), (255, 255, 50), (255, 50, 255)])
+            self._add_particle(Particle(x, y, dx, dy, color, 2.0, shape="rect", size=random.randint(4, 8), gravity=0.2, friction=0.98))
+
+    def spawn_firework(self, x, y):
+        """Single rocket that explodes into a radial burst."""
+        # The rocket itself is a particle that explodes on death (if we flag it) or we can implement two stages
+        color = (255, 255, 200)
+        p = Particle(x, y, random.uniform(-1, 1), random.uniform(-12, -8), color, 1.2, shape="rocket", size=4, gravity=0.15)
+        self._add_particle(p)
+
+    def _explode_firework(self, x, y):
+        """Radial burst triggered by rocket apex."""
+        color = (random.randint(150, 255), random.randint(150, 255), random.randint(150, 255))
+        for i in range(40):
+            angle = (math.pi * 2 / 40) * i
+            speed = random.uniform(3, 6)
+            dx = math.cos(angle) * speed
+            dy = math.sin(angle) * speed
+            self._add_particle(Particle(x, y, dx, dy, color, 1.5, shape="circle", size=3, gravity=0.1, friction=0.96))
+
+    def spawn_flare(self, x, y):
+        """Intense fountain of sparks (additive)."""
+        for _ in range(3):
+            dx = random.uniform(-2, 2)
+            dy = random.uniform(-8, -4)
+            color = (255, random.randint(100, 200), 50)
+            self._add_particle(Particle(x, y, dx, dy, color, 0.5, shape="flare", size=random.randint(2, 5), gravity=0.05))
+
+    def spawn_glitter(self, x, y):
+        """Slow-falling spray of tiny golden squares."""
+        for _ in range(2):
+            dx = random.uniform(-3, 3)
+            dy = random.uniform(-2, 2)
+            color = random.choice([(255, 215, 0), (255, 255, 255), (255, 250, 205)])
+            self._add_particle(Particle(x, y, dx, dy, color, 3.0, shape="rect", size=3, gravity=0.05, friction=0.92))
+
+    def spawn_balloon(self, x, y):
+        """Swaying upward circles with strings."""
+        color = random.choice([(255, 80, 80), (80, 255, 80), (80, 80, 255), (255, 200, 50)])
+        self._add_particle(Particle(x, y, random.uniform(-0.5, 0.5), -2.0, color, 4.0, shape="balloon", size=15, gravity=-0.02, friction=0.99))
+
+    def _add_particle(self, particle: Particle):
+        if len(self.particles) < self.max_particles:
+            self.particles.append(particle)
+
     def update(self, dt):
-        """
-        Optional: Purge expired points. 
-        Note: Since we use deque(maxlen), we only need to purge if we care about 
-        points disappearing before the buffer is full.
-        """
         now = time.time()
-        # Ring buffer purges by index naturally, but we might want to skip drawing old ones.
-        pass
+        remaining = []
+        for p in self.particles:
+            p.update(dt)
+            
+            # Firework logic
+            if p.shape == "rocket" and p.life <= 0.1 and not p.has_exploded:
+                p.has_exploded = True
+                self._explode_firework(p.x, p.y)
+                
+            if not p.is_dead():
+                remaining.append(p)
+        self.particles = remaining
 
     def draw(self, surface, camera=None):
-        """Renders all active traces in the global buffer."""
         now = time.time()
-        
-        # Performance: Pre-calculate camera viewport bounds if camera exists
-        if camera:
-            # Simple bounding box for the viewport (plus padding)
-            from constants import WINDOW_WIDTH, WINDOW_HEIGHT
-            # we don't have direct access to constants here without import
-            # but we can just use the provided surface size
-            sw, sh = surface.get_size()
-            viewport_rect = pygame.Rect(-50, -50, sw + 100, sh + 100)
+        sw, sh = surface.get_size()
+        viewport_rect = pygame.Rect(-100, -100, sw + 200, sh + 200)
 
+        # 1. Draw Traces (Legacy)
         for x, y, color, timestamp in self.trace_buffer:
             age = now - timestamp
-            if age > self.trace_lifetime:
-                continue
+            if age > self.trace_lifetime: continue
             
             life_ratio = 1.0 - (age / self.trace_lifetime)
-            radius = max(1, int(12 * 0.8 * life_ratio)) # Using 12 as a base radius
+            radius = max(1, int(10 * life_ratio))
             alpha = int(120 * life_ratio)
             
-            if camera:
-                sx, sy = camera.world_to_screen(x, y)
-                if not viewport_rect.collidepoint(sx, sy):
-                    continue
-            else:
-                sx, sy = x, y
+            sx, sy = camera.world_to_screen(x, y) if camera else (x, y)
+            if viewport_rect.collidepoint(sx, sy):
+                trace_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+                pygame.draw.circle(trace_surf, (*color, alpha), (radius, radius), radius)
+                surface.blit(trace_surf, (int(sx - radius), int(sy - radius)))
+
+        # 2. Draw Particles
+        for p in self.particles:
+            sx, sy = camera.world_to_screen(p.x, p.y) if camera else (p.x, p.y)
+            if not viewport_rect.collidepoint(sx, sy): continue
             
-            # Simple optimization: Use a single trace surface if color/radius are same? 
-            # Not really possible for stigmergy color variations.
-            trace_surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
-            pygame.draw.circle(trace_surf, (*color, alpha), (radius, radius), radius)
-            surface.blit(trace_surf, (int(sx - radius), int(sy - radius)))
+            alpha = 255
+            if p.alpha_fade:
+                alpha = int(255 * (p.life / p.max_life))
+            
+            if p.shape == "circle" or p.shape == "rocket":
+                pygame.draw.circle(surface, (*p.color, alpha), (int(sx), int(sy)), int(p.size))
+            elif p.shape == "rect":
+                # Spinning rectangle
+                size = p.size
+                rect_surf = pygame.Surface((size*2, size*2), pygame.SRCALPHA)
+                pygame.draw.rect(rect_surf, (*p.color, alpha), (0, 0, size, size*1.5))
+                rotated = pygame.transform.rotate(rect_surf, math.degrees(p.angle))
+                surface.blit(rotated, rotated.get_rect(center=(int(sx), int(sy))))
+            elif p.shape == "flare":
+                # Glow effect with additive-like blending simulation
+                flare_size = int(p.size * (1.5 if random.random() > 0.5 else 1.0))
+                flare_surf = pygame.Surface((flare_size*2, flare_size*2), pygame.SRCALPHA)
+                pygame.draw.circle(flare_surf, (*p.color, alpha), (flare_size, flare_size), flare_size)
+                surface.blit(flare_surf, (int(sx - flare_size), int(sy - flare_size)), special_flags=pygame.BLEND_RGB_ADD)
+            elif p.shape == "balloon":
+                # Circle + string
+                radius = int(p.size)
+                # Sway
+                sx += math.sin(time.time() * 3 + p.spawn_time) * 15
+                pygame.draw.circle(surface, (*p.color, alpha), (int(sx), int(sy)), radius)
+                pygame.draw.line(surface, (200, 200, 200, alpha), (int(sx), int(sy + radius)), (int(sx), int(sy + radius + 30)), 1)
 
     def clear(self):
-        """Wipes all traces."""
         self.trace_buffer.clear()
+        self.particles.clear()
 
 # Global singleton
 visual_fx_manager = VisualFXManager()

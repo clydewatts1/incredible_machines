@@ -87,14 +87,16 @@
     },
     "#palette_btn": {
         "colours": {
-            "normal_bg": "#C8C8C8",
-            "dark_bg": "#C8C8C8",
-            "hovered_bg": "#00FFFF",
-            "normal_border": "#888888"
+            "normal_bg": "#00000000",
+            "dark_bg": "#00000000",
+            "hovered_bg": "#00FFFF44",
+            "active_bg": "#00FFFF88",
+            "selected_bg": "#00FFFFCC",
+            "normal_border": "#888888AA"
         },
         "misc": {
             "shape": "rounded_rectangle",
-            "shape_corner_radius": "8",
+            "shape_corner_radius": "4",
             "border_width": "1",
             "shadow_width": "0"
         }
@@ -122,6 +124,25 @@
             "shape_corner_radius": "6",
             "border_width": "1",
             "shadow_width": "0"
+        }
+    },
+    "#palette_icon": {
+        "colours": {
+            "normal_bg": "#00000000"
+        },
+        "misc": {
+            "border_width": "0"
+        }
+    },
+    "tool_tip": {
+        "colours": {
+            "normal_bg": "#333333EE",
+            "normal_text": "#FFFFFF",
+            "normal_border": "#AAAAAA"
+        },
+        "font": {
+            "name": "arial",
+            "size": "12"
         }
     }
 }

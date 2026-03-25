@@ -1,6 +1,15 @@
 import copy
 import random
 import re
+try:
+    import rule_engine
+except ImportError:
+    rule_engine = None
+
+try:
+    from faker import Faker
+except ImportError:
+    Faker = None
 from typing import Any, Dict, List, Optional, Type
 
 
@@ -125,9 +134,100 @@ class RandomEngine(BaseEngine):
         return default_state
 
 
+class RuleEngine(BaseEngine):
+    def validate_config(self, instructions: Optional[Dict[str, Any]] = None) -> bool:
+        cfg = instructions or {}
+        if rule_engine is None:
+            return False
+        if not isinstance(cfg.get("rules", []), list):
+            return False
+        return True
+
+    def process(self, payload: Any, instructions: Dict[str, Any]) -> Any:
+        if rule_engine is None:
+            return "fatal: rule-engine library is not installed (run 'pip install rule-engine')"
+        
+        rules = instructions.get("rules", [])
+        default_state = int(instructions.get("default_state", 0))
+        
+        if not isinstance(rules, list):
+            return "fatal: rule_engine rules must be a list"
+
+        for rule_def in rules:
+            if not isinstance(rule_def, dict):
+                continue
+            
+            condition = str(rule_def.get("condition", "false"))
+            state = rule_def.get("state")
+            
+            try:
+                # Rule-engine evaluates against a dictionary
+                context = payload if isinstance(payload, dict) else {"payload": payload}
+                
+                # If it's a dict, also check for a 'data' field which is common in our payloads
+                if isinstance(payload, dict) and "data" in payload and isinstance(payload["data"], dict):
+                    # Flatten for easier querying
+                    context = copy.deepcopy(payload)
+                    for k, v in payload["data"].items():
+                        context[k] = v
+                
+                rule = rule_engine.Rule(condition)
+                if rule.evaluate(context):
+                    return int(state) if state is not None else default_state
+            except Exception as e:
+                return f"fatal: rule_engine error: {e}"
+        
+        return default_state
+
+
+class FakerEngine(BaseEngine):
+    """
+    Milestone 40: Synthetic Data Transformation Engine.
+    Uses the Faker library to mutate or enrich payload content.
+    """
+    def validate_config(self, instructions: Optional[Dict[str, Any]] = None) -> bool:
+        cfg = instructions or {}
+        if Faker is None:
+            return False
+        return isinstance(cfg.get("schema", {}), dict)
+
+    def process(self, payload: Any, instructions: Dict[str, Any]) -> Any:
+        if Faker is None:
+            return "fatal: faker library is not installed (run 'pip install faker')"
+        
+        schema = instructions.get("schema", {})
+        state = int(instructions.get("state", 10))
+        
+        # Initialize Faker instance
+        fake = Faker()
+        seed = instructions.get("random_seed")
+        if seed is not None:
+            fake.seed_instance(int(seed))
+
+        # Ensure we are working with a dict
+        if not isinstance(payload, dict):
+             return "fatal: faker engine requires a dictionary payload"
+        
+        # Use nested 'data' field if present (standard pattern in original code)
+        target = payload
+        if "data" in payload and isinstance(payload["data"], dict):
+            target = payload["data"]
+
+        for key, provider in schema.items():
+            try:
+                method = getattr(fake, str(provider))
+                target[key] = method()
+            except Exception as e:
+                return f"fatal: faker error for {key}/{provider}: {e}"
+        
+        return state
+
+
 ENGINE_REGISTRY: Dict[str, Type[BaseEngine]] = {
     "regex": RegexEngine,
     "random": RandomEngine,
+    "rule_engine": RuleEngine,
+    "faker": FakerEngine,
 }
 
 

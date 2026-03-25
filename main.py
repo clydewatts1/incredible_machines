@@ -24,6 +24,8 @@ from entities.base import GamePart
 from entities.source import DataSource
 from entities.mechanicalpart import MechanicalPart
 from entities.sink import DataSink
+from entities.guard import GuardPart
+from entities.data_pipe import DataPipePart, get_pipe_curve_point
 from entities.axle import AxlePart
 from entities.brain import BrainPart
 from entities.warehouse import WarehousePart
@@ -32,9 +34,10 @@ from entities.payloadball import PayloadBallPart
 from entities.textbox import TextBoxPart
 from entities.splitter import SmartSplitterPart
 from entities.test_source import TestSourcePart
-
-# Import the new Data Pipe!
-from entities.data_pipe import DataPipePart, get_pipe_curve_point
+from entities.faker_source import FakerSource
+from entities.file_sink import FileSink
+from entities.effect_box import EffectBoxPart
+from entities.pressure_plate import PressurePlatePart
 
 from utils.sound_manager import sound_manager
 from utils.environment_manager import env_manager
@@ -138,11 +141,15 @@ def create_part(space, x, y, variant_key):
                 space.add(ball.shape)
             return ball
         return PayloadBallPart(space, x, y, variant_key)
-    elif variant_key in ("data_source", "data_source_csv", "data_source_mcp"):
+    elif variant_key == "data_source" or variant_key == "data_source_csv" or variant_key == "data_source_mcp":
         return DataSource(space, x, y, variant_key)
+    elif variant_key == "faker_source":
+        return FakerSource(space, x, y, variant_key)
     elif variant_key == "test_source":
         return TestSourcePart(space, x, y, variant_key)
-    elif variant_key.startswith("data_sink"):
+    elif variant_key == "file_sink" or variant_key.startswith("data_sink"):
+        if variant_key == "file_sink":
+            return FileSink(space, x, y, variant_key)
         return DataSink(space, x, y, variant_key)
     elif variant_key in ("gear_driver", "gear_follower"):
         return MechanicalPart(space, x, y, variant_key) 
@@ -150,8 +157,16 @@ def create_part(space, x, y, variant_key):
         return AxlePart(space, x, y, variant_key)
     elif variant_key == "data_pipe":
         return DataPipePart(space, x, y, variant_key)
+    elif variant_key == "guard":
+        return GuardPart(space, x, y, variant_key)
+    elif variant_key == "faker_factory":
+        return FactoryPart(space, x, y, variant_key)
     elif variant_key == "text_box":
         return TextBoxPart(space, x, y, variant_key)
+    elif variant_key == "effect_box":
+        return EffectBoxPart(space, x, y, variant_key)
+    elif variant_key == "pressure_plate":
+        return PressurePlatePart(space, x, y, variant_key)
         
     return GamePart(space, x, y, variant_key)
 
@@ -554,6 +569,7 @@ def main():
         "save_flow": handle_save_flow,
         "reimage": handle_reimage,
         "record_test": lambda: handle_record_test(),
+        "camera": lambda: camera,
         "dirty_callback": lambda: game_state.update({"is_dirty": True, "last_change_time": time.time()})
     }
     
@@ -604,6 +620,8 @@ def main():
             new_part = create_part(space, pos["x"], pos["y"], variant_key)
             if "uuid" in data:
                 new_part.uuid = data["uuid"]
+            if "properties" in data:
+                new_part.apply_draft_overrides(data["properties"])
             if "overrides" in data:
                 new_part.apply_draft_overrides(data["overrides"])
             if hasattr(new_part, 'body') and new_part.body:
@@ -652,8 +670,9 @@ def main():
             "damping": game_state.get("damping", 0.99),
             "wind": game_state.get("wind", [0, 0])
         }
-        level_manager.save_level(entities, metadata=metadata)
-        env_manager.active_project = game_state.get("name", "Untitled").replace(" ", "_")
+        current_name = game_state.get("name", "Untitled")
+        level_manager.save_level(entities, flow_name=current_name, metadata=metadata)
+        env_manager.active_project = current_name.replace(" ", "_")
         game_state["is_dirty"] = False
         
     def handle_quick_load():
@@ -967,6 +986,10 @@ def main():
             # Milestone 35: Black Box Snapshots (Always capture for potential failure)
             snapshot = []
             for e in entities:
+                # Milestone 38: Skip diagnostic entities without physics bodies (like labels)
+                if not getattr(e, "body", None):
+                    continue
+                    
                 snapshot.append({
                     "uuid": str(getattr(e, "uuid", "unknown")),
                     "pos": [float(e.body.position.x), float(e.body.position.y)],
@@ -974,7 +997,8 @@ def main():
                     "state": str(getattr(e, "visual_state", "IDLE")),
                     "variant": str(getattr(e, "variant_key", "unknown")),
                     "is_hidden": bool(getattr(e, "is_hidden", False)),
-                    "flash_timer": float(getattr(e, "flash_timer", 0.0))
+                    "flash_timer": float(getattr(e, "flash_timer", 0.0)),
+                    "stored_payload_uuids": list(getattr(e, "stored_payload_uuids", []))
                 })
             simulation_trace.append(snapshot)
 
@@ -1514,7 +1538,9 @@ def main():
             camera.handle_keyboard_pan(keys, constants.CAMERA_PAN_SPEED, dt_sim)
 
         dt = clock.tick(60) / 1000.0
+        visual_fx_manager.update(dt)
         editor_ui.update(dt)
+        editor_ui.sync_scrollbars_to_camera(camera)
 
         # Milestone 35 Fix: Debounced Autosave (2.0s delay after last change)
         if game_state.get("is_dirty") and game_state["mode"] == "EDIT":
@@ -1701,9 +1727,8 @@ def main():
         if world_screen_bottom < window_height:
             pygame.draw.rect(screen, void_color, pygame.Rect(0, world_screen_bottom, window_width, window_height - world_screen_bottom))
         
-        # Phase 14: Global Visual FX Budget (Stigmergy Traces)
-        if game_state.get("show_traces", False):
-            visual_fx_manager.draw(screen, camera=camera)
+        # Phase 14: Global Visual FX Budget (Stigmergy Traces & Particles)
+        visual_fx_manager.draw(screen, camera=camera)
 
         for entity in entities:
             if hasattr(entity, 'body') and entity.body:

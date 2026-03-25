@@ -96,6 +96,7 @@ class FactoryPart(FlowEntity):
             except Exception as exc:
                 # M32: Error results are treated as state 0
                 result = 0.0
+                print(f"ERROR: FactoryPart {self.uuid} engine fatal: {exc}")
                 if not self._is_destroyed:
                     self._spawn_fatal_label(pygame.display.get_surface(), f"engine fatal: {exc}")
 
@@ -105,7 +106,7 @@ class FactoryPart(FlowEntity):
         thread = threading.Thread(target=_worker, daemon=True)
         thread.start()
 
-    def ingest_payload(self, payload_entity: GamePart) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
         if self._is_destroyed:
             return False
 
@@ -120,14 +121,11 @@ class FactoryPart(FlowEntity):
         gate = self._audit_payload_lifecycle(payload_entity)
 
         if gate == "bottom":
-            self.resolve_exit_path(payload_entity, 0.0, [], {})
+            self.resolve_exit_path(payload_entity, 0.0, [], active_instances or {})
             return True
 
         if gate == "top":
-            # Lifecycle expiry (age/TTL) often defaults to "top" ejection in early M22 logic,
-            # but M32 unified routing treats lifecycle expiry as an error (state 0) or specific state.
-            # For now, we'll keep the "top" bounce if requested by gate, but call resolve_exit_path.
-            self.resolve_exit_path(payload_entity, -1.0, [], {}) # -1 triggers error path
+            self.resolve_exit_path(payload_entity, -1.0, [], active_instances or {}) # -1 triggers error path
             return True
 
         self.current_payload_uuid = payload_entity.uuid
@@ -151,7 +149,6 @@ class FactoryPart(FlowEntity):
         if not isinstance(history, list):
             history = []
         history.append((self.uuid, score_delta))
-        payload["processing_history"] = history
         payload["processing_history"] = history
 
     def _spawn_fatal_label(self, entities: List[GamePart], reason: str):
@@ -236,3 +233,6 @@ class FactoryPart(FlowEntity):
 
         if self.visual_state not in {"PROCESSING", "FATAL", "JAMMED", "COOLDOWN", "EMITTING"}:
             self._set_state("IDLE")
+
+        # Milestone 40 Fix: Poll async engine results
+        self.poll_results(entities, active_instances or {})

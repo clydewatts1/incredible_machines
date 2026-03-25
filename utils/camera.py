@@ -181,3 +181,27 @@ class Camera:
         self.offset_x = 0.0
         self.offset_y = 0.0
         self.is_panning = False
+
+    def get_scroll_fractions(self) -> Tuple[float, float]:
+        """
+        Get the current camera position as a fraction (0.0 to 1.0) of the total scrollable area.
+        Returns: Tuple of (fraction_x, fraction_y)
+        """
+        max_x = max(1, self.world_width - self.screen_width)
+        max_y = max(1, self.world_height - self.screen_height)
+        
+        fx = max(0.0, min(1.0, self.offset_x / max_x))
+        fy = max(0.0, min(1.0, self.offset_y / max_y))
+        return (fx, fy)
+
+    def set_offsets_from_fractions(self, fx: float, fy: float) -> None:
+        """
+        Set camera offsets based on fractions (0.0 to 1.0).
+        Used by scrollbars to update the camera.
+        """
+        max_x = max(0, self.world_width - self.screen_width)
+        max_y = max(0, self.world_height - self.screen_height)
+        
+        self.offset_x = fx * max_x
+        self.offset_y = fy * max_y
+        self._clamp_offset()

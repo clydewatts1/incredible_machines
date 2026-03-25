@@ -1,4 +1,4 @@
-number,status,user
-1,FAILURE,alice
-2,FAILURE,bob
-3,SUCCESS,charlie
+number,status,user,amount,value
+1,FAILURE,alice,100,1
+2,FAILURE,bob,200,2
+3,SUCCESS,charlie,1100,1

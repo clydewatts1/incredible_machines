@@ -3,6 +3,7 @@ import pymunk
 import math
 import uuid
 import constants
+from typing import Optional, Dict, Any, List
 from utils.config_loader import load_entity_config
 from utils.sound_manager import sound_manager
 from utils.geometry_utils import get_diamond_vertices, get_arc_vertices
@@ -391,6 +392,18 @@ class GamePart:
             return self.overrides[key]
         return self.properties.get(key, default)
 
+    def get_bool_property(self, key, default=True):
+        """Milestone 38 Fix: Normalize boolean properties that may come in as strings from YAML."""
+        val = self.get_property(key, default)
+        if isinstance(val, bool):
+            return val
+        s_val = str(val).lower()
+        if s_val in ("true", "1", "yes", "on"):
+            return True
+        if s_val in ("false", "0", "no", "off"):
+            return False
+        return bool(val)
+
     def cleanup(self):
         """Base no-op cleanup. Subclasses should call super().cleanup() to support MRO chaining."""
         pass
@@ -409,9 +422,12 @@ class GamePart:
             self.overrides[k] = v
             
         # Re-calc dynamic mass
-        if "mass" in new_dict and not self.get_property("is_static", False):
-            mass = float(self.get_property("mass", 1.0))
-            self.body.mass = mass
+        if "mass" in new_dict:
+            # Milestone 38 Fix: Only set mass if body is DYNAMIC 
+            # (prevents crash on static/kinematic machines like DataPipes)
+            if self.body and self.body.body_type == pymunk.Body.DYNAMIC:
+                mass = float(self.get_property("mass", 1.0))
+                self.body.mass = mass
             
         for shape in self.shapes:
             if "elasticity" in new_dict:
@@ -693,16 +709,24 @@ class FlowEntity(GamePart):
             self.downstream_status = signal_data.get("status", "IDLE")
             self.signal_received = True
 
-    def broadcast_status(self, active_instances: dict):
+    def broadcast_status(self, active_instances: Dict[str, Any], custom_signal: Optional[Dict[str, Any]] = None):
+        print(f"DEBUG: broadcast_status ENTERED by {self.variant_key}")
         """
-        Notifies all connected entities of current status.
-        Sends {"status": self.visual_state} to each neighbor.
+        Signals all connected entities with current status or custom data.
+        Milestone 38 Fix: Propagate active_instances dictionary in signal_data to prevent race conditions.
         """
-        status_packet = {"status": self.visual_state}
-        for tgt_uuid in self.connected_uuids:
-            tgt = active_instances.get(tgt_uuid)
-            if tgt and hasattr(tgt, "receive_signal"):
-                tgt.receive_signal(self, status_packet)
+        signal_data = custom_signal or {"status": getattr(self, "logic_signal", "IDLE")}
+        # NEW: Bundle instances for one-hop resolution
+        signal_data["active_instances"] = active_instances 
+        
+        print(f"DEBUG: {self.variant_key} {self.uuid} connections: {self.connected_uuids}")
+        for uid in self.connected_uuids:
+            receiver = active_instances.get(uid)
+            if receiver and hasattr(receiver, "receive_signal"):
+                print(f"DEBUG: {self.variant_key} {self.uuid} signalling {getattr(receiver, 'variant_key', 'unknown')} {uid}")
+                receiver.receive_signal(self, signal_data)
+            else:
+                print(f"DEBUG: {self.variant_key} {self.uuid} found NO VALID RECEIVER for {uid}")
 
     def _process_incoming_signal(self):
         """
@@ -774,7 +798,16 @@ class FlowEntity(GamePart):
             search_state = raw
             is_error = False
 
-        # ── 1. Pipe First ─────────────────────────────────────────────────
+        # ── 1. Target UUID Teleport (Milestone 38) ─────────────────────────
+        target_uuid = self.get_property("target_uuid")
+        if target_uuid and target_uuid in (active_instances or {}):
+            target = active_instances[target_uuid]
+            if target.ingest_payload(payload_entity, active_instances, skip_proximity=True):
+                if is_error:
+                    self._set_state("FATAL")
+                return "pipe"
+
+        # ── 2. Pipe Logic ─────────────────────────────────────────────────
         matching_pipe = None
         for entity in entities:
             if getattr(entity, "variant_key", "") != "data_pipe":

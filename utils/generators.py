@@ -146,8 +146,25 @@ class CSVEngine(BaseGenerator):
             # Try to read next row
             row = next(self.reader)
             self.rows_read += 1
-            self._debug_log(f"Read row #{self.rows_read}: {dict(row)}")
-            return dict(row)
+            
+            # Milestone 38 Fix: Normalize numeric types
+            # CSV readers return strings by default, which breaks rule-engine comparisons.
+            clean_row = {}
+            for k, v in row.items():
+                if v is None:
+                    clean_row[k] = v
+                    continue
+                try:
+                    # Attempt int conversion first for precision
+                    if "." not in v:
+                        clean_row[k] = int(v)
+                    else:
+                        clean_row[k] = float(v)
+                except (ValueError, TypeError):
+                    clean_row[k] = v # Keep as string
+            
+            self._debug_log(f"Read row #{self.rows_read}: {clean_row}")
+            return clean_row
         except StopIteration:
             # EOF reached
             if self.loop:
