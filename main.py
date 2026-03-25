@@ -38,6 +38,7 @@ from entities.faker_source import FakerSource
 from entities.file_sink import FileSink
 from entities.effect_box import EffectBoxPart
 from entities.pressure_plate import PressurePlatePart
+from entities.avatar import AvatarPart
 
 from utils.sound_manager import sound_manager
 from utils.environment_manager import env_manager
@@ -50,6 +51,7 @@ from utils.asset_manager import asset_manager
 from utils.visual_fx_manager import visual_fx_manager
 from utils.icon_manager import icon_manager
 from utils.sprite_manager import sprite_manager
+from utils.controller import controller_manager
 
 UI_TOP_HEIGHT = 50
 UI_BOTTOM_HEIGHT = 40
@@ -167,6 +169,8 @@ def create_part(space, x, y, variant_key):
         return EffectBoxPart(space, x, y, variant_key)
     elif variant_key == "pressure_plate":
         return PressurePlatePart(space, x, y, variant_key)
+    elif variant_key == "avatar":
+        return AvatarPart(space, x, y, variant_key)
         
     return GamePart(space, x, y, variant_key)
 
@@ -254,6 +258,11 @@ def main():
         print("CLI: Running in HEADLESS mode.")
 
     pygame.init()
+    try:
+        pygame.joystick.init()
+        controller_manager.init_joystick()
+    except pygame.error as e:
+        print(f"Controller: Joystick system could not be initialized: {e}")
     sound_manager.initialize()
     env_manager.initialize(constants.WINDOW_WIDTH, constants.WINDOW_HEIGHT)
 
@@ -1354,6 +1363,9 @@ def main():
             if editor_ui.process_event(event):
                 continue
                 
+            if controller_manager.process_event(event, callbacks):
+                continue
+                
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_F11:
                     pygame.display.toggle_fullscreen()
@@ -1538,6 +1550,7 @@ def main():
             camera.handle_keyboard_pan(keys, constants.CAMERA_PAN_SPEED, dt_sim)
 
         dt = clock.tick(60) / 1000.0
+        controller_manager.update(dt)
         visual_fx_manager.update(dt)
         editor_ui.update(dt)
         editor_ui.sync_scrollbars_to_camera(camera)

@@ -781,3 +781,16 @@ variants:
       IDLE: "effect_box_idle"
       EMITTING: "effect_box_emitting"
     description: "Visual emitter that triggers particles like confetti or fireworks via signals."
+  
+  avatar:
+    label: "AV"
+    description: "Player Avatar. Controlled via Left Stick (Gamepad)."
+    category: "logic"
+    template: "Circle"
+    radius: 20
+    is_static: False
+    color: [50, 200, 50]
+    mass: 5.0
+    spawn_sound: "spawn.wav"
+    width: 40
+    height: 40
