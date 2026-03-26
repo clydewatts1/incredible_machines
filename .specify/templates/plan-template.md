@@ -31,7 +31,14 @@
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-[Gates determined based on constitution file]
+- [ ] **FlowEntity Pattern**: Do new logic nodes inherit from `FlowEntity` and use `ingest_payload`?
+- [ ] **Zero Rule / Routing**: Are outputs explicitly routed via `resolve_exit_path` without custom trigonometry?
+- [ ] **Handshake / Backpressure**: Are nodes communicating via `broadcast_status` and `receive_signal`?
+- [ ] **Data Mutation (M40)**: For ETL data, are JSON records mutated correctly rather than changing physics parameters?
+- [ ] **Visual FX (M41)**: Are visual elements strictly kinematic and avoiding main Pymunk bodies?
+- [ ] **Deletion Pipeline/Kill Z**: Are entities systematically flagged with `to_delete = True` instead of direct removal?
+- [ ] **Configuration Isolation**: Are all new dimensions, colors, and inputs properly mapped to YAML files?
+
 
 ## Project Structure
 

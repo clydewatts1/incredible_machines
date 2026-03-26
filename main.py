@@ -619,6 +619,15 @@ def main():
         },
         all_variants, categories, game_state, callbacks
     )
+    
+    # Milestone 42: Define gamepad callbacks (M42 Redux)
+    def next_palette_cb():
+        editor_ui.palette_page = (editor_ui.palette_page + 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
+        editor_ui.rebuild_palette()
+    def prev_palette_cb():
+        editor_ui.palette_page = (editor_ui.palette_page - 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
+        editor_ui.rebuild_palette()
+    ctrl_callbacks = {"next_palette": next_palette_cb, "prev_palette": prev_palette_cb}
     playable_rect = editor_ui.playable_rect
     # Milestone 42 Follow-up: Update camera to only care about the playable area viewport
     camera.screen_width = playable_rect.width
@@ -1342,7 +1351,10 @@ def main():
 
     start_ticks = pygame.time.get_ticks()
     running = True
+    
+
     while running:
+        dt = clock.tick(60) / 1000.0
         # Check CLI Timeout
         if args.timeout:
             elapsed_minutes = (pygame.time.get_ticks() - start_ticks) / 60000.0
@@ -1372,14 +1384,6 @@ def main():
             camera.x += pan_vx
             camera.y += pan_vy
 
-        # Define callbacks for process_event
-        def next_palette_cb():
-            editor_ui.palette_page = (editor_ui.palette_page + 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
-            editor_ui.rebuild_palette()
-        def prev_palette_cb():
-            editor_ui.palette_page = (editor_ui.palette_page - 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
-            editor_ui.rebuild_palette()
-        ctrl_callbacks = {"next_palette": next_palette_cb, "prev_palette": prev_palette_cb}
         
         if current_mode == "EDIT" and not grabbed_body:
             if playable_rect.collidepoint(m_pos):
@@ -1987,7 +1991,6 @@ def main():
             screen.blit(trash_text, trash_text_rect)
 
         pygame.display.flip()
-        clock.tick(60)
 
     # --- Handle CLI Auto-Dump Argument ---
     if args.dump:

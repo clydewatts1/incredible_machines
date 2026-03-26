@@ -100,6 +100,14 @@
 - **[Entity 1]**: [What it represents, key attributes without implementation]
 - **[Entity 2]**: [What it represents, relationships to other entities]
 
+### Core Architecture Compliance *(mandatory)*
+
+- **FlowEntity Pattern**: Feature nodes MUST inherit from FlowEntity and use `ingest_payload`.
+- **WOLF Routing**: All payload ejections MUST use `resolve_exit_path` without custom trigonometry.
+- **Backpressure**: Sources/Sinks MUST implement handshake signals (`broadcast_status`).
+- **ETL & Visuals**: Use faker for data generation (M40) and 2D kinematics for visual FX (M41).
+- **Configuration**: All new parameters MUST be defined in `config/entities.yaml` and not hardcoded.
+
 ## Success Criteria *(mandatory)*
 
 <!--
