@@ -88,6 +88,24 @@ class ControllerManager:
         if z_in > -0.5: # Pressed
             self._post_mouse_event(pygame.MOUSEBUTTONDOWN, 4) # Scroll Up / Zoom In
 
+    def _post_mouse_event(self, event_type, button):
+        """Helper to post mouse events to the queue."""
+        m_pos = pygame.mouse.get_pos()
+        event = pygame.event.Event(event_type, {'pos': m_pos, 'button': button})
+        pygame.event.post(event)
+
+    def get_camera_pan(self):
+        """Returns (dx, dy) for camera scrolling based on D-Pad/Hat motion."""
+        if not self.joystick:
+            return 0.0, 0.0
+        
+        try:
+            # In pygame, hat is (x, y) where y is 1 for up, -1 for down
+            hx, hy = self.joystick.get_hat(0)
+            return float(hx * self.scroll_speed), float(-hy * self.scroll_speed)
+        except pygame.error:
+            return 0.0, 0.0
+
     def process_event(self, event, callbacks=None):
         """Translates joystick events into simulated mouse or UI actions."""
         if not self.joystick:
@@ -131,7 +149,7 @@ class ControllerManager:
                 
         return False
 
-    def get_movement_vector(self):
+    def get_avatar_movement(self):
         """Returns standard (x, y) normalized for the Player Avatar."""
         if not self.joystick:
             return 0.0, 0.0
