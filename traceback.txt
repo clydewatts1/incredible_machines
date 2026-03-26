@@ -1,0 +1,11 @@
+pygame-ce 2.5.7 (SDL 2.32.10, Python 3.13.5)
+Controller: Joystick initialization failed internally: joystick system not initialized
+Controller: No joystick detected at startup.
+Traceback (most recent call last):
+  File "C:\Users\cw171001\OneDrive - Teradata\Documents\GitHub\incredible_machines\main.py", line 2009, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\cw171001\OneDrive - Teradata\Documents\GitHub\incredible_machines\main.py", line 1369, in main
+    controller_manager.update(dt)
+                              ^^
+UnboundLocalError: cannot access local variable 'dt' where it is not associated with a value

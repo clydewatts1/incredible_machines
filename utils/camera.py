@@ -46,6 +46,10 @@ class Camera:
         self.offset_x: float = 0.0
         self.offset_y: float = 0.0
         
+        # Display offset (where the viewport starts on the screen surface)
+        self.display_offset_x: float = 0.0
+        self.display_offset_y: float = 0.0
+        
         # Middle mouse button panning state
         self.is_panning = False
         self.pan_start_screen_x = 0
@@ -55,36 +59,20 @@ class Camera:
     
     def world_to_screen(self, world_x: float, world_y: float) -> Tuple[float, float]:
         """
-        Convert world-space coordinates to screen-space coordinates.
-        
-        Used by the render loop to determine where to draw Pymunk bodies.
-        
-        Args:
-            world_x: X coordinate in world space
-            world_y: Y coordinate in world space
-            
-        Returns:
-            Tuple of (screen_x, screen_y)
+        Convert world-space coordinates to screen-space coordinates, 
+        accounting for display offsets (e.g., UI panels).
         """
-        screen_x = world_x - self.offset_x
-        screen_y = world_y - self.offset_y
+        screen_x = world_x - self.offset_x + self.display_offset_x
+        screen_y = world_y - self.offset_y + self.display_offset_y
         return (screen_x, screen_y)
     
     def screen_to_world(self, screen_x: float, screen_y: float) -> Tuple[float, float]:
         """
-        Convert screen-space coordinates to world-space coordinates.
-        
-        Used by the event loop to determine what physics object the user clicked.
-        
-        Args:
-            screen_x: X coordinate in screen space (from pygame.mouse.get_pos())
-            screen_y: Y coordinate in screen space (from pygame.mouse.get_pos())
-            
-        Returns:
-            Tuple of (world_x, world_y)
+        Convert screen-space coordinates to world-space coordinates,
+        accounting for display offsets (e.g., UI panels).
         """
-        world_x = screen_x + self.offset_x
-        world_y = screen_y + self.offset_y
+        world_x = screen_x - self.display_offset_x + self.offset_x
+        world_y = screen_y - self.display_offset_y + self.offset_y
         return (world_x, world_y)
     
     def pan(self, dx: float, dy: float) -> None:

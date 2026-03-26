@@ -19,8 +19,19 @@ class CollisionManager:
         self.signal_queue = signal_queue
 
     def post_solve(self, arbiter, space, data):
-        if arbiter.total_impulse.length > 50:
+        impulse = arbiter.total_impulse.length
+        if impulse > 50:
             shape_a, shape_b = arbiter.shapes
+            
+            # Milestone 42: Avatar Rumble on Impact
+            import constants
+            from utils.controller import controller_manager
+            if shape_a.collision_type == constants.COLLISION_TYPE_AVATAR or \
+               shape_b.collision_type == constants.COLLISION_TYPE_AVATAR:
+                power = min(1.0, impulse / 800.0)
+                if power > 0.1:
+                    controller_manager.rumble(low=power, high=power, duration=int(100 + power*200))
+
             for entity in self.entities:
                 # Milestone 8: Improved collision detection for multifarious shapes
                 if getattr(entity, 'shape', None) in (shape_a, shape_b) or \

@@ -45,8 +45,8 @@ entities:
 - uuid: ac660208-bcd6-45b5-8c97-e53caf7211d0
   entity_id: effect_box
   position:
-    x: 669.0
-    y: 530.0
+    x: 667.784
+    y: 427.0
   rotation: 0.30000000000000004
   overrides:
     custom_name: ''
@@ -298,72 +298,72 @@ entities:
 - uuid: 418471d4-b2b4-4be6-8c54-be035c0d9ac4
   entity_id: bouncy_ball
   position:
-    x: 455.0
-    y: 564.0
-  rotation: -14.38596987153939
+    x: 400.1128646493228
+    y: 705.0918102384701
+  rotation: -22.260175612987247
   overrides: {}
 - uuid: 425993a9-e174-4c80-b93a-7363de005bb7
   entity_id: bouncy_ball
   position:
-    x: 455.0
-    y: 564.0
-  rotation: -15.648811414332455
+    x: 480.61830064827893
+    y: 705.0791621381217
+  rotation: -20.450535737531222
   overrides: {}
 - uuid: 9d759292-c6dd-438b-bda9-280cb03d554d
   entity_id: bouncy_ball
   position:
-    x: 455.0
-    y: 564.0
-  rotation: -9.303361978138735
+    x: 203.90736932647457
+    y: 704.7618685567885
+  rotation: -32.89654297099073
   overrides: {}
 - uuid: cc65fd41-f75b-4498-9136-1ae47a83bbeb
   entity_id: bouncy_ball
   position:
-    x: 455.0
-    y: 564.0
-  rotation: -18.064783384402315
+    x: 476.64586780027423
+    y: 465.24436864677034
+  rotation: -29.91270648165988
   overrides: {}
 - uuid: c7721c69-3b2d-4690-bbd9-797c3daeeea2
   entity_id: bouncy_ball
   position:
-    x: 420.0674258328712
-    y: 515.557845342335
-  rotation: -13.138690178180134
+    x: 44.72742867964616
+    y: 705.0638599512578
+  rotation: -56.899512130366006
   overrides: {}
 - uuid: 1fba5a79-0c24-4a95-8586-a3262abd5041
   entity_id: bouncy_ball
   position:
-    x: 538.0
-    y: 300.0
-  rotation: -15.288924958689384
+    x: 1229.5366559497836
+    y: 705.06989207441
+  rotation: 26.42513288084114
   overrides: {}
 - uuid: 707c892c-4036-44b3-a474-095d954197bf
   entity_id: bouncy_ball
   position:
-    x: 502.08397931636114
-    y: 433.31996805975956
-  rotation: -5.314352614304558
+    x: 106.64443410124191
+    y: 705.0883310302391
+  rotation: -29.60404979201281
   overrides: {}
 - uuid: 70122494-dc10-4e1a-a0fe-f8b25b49ed45
   entity_id: bouncy_ball
   position:
-    x: 538.0
-    y: 300.0
-  rotation: -8.138380833608856
+    x: 1167.1425772483906
+    y: 705.0888522197813
+  rotation: 26.442143747602373
   overrides: {}
 - uuid: 0cd0790a-9cfe-44a2-8398-d7a22d2187aa
   entity_id: bouncy_ball
   position:
     x: 455.0
     y: 564.0
-  rotation: -4.9718110941864975
+  rotation: -22.086903451720552
   overrides: {}
 - uuid: 60898ed1-c43b-43a5-aa1b-a0ae8019ac3b
   entity_id: bouncy_ball
   position:
-    x: 533.5158889721761
-    y: 405.89921588500613
-  rotation: 2.479612797037056
+    x: 1199.0241568829335
+    y: 705.0831391355075
+  rotation: 41.51838766387992
   overrides: {}
 - uuid: 9a3ecc49-fd6f-4368-bbb0-3eb2d0010f75
   entity_id: text_box
@@ -378,6 +378,125 @@ entities:
     x: 684.0
     y: 99.0
   rotation: 0.0
+  overrides: {}
+- uuid: ef3fcb75-8681-4584-a807-de6680663ad8
+  entity_id: bouncy_ball
+  position:
+    x: 764.9636809969513
+    y: 705.0166972625238
+  rotation: 15.573976274629654
+  overrides: {}
+- uuid: 9f470aa9-784c-45e9-9928-a03d0ea07154
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 353.8920600110469
+  rotation: -20.934271713251114
+  overrides: {}
+- uuid: 662f8b10-c43b-48ae-8549-0e398cc9f842
+  entity_id: bouncy_ball
+  position:
+    x: 1261.0971786022433
+    y: 705.0449418245158
+  rotation: 40.39599380702033
+  overrides: {}
+- uuid: 3fdb75a2-ba4b-4ce2-9939-e97e281ab0f0
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -19.466784174066625
+  overrides: {}
+- uuid: e006b8ec-b82c-4e2a-8448-e184f34c0e61
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -14.19152674249163
+  overrides: {}
+- uuid: b86a479f-3147-4d72-b9d2-749ea09b0b56
+  entity_id: bouncy_ball
+  position:
+    x: 830.0263696311845
+    y: 705.0702501599446
+  rotation: 5.78722601917367
+  overrides: {}
+- uuid: 5bf8f210-12bd-464d-84e6-3695efb15d66
+  entity_id: bouncy_ball
+  position:
+    x: 410.7326567164911
+    y: 487.8999654036077
+  rotation: -1.8320673101290477
+  overrides: {}
+- uuid: fef90de4-b5e0-4310-808f-ae2047298840
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 300.0
+  rotation: -12.306307702987867
+  overrides: {}
+- uuid: d66f7341-93de-470f-a520-657979b16afe
+  entity_id: bouncy_ball
+  position:
+    x: 137.98304584779265
+    y: 705.0710524343647
+  rotation: -22.63849043625764
+  overrides: {}
+- uuid: aa2ccb28-85f4-4aa3-b91d-705f81295558
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: -6.26868869215529
+  overrides: {}
+- uuid: 0f6cb991-c2f4-47a1-a2dc-333959374780
+  entity_id: bouncy_ball
+  position:
+    x: 521.1892994211771
+    y: 686.90828956275
+  rotation: 1.625644864457085
+  overrides: {}
+- uuid: d9b0485b-1db6-4210-9052-e5b6d68f2714
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 359.6062232705015
+  rotation: 10.324677508168136
+  overrides: {}
+- uuid: 3d117565-5a70-4703-8924-244f7e3829c8
+  entity_id: bouncy_ball
+  position:
+    x: 79.83140204195713
+    y: 689.0750189731295
+  rotation: -30.339939141945262
+  overrides: {}
+- uuid: b08561e5-32fc-4db1-ad9e-62ddda4b07e9
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: 2.844276959063339
+  overrides: {}
+- uuid: b00091fe-6eb5-4f82-ba5a-448f4037204d
+  entity_id: bouncy_ball
+  position:
+    x: 496.5
+    y: 496.99539471818736
+  rotation: -2.5230101679906474
+  overrides: {}
+- uuid: 60ed5fef-8d58-4eef-a596-3826340dfa49
+  entity_id: bouncy_ball
+  position:
+    x: 455.0
+    y: 564.0
+  rotation: 0.9433147379402859
+  overrides: {}
+- uuid: 7f1fc610-c814-441f-b6e2-a889976065ab
+  entity_id: bouncy_ball
+  position:
+    x: 538.0
+    y: 300.0
+  rotation: 1.7000000000000002
   overrides: {}
 connections:
 - sender: 4c7de019-fd26-46a0-b8b6-4fe9dbf0320b

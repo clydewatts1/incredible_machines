@@ -59,15 +59,15 @@ UI_SIDE_WIDTH = 260
 UI_RIGHT_SIDE_WIDTH = 320
 payload_pool = [] # Milestone 34: Global Object Pool for Payload Recycling
 
-def create_boundaries(space, playable_rect=None):
+def create_boundaries(space, world_width, world_height, playable_rect=None):
     static_body = space.static_body
     thickness = 50.0  # Thick walls prevent high-speed balls from tunneling through
 
     # Milestone 35 Fix: Boundaries are now at the WORLD limits, not the viewport.
     left = 0
-    right = constants.WORLD_WIDTH
+    right = world_width
     top = 0
-    bottom = constants.WORLD_HEIGHT
+    bottom = world_height
     
     segments = [
         pymunk.Segment(static_body, (left, bottom + thickness), (right, bottom + thickness), thickness), 
@@ -258,6 +258,12 @@ def main():
         print("CLI: Running in HEADLESS mode.")
 
     pygame.init()
+    
+    # Milestone 42 Fix: Initialize and hide Tkinter root window
+    # This prevents TclError when calling modal dialogs like filedialog
+    root = tk.Tk()
+    root.withdraw()
+
     try:
         pygame.joystick.init()
         controller_manager.init_joystick()
@@ -268,8 +274,11 @@ def main():
 
     window_width = env_manager.get_int("window_width", constants.WINDOW_WIDTH)
     window_height = env_manager.get_int("window_height", constants.WINDOW_HEIGHT)
-    world_width = constants.WORLD_WIDTH
-    world_height = constants.WORLD_HEIGHT
+    world_width = env_manager.get_int("world_width", constants.WORLD_WIDTH)
+    world_height = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
+    
+    # Milestone 42 Follow-up: Initialize camera early but update its dimensions later
+    camera = Camera(world_width, world_height, window_width, window_height)
     
     UI_TOP_HEIGHT = env_manager.get_int("ui_top_height", UI_TOP_HEIGHT)
     UI_BOTTOM_HEIGHT = env_manager.get_int("ui_bottom_height", UI_BOTTOM_HEIGHT)
@@ -313,7 +322,7 @@ def main():
         for variant_data in all_variants.values()
     })
     
-    screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE | pygame.SCALED)
+    screen = pygame.display.set_mode((window_width, window_height), pygame.RESIZABLE)
     pygame.display.set_caption("Fuath an Mhadra (Wolf Bane):  Mechanical 2 D Simulated Agentic Workflow")
     clock = pygame.time.Clock()
 
@@ -372,6 +381,27 @@ def main():
         while running:
             # 1. Handle Events
             for event in pygame.event.get():
+                # Milestone 42 Resizing Fix: Intelligent Capping
+                if event.type == pygame.VIDEORESIZE:
+                    # User clarification: Cap size at (world_width or 5000) + panels
+                    limit_w = min(5000, world_width)
+                    limit_h = min(5000, world_height)
+                    
+                    panels_w = editor_ui.side_w + editor_ui.right_w
+                    panels_h = editor_ui.top_h + editor_ui.bot_h
+                    
+                    target_w = min(event.w, limit_w + panels_w)
+                    target_h = min(event.h, limit_h + panels_h)
+                    
+                    # Re-apply mode to resize/cap the window if needed
+                    if (target_w, target_h) != (window_width, window_height):
+                        screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE)
+                        window_width, window_height = target_w, target_h
+                        editor_ui.update_resolution(window_width, window_height)
+                        camera.screen_width = editor_ui.playable_rect.width
+                        camera.screen_height = editor_ui.playable_rect.height
+                    continue
+
                 if event.type == pygame.QUIT: running = False
                 if event.type == pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE: frame_idx = (frame_idx + 1) % len(trace_data)
@@ -475,11 +505,8 @@ def main():
     def handle_record_test():
         if not game_state.get("record_mode"):
             # Start Recording
-            root = tk.Tk()
-            root.withdraw()
             from tkinter import simpledialog
-            test_name = simpledialog.askstring("Record Test", "Enter Test Name (e.g. basic_sort):")
-            root.destroy()
+            test_name = simpledialog.askstring("Record Test", "Enter Test Name (e.g. basic_sort):", parent=root)
             if not test_name: return
             
             game_state["active_test_name"] = test_name
@@ -593,6 +620,11 @@ def main():
         all_variants, categories, game_state, callbacks
     )
     playable_rect = editor_ui.playable_rect
+    # Milestone 42 Follow-up: Update camera to only care about the playable area viewport
+    camera.screen_width = playable_rect.width
+    camera.screen_height = playable_rect.height
+    camera.display_offset_x = playable_rect.x
+    camera.display_offset_y = playable_rect.y
     
     def apply_level_data(level_data, constraints_data=None, connections_data=None, metadata=None):
         if not level_data:
@@ -695,15 +727,13 @@ def main():
         editor_ui.rebuild_top_panel()
 
     def handle_save():
-        root = tk.Tk()
-        root.withdraw()
         filepath = filedialog.asksaveasfilename(
             defaultextension=".yaml",
             filetypes=[("YAML files", "*.yaml"), ("All files", "*.*")],
             initialdir=os.path.abspath("saves"),
-            title="Save Level As..."
+            title="Save Level As...",
+            parent=root
         )
-        root.destroy()
         if filepath:
             editor_ui.sync_ui_to_state()
             metadata = {
@@ -717,15 +747,13 @@ def main():
             env_manager.active_project = game_state.get("name", "").replace(" ", "_")
             
     def handle_load():
-        root = tk.Tk()
-        root.withdraw()
         filepath = filedialog.askopenfilename(
             defaultextension=".yaml",
             filetypes=[("YAML files", "*.yaml"), ("All files", "*.*")],
             initialdir=os.path.abspath("saves"),
-            title="Load Level"
+            title="Load Level",
+            parent=root
         )
-        root.destroy()
         if filepath:
             handle_clear()
             level_data, constraints_data, connections_data, metadata = level_manager.load_level(filepath)
@@ -813,10 +841,7 @@ def main():
                 from tkinter import simpledialog
                 import tkinter as tk
                 import json # Added import for json
-                root = tk.Tk()
-                root.withdraw()
                 test_name = simpledialog.askstring("Save Test", "Enter name for this test case:", parent=root)
-                root.destroy()
                 
                 if test_name:
                     test_dir = os.path.join("tests", test_name.replace(" ", "_"))
@@ -1139,14 +1164,7 @@ def main():
     
     space = pymunk.Space()
     space.gravity = constants.GRAVITY
-    create_boundaries(space, playable_rect)
-    
-    camera = Camera(
-        world_width=world_width,
-        world_height=world_height,
-        screen_width=window_width,
-        screen_height=window_height
-    )
+    create_boundaries(space, world_width, world_height, playable_rect)
 
     entities = []
     active_instances = {}
@@ -1346,6 +1364,22 @@ def main():
             
         m_pos = pygame.mouse.get_pos()
         world_m_pos = camera.screen_to_world(m_pos[0], m_pos[1])
+
+        # Milestone 42: Continuous Gamepad Polling
+        controller_manager.update(dt)
+        pan_vx, pan_vy = controller_manager.get_camera_pan()
+        if pan_vx != 0 or pan_vy != 0:
+            camera.x += pan_vx
+            camera.y += pan_vy
+
+        # Define callbacks for process_event
+        def next_palette_cb():
+            editor_ui.palette_page = (editor_ui.palette_page + 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
+            editor_ui.rebuild_palette()
+        def prev_palette_cb():
+            editor_ui.palette_page = (editor_ui.palette_page - 1) % ((len(editor_ui.palette_items) + editor_ui.items_per_page - 1) // editor_ui.items_per_page)
+            editor_ui.rebuild_palette()
+        ctrl_callbacks = {"next_palette": next_palette_cb, "prev_palette": prev_palette_cb}
         
         if current_mode == "EDIT" and not grabbed_body:
             if playable_rect.collidepoint(m_pos):
@@ -1357,13 +1391,35 @@ def main():
                             break
 
         for event in pygame.event.get():
+            # Milestone 42 Resizing Fix: Intelligent Capping
+            if event.type == pygame.VIDEORESIZE:
+                # User clarification: Cap size at (world_width or 5000) + panels
+                limit_w = min(5000, world_width)
+                limit_h = min(5000, world_height)
+                
+                panels_w = editor_ui.side_w + editor_ui.right_w
+                panels_h = editor_ui.top_h + editor_ui.bot_h
+                
+                target_w = min(event.w, limit_w + panels_w)
+                target_h = min(event.h, limit_h + panels_h)
+                
+                # Re-apply mode to resize/cap the window if needed
+                if (target_w, target_h) != (window_width, window_height):
+                    screen = pygame.display.set_mode((target_w, target_h), pygame.RESIZABLE)
+                    window_width, window_height = target_w, target_h
+                    editor_ui.update_resolution(window_width, window_height)
+                    camera.screen_width = editor_ui.playable_rect.width
+                    camera.screen_height = editor_ui.playable_rect.height
+                    playable_rect = editor_ui.playable_rect
+                continue
+
             if event.type == pygame.QUIT:
                 running = False
                 
             if editor_ui.process_event(event):
                 continue
                 
-            if controller_manager.process_event(event, callbacks):
+            if controller_manager.process_event(event, ctrl_callbacks):
                 continue
                 
             if event.type == pygame.KEYDOWN:
@@ -1554,6 +1610,7 @@ def main():
         visual_fx_manager.update(dt)
         editor_ui.update(dt)
         editor_ui.sync_scrollbars_to_camera(camera)
+        editor_ui.set_debug_info(world_m_pos[0], world_m_pos[1], window_width, window_height)
 
         # Milestone 35 Fix: Debounced Autosave (2.0s delay after last change)
         if game_state.get("is_dirty") and game_state["mode"] == "EDIT":
@@ -1725,20 +1782,30 @@ def main():
             
             screen.blit(grid_surface, (0, 0))
 
-        world_screen_left = int(-camera.offset_x)
-        world_screen_top = int(-camera.offset_y)
-        world_screen_right = int(world_width - camera.offset_x)
-        world_screen_bottom = int(world_height - camera.offset_y)
+        # Milestone 42 Follow-up: DRAW VISIBLE WORLD BORDER
+        # This draws a persistent neon border at the actual physics limits.
+        border_top_left = camera.world_to_screen(0, 0)
+        world_border_rect = pygame.Rect(
+            int(border_top_left[0]), 
+            int(border_top_left[1]), 
+            world_width, world_height
+        )
+        pygame.draw.rect(screen, (0, 255, 255), world_border_rect, 3) # Neon Cyan
+
+        world_screen_left = int(border_top_left[0])
+        world_screen_top = int(border_top_left[1])
+        world_screen_right = world_screen_left + world_width
+        world_screen_bottom = world_screen_top + world_height
         void_color = (224, 224, 224)
 
-        if world_screen_left > 0:
-            pygame.draw.rect(screen, void_color, pygame.Rect(0, 0, world_screen_left, window_height))
-        if world_screen_top > 0:
-            pygame.draw.rect(screen, void_color, pygame.Rect(0, 0, window_width, world_screen_top))
-        if world_screen_right < window_width:
-            pygame.draw.rect(screen, void_color, pygame.Rect(world_screen_right, 0, window_width - world_screen_right, window_height))
-        if world_screen_bottom < window_height:
-            pygame.draw.rect(screen, void_color, pygame.Rect(0, world_screen_bottom, window_width, window_height - world_screen_bottom))
+        if world_screen_left > playable_rect.left:
+            pygame.draw.rect(screen, void_color, pygame.Rect(playable_rect.left, playable_rect.top, world_screen_left - playable_rect.left, playable_rect.height))
+        if world_screen_top > playable_rect.top:
+            pygame.draw.rect(screen, void_color, pygame.Rect(playable_rect.left, playable_rect.top, playable_rect.width, world_screen_top - playable_rect.top))
+        if world_screen_right < playable_rect.right:
+            pygame.draw.rect(screen, void_color, pygame.Rect(world_screen_right, playable_rect.top, playable_rect.right - world_screen_right, playable_rect.height))
+        if world_screen_bottom < playable_rect.bottom:
+            pygame.draw.rect(screen, void_color, pygame.Rect(playable_rect.left, world_screen_bottom, playable_rect.width, playable_rect.bottom - world_screen_bottom))
         
         # Phase 14: Global Visual FX Budget (Stigmergy Traces & Particles)
         visual_fx_manager.draw(screen, camera=camera)

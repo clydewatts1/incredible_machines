@@ -13,3 +13,19 @@ edit_mode_color: [255, 200, 0]
 play_mode_color: [0, 255, 0]
 icon_dir: "assets/icons"
 sprite_dir: "assets/sprites"
+
+# Milestone 42: Controller Configuration
+controller:
+  deadzone: 0.15
+  mouse_speed: 15.0
+  scroll_speed: 5.0
+  # Axis Mappings (Generic Xbox/Pro Controller defaults)
+  axis_mouse_x: 0    # Left Stick X
+  axis_mouse_y: 1    # Left Stick Y
+  axis_avatar_x: 2   # Right Stick X
+  axis_avatar_y: 3   # Right Stick Y
+  # Button Mappings
+  btn_left_click: 0  # A / Cross
+  btn_right_click: 1 # B / Circle
+  btn_next_palette: 5 # R1 / RB
+  btn_prev_palette: 4 # L1 / LB

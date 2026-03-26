@@ -8,6 +8,7 @@ class EnvironmentManager:
     def __new__(cls):
         if cls._instance is None:
             cls._instance = super(EnvironmentManager, cls).__new__(cls)
+            cls._instance.config = {} # Milestone 42 Fix: Prevent early access crash
         return cls._instance
 
     def initialize(self, screen_width, screen_height):
@@ -55,6 +56,19 @@ class EnvironmentManager:
     def get_int(self, key, default):
         """Get an integer config value from environment.yaml."""
         return self._to_int(self.config.get(key), default)
+
+    def get_float(self, key, default):
+        """Get a float config value from environment.yaml."""
+        try:
+            val = self.config.get(key)
+            if val is None: return float(default)
+            return float(val)
+        except (TypeError, ValueError):
+            return float(default)
+
+    def get_config(self, key, default=None):
+        """Get an arbitrary config value (dict, list, etc.) from environment.yaml."""
+        return self.config.get(key, default)
 
     def draw_background(self, surface):
         if self.background_image:

@@ -23,7 +23,8 @@ class AvatarPart(GamePart):
         if self.shape:
             self.shape.friction = 1.0  # High friction to stop quickly
             self.shape.elasticity = 0.2
-            
+            import constants
+            self.shape.collision_type = constants.COLLISION_TYPE_AVATAR
         # Visuals
         self.color = (50, 200, 50) # Player Green
         self.width = float(self.get_property("width", 40))
@@ -36,14 +37,14 @@ class AvatarPart(GamePart):
             # In EDIT mode, the avatar stays put or is handled by EditorUI if moved
             return
 
-        # Read Left Stick from global controller manager
-        lx, ly = controller_manager.get_movement_vector()
+        # Read Right Stick from global controller manager (M42 Redux)
+        ax, ay = controller_manager.get_avatar_movement()
         
         if self.body:
             # milestone 42: Direct velocity modification for "snappy" control
             # We preserve some momentum but mostly follow the stick
-            target_vx = lx * self.move_speed
-            target_vy = ly * self.move_speed
+            target_vx = ax * self.move_speed
+            target_vy = ay * self.move_speed
             
             # Simple lerp-like approach to avoid infinite acceleration
             self.body.velocity = (target_vx, target_vy)

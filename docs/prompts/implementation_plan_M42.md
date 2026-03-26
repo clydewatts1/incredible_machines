@@ -2,40 +2,60 @@ Milestone 42: Gamepad Control & Physics Avatar
 
 Objective
 
-To add native controller support (pygame.joystick) that acts as both a virtual mouse for UI interaction and a physical Avatar for in-world physics interactions.
+To add native controller support (pygame.joystick) optimized for dual-analog controllers (like the Nintendo Switch Pro Controller). The controller must act as a virtual mouse for UI interaction, provide direct camera control, and optionally drive a physical Avatar in the game world. All mappings must be configurable via environment.yaml.
+
+Control Scheme
+
+Left Stick: Virtual Mouse Cursor (Moves the cursor across the screen in both EDIT and PLAY modes).
+
+A Button (Cross/B): Primary Action (Simulates Left Mouse Click).
+
+B Button (Circle/A): Secondary Action (Simulates Right Mouse Click / Delete / Context Menu).
+
+D-Pad (Cross Control): Camera Panning (Scrolls the factory window in both modes).
+
+Right Stick: Avatar Movement (Controls the physical PlayerAvatarPart during PLAY mode).
 
 Core Features
 
 1. The Controller Manager (utils/controller.py)
 
-A new utility class to handle generic gamepads (Xbox/PlayStation).
+A new utility class that reads mappings from config/environment.yaml.
 
-Virtual Mouse (Right Stick): Reads the Right Stick axis and uses pygame.mouse.set_pos() to physically move the computer's mouse cursor. This ensures 100% compatibility with pygame-gui buttons and the existing drag-and-drop tool logic.
+Virtual Mouse: Reads the configured Left Stick axes. Updates pygame.mouse.set_pos() to physically move the computer's mouse cursor.
 
-Clicking (A Button / Cross): Maps the primary face button to simulate a Left Mouse Click (pygame.MOUSEBUTTONDOWN).
+Camera Scrolling: Reads the D-Pad (Hat) state. Exposes a get_camera_pan() method that returns an X/Y velocity vector to shift the camera.
 
-Transport Controls (D-Pad): * Right: Play
+Avatar Control: Reads the configured Right Stick axes. Exposes a get_avatar_movement() method for the Avatar entity to consume.
 
-Left: Slow-Mo
+2. Integration (main.py)
 
-Up: Fast Forward
+Initialize pygame.joystick at startup and instantiate the ControllerManager.
 
-Down: Stop / Edit Mode
+In the while running: loop:
 
-2. The Player Avatar (entities/avatar.py)
+Call controller_manager.update(dt) to process the virtual mouse.
 
-A new dynamic physics entity dropped into the world.
+Fetch the camera pan vector from the D-Pad and apply it to camera.x and camera.y.
 
-Physics: A dynamic circle or capsule body with high friction so it doesn't slide like ice.
+In the event loop:
 
-Movement (Left Stick): Reads the Left Stick axis from the Controller Manager. In the update_logic loop, it directly modifies self.body.velocity to give the player snappy, responsive movement.
+Catch pygame.JOYBUTTONDOWN and pygame.JOYBUTTONUP.
 
-Interactions: Because it is a dynamic Pymunk body, it will automatically trigger sensors, push payloads, and block lasers without any extra code.
+Map the configured "A" button to post a pygame.MOUSEBUTTONDOWN (button 1).
 
-3. Integration (main.py)
+Map the configured "B" button to post a pygame.MOUSEBUTTONDOWN (button 3).
 
-Initialize pygame.joystick at startup.
+3. The Player Avatar (entities/avatar.py)
 
-If a joystick is detected, instantiate the ControllerManager.
+A dynamic physics entity. In its update_logic loop, it reads the Right Stick output from the ControllerManager. It directly modifies self.body.velocity to give the player snappy, responsive movement, allowing them to push payloads and trigger pressure plates.
 
-Update the main event loop to pass joystick events to the manager.
+4. Advanced Enhancements & Suggestions
+
+Configurable Deadzones: Analog sticks rarely rest exactly at 0.0. Implementing a deadzone config (e.g., 0.15) prevents the mouse cursor or avatar from drifting when you let go of the sticks.
+
+Palette Cycling (Bumpers/Shoulders): Map L1 and R1 to cycle through the component palette (Left/Right). This saves the player from having to drag the virtual mouse to the UI panel every time they want to select a new machine.
+
+Camera Zoom (Triggers): Map L2 and R2 to simulate the mouse scroll wheel, zooming the factory camera in and out.
+
+Haptic Feedback (Rumble): Use self.joystick.rumble() to make the controller vibrate when the Avatar takes a hard physical impact or when placing a machine.

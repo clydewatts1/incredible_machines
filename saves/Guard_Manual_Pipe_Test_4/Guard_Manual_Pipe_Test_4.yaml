@@ -381,6 +381,13 @@ entities:
     y: 190.0
   rotation: 0.0
   overrides: {}
+- uuid: 7dd3b3b4-e669-4cc7-ac94-1af9941a11ad
+  entity_id: avatar
+  position:
+    x: 407.944
+    y: 208.0
+  rotation: 0.0
+  overrides: {}
 connections:
 - sender: warehouse_01
   receiver: f329dedd-a6a9-43a2-a983-60a2cdc46dc2

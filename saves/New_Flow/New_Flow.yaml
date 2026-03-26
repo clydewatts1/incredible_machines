@@ -8,11 +8,11 @@ wind:
 - 0
 - 0
 entities:
-- uuid: 2263d43b-6f36-409e-81b0-aa3e41afd0d7
-  entity_id: avatar
+- uuid: 68c9b984-c22c-48c2-924a-b2a05947a7e0
+  entity_id: basket
   position:
-    x: 492.0
-    y: 227.0
+    x: 456.0
+    y: 172.0
   rotation: 0.0
   overrides: {}
 connections: []

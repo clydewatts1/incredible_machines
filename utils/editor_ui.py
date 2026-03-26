@@ -152,10 +152,14 @@ class EditorUI:
         # Milestone 42: Window Scrollbars
         # Horizontal scrollbar at bottom of playable area
         sb_h = 16
-        # World limits (from constants or camera)
-        from constants import WORLD_WIDTH, WORLD_HEIGHT
-        vis_pct_h = self.playable_rect.width / WORLD_WIDTH
-        vis_pct_v = self.playable_rect.height / WORLD_HEIGHT
+        # World limits (from env_manager)
+        from utils.environment_manager import env_manager
+        import constants
+        cur_world_w = env_manager.get_int("world_width", constants.WORLD_WIDTH)
+        cur_world_h = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
+
+        vis_pct_h = self.playable_rect.width / cur_world_w
+        vis_pct_v = self.playable_rect.height / cur_world_h
 
         self.h_scrollbar = UIHorizontalScrollBar(
             relative_rect=pygame.Rect(self.side_w, self.h - self.bot_h - sb_h, self.playable_rect.width - sb_h, sb_h),
@@ -181,6 +185,13 @@ class EditorUI:
             text="Timer: 00:00",
             manager=self.ui_manager,
             container=self.bottom_panel
+        )
+        self.debug_label = UILabel(
+            relative_rect=pygame.Rect(220, 5, 600, 30),
+            text="World: 5000x5000 | Window: ? | Mouse: ?",
+            manager=self.ui_manager,
+            container=self.bottom_panel,
+            object_id="#debug_label"
         )
         self.options_btn = UIButton(
             relative_rect=pygame.Rect(self.w - 320, 5, 100, 30),
@@ -705,3 +716,62 @@ class EditorUI:
         )
         pygame.draw.rect(surface, PANEL_BG, right_abs)
         self.ui_manager.draw_ui(surface)
+
+    def set_debug_info(self, mouse_world_x, mouse_world_y, window_w, window_h):
+        """Update the debug label with coordinates and sizes."""
+        from utils.environment_manager import env_manager
+        import constants
+        cur_world_w = env_manager.get_int("world_width", constants.WORLD_WIDTH)
+        cur_world_h = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
+        msg = f"World: {cur_world_w}x{cur_world_h} | Window: {window_w}x{window_h} | Mouse: {int(mouse_world_x)}, {int(mouse_world_y)}"
+        self.debug_label.set_text(msg)
+
+    def update_resolution(self, new_w, new_h):
+        """Handle window resizing by repositioning and resizing all UI elements."""
+        self.w, self.h = new_w, new_h
+        self.window_size = (new_w, new_h)
+        self.ui_manager.set_window_resolution(self.window_size)
+
+        # 1. Update Core Panels
+        self.top_panel.set_dimensions((new_w, self.top_h))
+        
+        self.bottom_panel.set_relative_position((0, new_h - self.bot_h))
+        self.bottom_panel.set_dimensions((new_w, self.bot_h))
+        
+        self.left_panel.set_dimensions((self.side_w, new_h - self.top_h - self.bot_h))
+        
+        self.right_panel.set_relative_position((new_w - self.right_w, self.top_h))
+        self.right_panel.set_dimensions((self.right_w, new_h - self.top_h - self.bot_h))
+
+        # 2. Update Playable Rect
+        self.playable_rect = pygame.Rect(
+            self.side_w, self.top_h, 
+            self.w - self.side_w - self.right_w, 
+            self.h - self.top_h - self.bot_h
+        )
+
+        # 3. Update Containers
+        self.left_container.set_dimensions((self.side_w - 20, self.left_panel.relative_rect.height - 50))
+        self.right_container.set_dimensions((self.right_w - 20, self.right_panel.relative_rect.height - 90))
+
+        # 4. Update Scrollbars
+        from utils.environment_manager import env_manager
+        import constants
+        cur_world_w = env_manager.get_int("world_width", constants.WORLD_WIDTH)
+        cur_world_h = env_manager.get_int("world_height", constants.WORLD_HEIGHT)
+        
+        vis_pct_h = self.playable_rect.width / cur_world_w
+        vis_pct_v = self.playable_rect.height / cur_world_h
+        
+        sb_h = 16
+        self.h_scrollbar.set_relative_position((self.side_w, self.h - self.bot_h - sb_h))
+        self.h_scrollbar.set_dimensions((self.playable_rect.width - sb_h, sb_h))
+        self.h_scrollbar.visible_percentage = vis_pct_h
+
+        self.v_scrollbar.set_relative_position((self.w - self.right_w - sb_h, self.top_h))
+        self.v_scrollbar.set_dimensions((sb_h, self.playable_rect.height))
+        self.v_scrollbar.visible_percentage = vis_pct_v
+
+        # 5. Update Bottom Bar Labels
+        self.timer_label.set_relative_position((self.w - 210, 5))
+        self.options_btn.set_relative_position((self.w - 320, 5))

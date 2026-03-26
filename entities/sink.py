@@ -48,7 +48,7 @@ class DataSink(FlowEntity):
         self._processed_entity_uuids = set()
         self.exporter = None # Milestone 35 Fix: Prevent AttributeError in worker
 
-        self._worker_thread = _th.Thread(target=self._worker_loop, daemon=True)
+        self._worker_thread = threading.Thread(target=self._worker_loop, daemon=True)
         self._worker_thread.start()
 
         self.visual_state = "IDLE"
