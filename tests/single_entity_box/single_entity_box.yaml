@@ -1,0 +1,31 @@
+name: single_entity_box
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 28530293-37b2-4b20-9a79-a4ee28feed71
+  entity_id: box
+  position:
+    x: 359.0
+    y: 251.0
+  rotation: 0.0
+  overrides:
+    custom_name: box
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    flash_duration: 0.3
+    friction: 0.5
+    height: 40
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 6
+    spawn_sound: spawn.wav
+    width: 40
+connections: []

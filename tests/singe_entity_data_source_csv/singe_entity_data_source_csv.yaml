@@ -1,0 +1,57 @@
+name: singe_entity_data_source_csv
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: f8d86b82-7792-4130-bf93-67e92285519f
+  entity_id: data_source_csv
+  position:
+    x: 320.0
+    y: 142.0
+  rotation: 0.0
+  overrides:
+    custom_name: data_source_csv
+    custom_description: ''
+    active_side: Left
+    animations:
+      false: data_source_off
+      INITIALIZING: data_source_initializing_csv
+      IDLE: data_source_idle_csv
+      POLLING: data_source_polling_csv
+      EMITTING: data_source_emitting_csv
+      EXHAUSTED: data_source_exhausted_csv
+      FATAL: data_source_fatal_csv
+    category: sources
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    emit_interval: 2.0
+    engine_type: csv
+    exit_angle: 180.0
+    exit_velocity: 150.0
+    friction: 0.5
+    height: 96
+    instructions:
+      filepath: data/samples_NO_FILE.csv
+      debug: false
+      loop: true
+      skip_header: true
+      delimiter: ','
+    is_static: 'True'
+    mass: 1.0
+    output_variant: payload_ball
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+connections: []

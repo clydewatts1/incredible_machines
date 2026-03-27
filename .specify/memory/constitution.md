@@ -1,21 +1,16 @@
 <!--
 Sync Impact Report:
-- Version change: v1.0.0 → v1.1.0
-- List of modified principles:
-  - Project Philosophy → updated to include ETL and WOLF
-  - Standardized Routing & The "Zero Rule" → reworded slightly
-  - UI & Input Standards → added Controller & Avatar Support (M42)
-  - AI Agent Coding Directives → expanded with spec-driven development and strict configuration checks
+- Version change: v1.1.0 → v1.2.0
+- List of modified principles: N/A
 - Added sections:
-  - 2.5 Synthetic Data & ETL (M40)
-  - 2.6 Visual FX & Triggers (M41)
-  - The "Kill Z" Volume (in Physics & Memory Standards)
+  - 10. Entity Documentation Standards
 - Removed sections: N/A
 - Templates requiring updates:
   - ✅ updated: .specify/memory/constitution.md
-  - ⚠ pending: .specify/templates/plan-template.md
-  - ⚠ pending: .specify/templates/spec-template.md
-- Follow-up TODOs: N/A
+  - ✅ updated: .specify/templates/plan-template.md
+  - ✅ updated: .specify/templates/spec-template.md
+  - ✅ updated: README.md
+- Follow-up TODOs: Implement missing entity documents in docs/entity/
 -->
 
 # Incredible Machines (Fuath an Mhadra) Constitution
@@ -91,4 +86,10 @@ All physical and logical objects in the simulation MUST adhere to the establishe
 - **Configuration Truth**: Check `config/entities.yaml` and `config/environment.yaml` to verify properties and variables before hardcoding assumptions in Python.
 - **Utility Reusability**: Prioritize utilizing existing utility modules (`utils/routing.py`, `utils/physics_events.py`) before writing new helper functions.
 
-**Version**: 1.1.0 | **Ratified**: 2026-03-26 | **Last Amended**: 2026-03-26
+## 10. Entity Documentation Standards
+- **Requirement**: All entities MUST be documented in the `docs/entity/` directory with a dedicated Markdown document for each entity.
+- **Content**: Each entity document MUST explain all of the entity's properties, explicitly distinguishing between required and optional properties.
+- **Indexing**: There MUST be a `README.md` in the `docs/entity/` directory referencing each of the individual entity documents.
+- **Global Reference**: The main project `README.md` MUST reference the `docs/entity/README.md`.
+
+**Version**: 1.2.0 | **Ratified**: 2026-03-26 | **Last Amended**: 2026-03-26

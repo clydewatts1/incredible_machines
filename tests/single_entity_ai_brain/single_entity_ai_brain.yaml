@@ -1,0 +1,55 @@
+name: single_entity_ai_brain
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: f4d9e6d9-4e76-45ff-bd50-a4f58892fe55
+  entity_id: ai_brain
+  position:
+    x: 347.0
+    y: 167.0
+  rotation: 0.0
+  overrides:
+    custom_name: ai_brain
+    custom_description: test
+    animations:
+      false: ai_brain_off
+      INITIALIZING: ai_brain_initializing
+      IDLE: ai_brain_idle
+      INGESTING: ai_brain_ingesting
+      WRITING: ai_brain_writing
+      FATAL: ai_brain_fatal
+    auto_release: 'True'
+    category: logic
+    collision_sound: default_collision.wav
+    cost_modifier: -10.0
+    elasticity: 0.5
+    friction: 0.5
+    height: 96
+    input_side: top
+    is_static: 'True'
+    mass: 1.0
+    model: llama3.2
+    output_side: right
+    routing:
+    - max_state: 10
+      velocity: 200
+      angle: 45
+      desc: Success Route
+      output_side: right
+    - max_state: 100
+      velocity: 10
+      angle: 45
+      desc: Failure Route
+      output_side: left
+    spawn_sound: spawn.wav
+    system_prompt: You are a quality control AI. Look at the 'status' field. If the
+      status is 'SUCCESS', return route_state 10. If 'FAILURE', return route_state
+      100.
+    width: 96
+connections: []

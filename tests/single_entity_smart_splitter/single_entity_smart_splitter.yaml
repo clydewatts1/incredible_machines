@@ -1,0 +1,34 @@
+name: single_entity_smart_splitter
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 342a32b1-608f-40a7-a1ac-23334ef2de94
+  entity_id: smart_splitter
+  position:
+    x: 515.0
+    y: 284.0
+  rotation: 0.0
+  overrides:
+    custom_name: smart_splitter
+    custom_description: ''
+    category: logic
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    exit_angle: 0.0
+    exit_velocity: 150.0
+    friction: 0.5
+    height: 100
+    is_static: 'True'
+    learning_rate: 2.0
+    left_weight: 10.0
+    mass: 1.0
+    right_weight: 10.0
+    spawn_sound: spawn.wav
+    width: 100
+connections: []

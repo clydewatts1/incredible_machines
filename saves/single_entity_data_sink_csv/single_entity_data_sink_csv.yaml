@@ -1,0 +1,55 @@
+name: single_entity_data_sink_csv
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 4ad35215-0308-42f0-986b-83f38b927916
+  entity_id: data_sink_csv
+  position:
+    x: 323.0
+    y: 251.0
+  rotation: 0.0
+  overrides:
+    custom_name: data_sync_csv
+    custom_description: ''
+    accepts_types:
+    - bouncy_ball
+    - payload_ball
+    active_sides:
+    - top
+    animations:
+      false: data_sink_off_csv
+      INITIALIZING: data_sink_initializing_csv
+      IDLE: data_sink_idle_csv
+      INGESTING: data_sink_ingesting_csv
+      WRITING: data_sink_writing_csv
+      FATAL: data_sink_fatal_csv
+    category: sinks
+    collision_sound: default_collision.wav
+    consumption_time: 1.0
+    elasticity: 0.5
+    export:
+      directory: exports
+      file_prefix: sink_csv
+      max_objects: 10
+      rotation_seconds: 180
+    exporter_type: csv
+    friction: 0.5
+    height: 96
+    is_static: 'True'
+    mass: 1.0
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+connections: []

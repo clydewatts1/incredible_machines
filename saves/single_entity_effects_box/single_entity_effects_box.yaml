@@ -1,0 +1,45 @@
+name: single_entity_effects_box
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: e3e65800-79cc-49ab-a51b-c4c652c1c235
+  entity_id: effect_box
+  position:
+    x: 523.0
+    y: 292.0
+  rotation: 0.0
+  overrides:
+    custom_name: effectbox
+    custom_description: ''
+    animations:
+      IDLE: effect_box_idle
+      EMITTING: effect_box_emitting
+    auto_trigger_interval: 0.0
+    category: active
+    collision_sound: default_collision.wav
+    color:
+    - 240
+    - 240
+    - 240
+    cooldown_duration: 0.5
+    daisy_chain: 'False'
+    delay_duration: 0.0
+    description: Visual emitter that triggers particles like confetti or fireworks
+      via signals.
+    effect_type: confetti
+    elasticity: 0.5
+    firing_duration: 1.0
+    friction: 0.5
+    height: 64
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    trigger_on_impact: 'False'
+    width: 64
+connections: []

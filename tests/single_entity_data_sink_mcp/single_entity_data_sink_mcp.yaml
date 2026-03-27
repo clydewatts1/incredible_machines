@@ -1,0 +1,55 @@
+name: single_entity_data_sink_mcp
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 23a72d74-2f98-4048-af7a-d5a1c9297c2f
+  entity_id: data_sink_mcp
+  position:
+    x: 285.0
+    y: 300.0
+  rotation: 0.0
+  overrides:
+    custom_name: data_sink_mcp
+    custom_description: ''
+    accepts_types:
+    - bouncy_ball
+    - payload_ball
+    active_sides:
+    - top
+    animations:
+      false: data_sink_off_mcp
+      INITIALIZING: data_sink_initializing_mcp
+      IDLE: data_sink_idle_mcp
+      INGESTING: data_sink_ingesting_mcp
+      WRITING: data_sink_writing_mcp
+      FATAL: data_sink_fatal_mcp
+    category: sinks
+    collision_sound: default_collision.wav
+    consumption_time: 1.0
+    elasticity: 0.5
+    export:
+      transport: sse
+      url: http://localhost:8000/sse
+      tool_name: post_incredible_machine_data
+      timeout: 5
+    exporter_type: mcp
+    friction: 0.5
+    height: 96
+    is_static: 'True'
+    mass: 1.0
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+connections: []

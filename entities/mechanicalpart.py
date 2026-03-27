@@ -36,8 +36,32 @@ class MechanicalPart(GamePart):
             rate = float(self.get_property("motor_speed", 3.14))
             self.motor = pymunk.SimpleMotor(self.space.static_body, self.body, rate)
             self.space.add(self.motor)
+        
+        self.connected_belts = [] # Store UUIDs of belt-linked targets
+
+    def connect_belt(self, other_entity):
+        """Creates a belt drive connection (same direction) and ensures persistence."""
+        r1 = float(self.get_property("radius", 30))
+        r2 = float(other_entity.get_property("radius", 30))
+        
+        # Positive ratio means same-direction rotation for belts
+        ratio = (r1 / r2)
+        joint = pymunk.GearJoint(self.body, other_entity.body, 0, ratio)
+        self.space.add(joint)
+        
+        # Add to local list for drawing
+        self.connected_belts.append(other_entity.uuid)
+        
+        # Store in overrides for LevelManager
+        existing_belts = self.overrides.get("connected_belts", [])
+        if other_entity.uuid not in existing_belts:
+            existing_belts.append(other_entity.uuid)
+            self.apply_draft_overrides({"connected_belts": existing_belts})
+            
+        return joint
 
     def connect_to_gear(self, other_gear, ratio=-1.0):
+        # ... (rest of method same)
         """
         Manually links this gear to another gear.
         A negative ratio (e.g., -1.0) makes them spin in opposite directions,
@@ -86,8 +110,45 @@ class MechanicalPart(GamePart):
                     if hasattr(self, "texture_frame_1") and hasattr(self, "texture_frame_2"):
                         self.base_texture = self.texture_frame_1 if self.current_frame == 0 else self.texture_frame_2
 
-    def draw(self, surface, camera=None):
-        """Inherits the synchronized rotation drawing from base.py."""
+    def draw(self, surface, camera=None, active_instances=None):
+        """Inherits rotation drawing from base.py and adds belt rendering."""
         if self.base_texture:
             self.draw_texture(surface, camera=camera)
+        else:
+             super().draw(surface, camera=camera)
+            
+        # Draw Belts
+        if active_instances:
+            import math
+            for target_uuid in self.connected_belts:
+                target = active_instances.get(target_uuid)
+                if target and hasattr(target, 'body'):
+                    start_world = self.body.position
+                    end_world = target.body.position
+                    
+                    if camera:
+                        start_p = camera.world_to_screen(start_world.x, start_world.y)
+                        end_p = camera.world_to_screen(end_world.x, end_world.y)
+                    else:
+                        start_p = (start_world.x, start_world.y)
+                        end_p = (end_world.x, end_world.y)
+
+                    dx = end_p[0] - start_p[0]
+                    dy = end_p[1] - start_p[1]
+                    dist = math.sqrt(dx*dx + dy*dy)
+                    
+                    if dist > 0:
+                        # 12px offset for gears which are larger pulley surfaces
+                        offset_x = (-dy / dist) * 12
+                        offset_y = (dx / dist) * 12
+                        
+                        belt_color = (40, 40, 40) # Dark rubber
+                        thickness = 3
+
+                        pygame.draw.line(surface, belt_color, 
+                                         (start_p[0] + offset_x, start_p[1] + offset_y), 
+                                         (end_p[0] + offset_x, end_p[1] + offset_y), thickness)
+                        pygame.draw.line(surface, belt_color, 
+                                         (start_p[0] - offset_x, start_p[1] - offset_y), 
+                                         (end_p[0] - offset_x, end_p[1] - offset_y), thickness)
         
