@@ -1,0 +1,28 @@
+name: single_entity_bouncy_ball
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: edc38ca4-565a-4a02-a806-3b8c69e7eaec
+  entity_id: bouncy_ball
+  position:
+    x: 323.0
+    y: 90.0
+  rotation: 0.0
+  overrides:
+    custom_name: bouncy_ball
+    custom_description: ''
+    category: payloads
+    collision_sound: bounce.wav
+    elasticity: 0.9
+    friction: 0.3
+    key_bind: 1
+    mass: 1.0
+    radius: 15
+    spawn_sound: spawn.wav
+connections: []

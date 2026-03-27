@@ -1,0 +1,35 @@
+name: single_entity_avatar
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: cc9f4946-c1ad-4f7e-a30c-16e4564f28ad
+  entity_id: avatar
+  position:
+    x: 505.0
+    y: 247.0
+  rotation: 0.0
+  overrides:
+    custom_name: avatar
+    custom_description: avatar
+    category: logic
+    collision_sound: default_collision.wav
+    color:
+    - 50
+    - 200
+    - 50
+    description: Player Avatar. Controlled via Left Stick (Gamepad).
+    elasticity: 0.5
+    friction: 0.5
+    height: 40
+    is_static: 'False'
+    mass: 5.0
+    radius: 20
+    spawn_sound: spawn.wav
+    width: 40
+connections: []

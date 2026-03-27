@@ -1,0 +1,33 @@
+name: single_entity_basket
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 15c5e846-6a38-4355-91e7-11609fe3ae1b
+  entity_id: basket
+  position:
+    x: 538.0
+    y: 251.0
+  rotation: 0.0
+  overrides:
+    custom_name: basket
+    custom_description: basket
+    accepts_types:
+    - bouncy_ball
+    active_sides:
+    - top
+    category: active
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    friction: 0.5
+    height: 60
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 80
+connections: []

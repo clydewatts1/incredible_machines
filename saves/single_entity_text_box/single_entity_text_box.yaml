@@ -1,0 +1,40 @@
+name: single_entity_text_box
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: e77617dd-16c1-4ede-b560-ce0d8645ecb7
+  entity_id: text_box
+  position:
+    x: 516.0
+    y: 253.0
+  rotation: 0.0
+  overrides:
+    custom_name: text_box
+    custom_description: ''
+    bg_color:
+    - 40
+    - 40
+    - 40
+    - 200
+    category: other
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    font_size: 20
+    friction: 0.5
+    height: 50
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    text: Enter description...
+    text_color:
+    - 255
+    - 255
+    - 255
+    width: 100
+connections: []

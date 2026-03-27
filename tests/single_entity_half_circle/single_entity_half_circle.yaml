@@ -1,0 +1,36 @@
+name: single_entity_half_circle
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 718caec0-989e-4212-8f95-ea61dcd9c935
+  entity_id: half_circle
+  position:
+    x: 560.0
+    y: 252.0
+  rotation: 0.0
+  overrides:
+    custom_name: half_circle
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    color:
+    - 0
+    - 200
+    - 200
+    elasticity: 0.5
+    flash_duration: 0.3
+    friction: 0.5
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 4
+    mass: 5.0
+    radius: 50
+    segments: 15
+    spawn_sound: spawn.wav
+connections: []

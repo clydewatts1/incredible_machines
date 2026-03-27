@@ -1,0 +1,40 @@
+name: single_entity_faker_factory
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 40372674-eec7-4e2f-9a98-93108e75add3
+  entity_id: faker_factory
+  position:
+    x: 600.0
+    y: 291.0
+  rotation: 0.0
+  overrides:
+    custom_name: facker_factory
+    custom_description: ''
+    category: logic
+    collision_sound: default_collision.wav
+    color:
+    - 100
+    - 255
+    - 180
+    description: Mutates payload data using the Faker library.
+    elasticity: 0.5
+    engine_type: faker
+    friction: 0.5
+    height: 96
+    instructions:
+      schema:
+        company_email: company_email
+        phone: phone_number
+      state: 10
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 96
+connections: []

@@ -1,0 +1,18 @@
+name: single_entity_conveyor_belt
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 629e8328-d864-4b4d-b135-54a633fc9ca8
+  entity_id: conveyor_belt
+  position:
+    x: 326.0
+    y: 251.0
+  rotation: 0.0
+  overrides: {}
+connections: []

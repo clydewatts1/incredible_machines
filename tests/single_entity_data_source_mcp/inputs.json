@@ -1,0 +1,26 @@
+[
+    {
+        "tick": 0,
+        "payload": {
+            "ttl": 50,
+            "cost": 100.0,
+            "drop_dead_age": 5.0,
+            "routing_depth": 0,
+            "processing_history": [],
+            "origin_uuid": "30858314-8a91-489c-81a1-764662bfd020",
+            "score": 100
+        }
+    },
+    {
+        "tick": 0,
+        "payload": {
+            "ttl": 50,
+            "cost": 100.0,
+            "drop_dead_age": 5.0,
+            "routing_depth": 0,
+            "processing_history": [],
+            "origin_uuid": "30858314-8a91-489c-81a1-764662bfd020",
+            "score": 100
+        }
+    }
+]

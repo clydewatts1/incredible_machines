@@ -1,0 +1,56 @@
+name: single_entity_data_source_mcp
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: a366bc04-61d5-4066-9bde-8edff480f0cb
+  entity_id: data_source_mcp
+  position:
+    x: 559.0
+    y: 170.0
+  rotation: 0.0
+  overrides:
+    custom_name: data_source_mcp
+    custom_description: ''
+    active_side: Top
+    animations:
+      false: data_source_off
+      INITIALIZING: data_source_initializing_mcp
+      IDLE: data_source_idle_mcp
+      POLLING: data_source_polling_mcp
+      EMITTING: data_source_emitting_mcp
+      EXHAUSTED: data_source_exhausted_mcp
+      FATAL: data_source_fatal_mcp
+    category: sources
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    emit_interval: 3.0
+    engine_type: mcp
+    exit_angle: 45.0
+    exit_velocity: 120.0
+    friction: 0.5
+    height: 96
+    instructions:
+      transport: sse
+      url: http://localhost:8000/sse
+      tool_name: get_incredible_machine_data
+      timeout: 5
+    is_static: 'True'
+    mass: 1.0
+    output_variant: bouncy_ball
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+connections: []

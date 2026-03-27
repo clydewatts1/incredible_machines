@@ -1,0 +1,32 @@
+name: single_entity_data_source_mcp
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 30858314-8a91-489c-81a1-764662bfd020
+  entity_id: data_source
+  position:
+    x: 613.0
+    y: 207.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 4055888c-d48e-43c1-aaf8-bfbbf6ca7943
+  entity_id: bouncy_ball
+  position:
+    x: 613.0
+    y: 668.6153873522076
+  rotation: -2.482401432637117e-15
+  overrides: {}
+- uuid: d9d3aadf-637a-4ddd-a609-a435d32af76d
+  entity_id: bouncy_ball
+  position:
+    x: 613.0
+    y: 604.120909227055
+  rotation: 4.6563679381793746e-17
+  overrides: {}
+connections: []

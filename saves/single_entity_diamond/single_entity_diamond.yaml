@@ -1,0 +1,36 @@
+name: single_entity_diamond
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: a7145da4-5133-434d-b434-0a5a07b334bb
+  entity_id: diamond
+  position:
+    x: 660.0
+    y: 193.0
+  rotation: 0.0
+  overrides:
+    custom_name: diamond
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    color:
+    - 255
+    - 0
+    - 0
+    elasticity: 0.5
+    flash_duration: 0.3
+    friction: 0.5
+    height: 40
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 3
+    mass: 50.0
+    spawn_sound: spawn.wav
+    width: 40
+connections: []

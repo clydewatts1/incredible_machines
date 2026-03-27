@@ -1,0 +1,18 @@
+name: single_entity_long_ramp
+description: Automated test recorded via UI
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0
+- 0
+entities:
+- uuid: 6e0a89f3-8b71-4be1-978e-88e22192c173
+  entity_id: long_ramp
+  position:
+    x: 522.0
+    y: 329.0
+  rotation: 0.0
+  overrides: {}
+connections: []
