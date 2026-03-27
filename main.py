@@ -9,6 +9,7 @@ import argparse
 import time
 import glob
 import json
+import copy
 
 import constants
 from agent_engine import FactoryPart
@@ -710,6 +711,17 @@ def main():
                 receiver_uid = conn.get("receiver")
                 if sender_uid in active_instances and receiver_uid in active_instances:
                     active_instances[sender_uid].connected_uuids.append(receiver_uid)
+        
+        # --- Belt Restoration Pass ---
+        for entity in entities:
+            # Axles and Gears store their belt targets in overrides
+            belt_targets = entity.overrides.get("connected_belts", [])
+            for target_uuid in belt_targets:
+                if target_uuid in active_instances:
+                    target_entity = active_instances[target_uuid]
+                    if hasattr(entity, 'connect_belt'):
+                        # Re-create the physics joint (connect_belt handles the space.add)
+                        entity.connect_belt(target_entity)
             
     def handle_quick_save():
         editor_ui.sync_ui_to_state()
@@ -1308,16 +1320,21 @@ def main():
                 
                 if target_axle:
                     if game_state.get("belt_source") is None:
+                        # First click: set the source
                         game_state["belt_source"] = target_axle
                         target_axle.play_event_sound("spawn_sound")
+                    elif game_state["belt_source"] != target_axle:
+                        # Second click: different axle, create the belt
                         game_state["belt_source"].connect_belt(target_axle)
                         target_axle.play_event_sound("spawn_sound")
                         game_state["belt_source"] = None
                         game_state["is_dirty"] = True
-                        game_state["last_change_time"] = time.time() # Update last_change_time
+                        game_state["last_change_time"] = time.time()
                     else:
+                        # Second click: same axle, cancel
                         game_state["belt_source"] = None
                 else:
+                    # Clicked something that isn't an axle
                     game_state["belt_source"] = None
 
             else:

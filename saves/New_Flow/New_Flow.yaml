@@ -8,11 +8,22 @@ wind:
 - 0
 - 0
 entities:
-- uuid: 68c9b984-c22c-48c2-924a-b2a05947a7e0
-  entity_id: basket
+- uuid: ac4ee34a-d38e-452a-9598-63497a350a8c
+  entity_id: data_pipe
   position:
-    x: 456.0
-    y: 172.0
+    x: 329.125
+    y: 114.875
   rotation: 0.0
-  overrides: {}
+  overrides:
+    source_uuid: e2bc9ca6-28b2-420f-abbf-e54775db60cb
+    target_uuid: d9bd47e8-f940-4a9d-80b0-c585b8680a4c
+- uuid: 2ac42fb0-c4e1-4cf2-8354-af689ecaa912
+  entity_id: data_pipe
+  position:
+    x: 333.5
+    y: 261.5
+  rotation: 0.0
+  overrides:
+    source_uuid: 55ba8eaa-2b65-45ab-b39b-c63e2513c810
+    target_uuid: 34281dc7-d4bb-4533-8cc2-0fc3f1901cef
 connections: []

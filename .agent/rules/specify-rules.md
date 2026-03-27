@@ -3,6 +3,8 @@
 Auto-generated from all feature plans. Last updated: 2026-03-26
 
 ## Active Technologies
+- Markdown + `config/entities.yaml` (Source of Truth) (002-entity-docs)
+- Flat markdown files in `docs/entity/` (002-entity-docs)
 
 - Python 3.11+ + Pygame-CE, Pymunk, Pygame-GUI, Faker (001-comprehensive-spec)
 
@@ -22,6 +24,7 @@ cd src; pytest; ruff check .
 Python 3.11+: Follow standard conventions
 
 ## Recent Changes
+- 002-entity-docs: Added Markdown + `config/entities.yaml` (Source of Truth)
 
 - 001-comprehensive-spec: Added Python 3.11+ + Pygame-CE, Pymunk, Pygame-GUI, Faker
 

@@ -100,6 +100,7 @@ data_source_csv:
 *   `main.py`: The heart of the game loop, UI management, and event handling.
 *   `entities/`: Contains `base.py` for part logic and specific entity implementations.
 *   `config/`: `entities.yaml` holds the source-of-truth definitions for every part in the game.
+*   `docs/entity/`: **[Entity Documentation](docs/entity/README.md)** containing specs for all parts and their properties.
 *   `utils/`: Core utilities for `AssetManager`, `LevelManager`, and `UIManager`.
 *   `saves/`: Your machine inventions live here!
 

@@ -107,6 +107,7 @@
 - **Backpressure**: Sources/Sinks MUST implement handshake signals (`broadcast_status`).
 - **ETL & Visuals**: Use faker for data generation (M40) and 2D kinematics for visual FX (M41).
 - **Configuration**: All new parameters MUST be defined in `config/entities.yaml` and not hardcoded.
+- **Entity Documentation**: All entities MUST be documented in `docs/entity/` with a dedicated file explaining required and optional properties, and indexed in `docs/entity/README.md`.
 
 ## Success Criteria *(mandatory)*
 

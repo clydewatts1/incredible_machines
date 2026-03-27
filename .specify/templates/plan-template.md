@@ -38,7 +38,7 @@
 - [ ] **Visual FX (M41)**: Are visual elements strictly kinematic and avoiding main Pymunk bodies?
 - [ ] **Deletion Pipeline/Kill Z**: Are entities systematically flagged with `to_delete = True` instead of direct removal?
 - [ ] **Configuration Isolation**: Are all new dimensions, colors, and inputs properly mapped to YAML files?
-
+- [ ] **Entity Documentation**: Are new or modified entities documented in `docs/entity/` with their properties explained, and referenced in `docs/entity/README.md`?
 
 ## Project Structure
 
