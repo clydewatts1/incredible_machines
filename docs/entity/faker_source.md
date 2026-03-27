@@ -1,17 +1,20 @@
 # Faker Source
-**Category**: sources  
+**Category**: unknown  
 **Key Bind**: N/A
 
+## Description
 A sources component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 96
-- `height`: 96
-- `faker_schema`: {'name': 'name', 'email': 'email', 'job': 'job'}
-- `active_side`: bottom
-- `exit_velocity`: 150.0
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `color`: `[180, 100, 255]`
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters

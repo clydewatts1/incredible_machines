@@ -1,17 +1,27 @@
 # Bouncy Ball
 **Category**: payloads  
-**Key Bind**: 1
+**Key Bind**: B
 
+## Description
 A payloads component.
 
-## Required Properties
-- `template`: Circle
-- `is_static`: False
-- `radius`: 15
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `mass`: `1.0`
-- `friction`: `0.4`
-- `elasticity`: `0.9`
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters
 - `collision_sound`: `bounce.wav`
+- `elasticity`: `0.9`
+- `friction`: `0.3`
+- `key_bind`: `1`
+- `mass`: `1.0`
+- `radius`: `15`
 - `spawn_sound`: `spawn.wav`

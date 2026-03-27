@@ -2,14 +2,31 @@
 **Category**: logic  
 **Key Bind**: N/A
 
+## Description
 A logic component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 100
-- `height`: 100
-- `exit_velocity`: 150.0
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- *(No specific optional overrides provided in yaml)*
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `collision_sound`: `default_collision.wav`
+- `elasticity`: `0.5`
+- `exit_angle`: `0.0`
+- `exit_velocity`: `150.0`
+- `friction`: `0.5`
+- `height`: `100`
+- `learning_rate`: `2.0`
+- `left_weight`: `10.0`
+- `mass`: `1.0`
+- `right_weight`: `10.0`
+- `spawn_sound`: `spawn.wav`
+- `width`: `100`

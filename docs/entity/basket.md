@@ -2,15 +2,28 @@
 **Category**: active  
 **Key Bind**: N/A
 
+## Description
 A active component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 80
-- `height`: 60
-- `active_sides`: ['top']
-- `accepts_types`: ['bouncy_ball']
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `texture_path`: ``
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `accepts_types`: `['bouncy_ball']`
+- `active_sides`: `['top']`
+- `collision_sound`: `default_collision.wav`
+- `elasticity`: `0.5`
+- `friction`: `0.5`
+- `height`: `60`
+- `mass`: `1.0`
+- `spawn_sound`: `spawn.wav`
+- `width`: `80`

@@ -1,13 +1,20 @@
 # Gear Follower
-**Category**: mechanical  
+**Category**: unknown  
 **Key Bind**: N/A
 
-A mechanical follower component. Can be connected to other mechanical parts through meshing or via the **Belt Tool**.
+## Description
+An entity component.
 
-## Required Properties
-- `template`: Circle
+## Summary
+Summary goes here.
+
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
 - `is_static`: False
-- `radius`: 20
 
-## Optional Properties & Defaults
-- *(No specific optional overrides provided in yaml)*
+### Additional Parameters

@@ -1,15 +1,20 @@
 # Spring
-**Category**: blocks  
-**Key Bind**: 6
+**Category**: unknown  
+**Key Bind**: N/A
 
+## Description
 A blocks component.
 
-## Required Properties
-- `template`: Square
-- `is_static`: True
-- `width`: 20
-- `height`: 40
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `elasticity`: `1.2`
-- `flash_duration`: `0.3`
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters

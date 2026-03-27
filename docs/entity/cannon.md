@@ -2,15 +2,32 @@
 **Category**: active  
 **Key Bind**: N/A
 
+## Description
 A active component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 60
-- `height`: 30
-- `active_side`: right
-- `exit_velocity`: 800.0
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `texture_path`: ``
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `active_side`: `right`
+- `ammo_id`: `bouncy_ball`
+- `collision_sound`: `default_collision.wav`
+- `elasticity`: `0.5`
+- `exit_angle`: `0.0`
+- `exit_velocity`: `800.0`
+- `friction`: `0.5`
+- `height`: `30`
+- `mass`: `1.0`
+- `max_count`: `10`
+- `shoot_frequency`: `1.0`
+- `spawn_sound`: `spawn.wav`
+- `width`: `60`

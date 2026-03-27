@@ -1,16 +1,20 @@
 # Logic Factory
-**Category**: logic  
+**Category**: unknown  
 **Key Bind**: N/A
 
+## Description
 A logic component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 96
-- `height`: 96
-- `engine_type`: regex
-- `active_sides`: ['top']
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `texture_path`: ``
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters

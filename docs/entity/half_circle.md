@@ -1,15 +1,31 @@
 # Half Circle
 **Category**: blocks  
-**Key Bind**: 4
+**Key Bind**: N/A
 
+## Description
 A blocks component.
 
-## Required Properties
-- `template`: Half-Circle
-- `is_static`: True
-- `radius`: 50
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `collision_sound`: `default_collision.wav`
 - `color`: `[0, 200, 200]`
-- `mass`: `5.0`
+- `elasticity`: `0.5`
 - `flash_duration`: `0.3`
+- `friction`: `0.5`
+- `is_reactive`: `True`
+- `key_bind`: `4`
+- `mass`: `5.0`
+- `radius`: `50`
+- `segments`: `15`
+- `spawn_sound`: `spawn.wav`

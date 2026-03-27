@@ -1,23 +1,20 @@
 # Data Sink
-**Category**: sinks  
+**Category**: unknown  
 **Key Bind**: N/A
 
+## Description
 A sinks component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 96
-- `height`: 96
-- `active_sides`: `['top']`
-- `accepts_types`: `['bouncy_ball', 'payload_ball']`
-- `exporter_type`: `null`
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `export`:
-  - `directory`: `"exports"`
-  - `file_prefix`: `"sink_output"`
-  - `max_objects`: `10`
-  - `rotation_seconds`: `180`
-- `animations`: `OFF`, `INITIALIZING`, `IDLE`, `INGESTING`, `WRITING`, `FATAL`
+## Detail
+Detail goes here.
 
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters

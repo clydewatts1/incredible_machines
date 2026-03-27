@@ -1,15 +1,29 @@
 # Box
 **Category**: blocks  
-**Key Bind**: 6
+**Key Bind**: Left Click
 
+## Description
 A blocks component.
 
-## Required Properties
-- `template`: Square
-- `is_static`: True
-- `width`: 40
-- `height`: 40
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `collision_sound`: `default_collision.wav`
 - `elasticity`: `0.5`
 - `flash_duration`: `0.3`
+- `friction`: `0.5`
+- `height`: `40`
+- `is_reactive`: `True`
+- `key_bind`: `6`
+- `spawn_sound`: `spawn.wav`
+- `width`: `40`

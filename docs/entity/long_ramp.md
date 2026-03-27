@@ -1,16 +1,20 @@
 # Long Ramp
-**Category**: blocks  
-**Key Bind**: 2
+**Category**: unknown  
+**Key Bind**: N/A
 
+## Description
 A blocks component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 100
-- `height`: 10
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `friction`: `0.8`
-- `elasticity`: `0.2`
-- `flash_duration`: `0.3`
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters

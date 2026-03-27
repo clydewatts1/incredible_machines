@@ -1,15 +1,43 @@
-# Warehouse Buffer
+# Warehouse
 **Category**: logic  
 **Key Bind**: N/A
 
+## Description
 A logic component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 96
-- `height`: 96
-- `capacity`: 20
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- *(No specific optional overrides provided in yaml)*
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: True
+
+### Additional Parameters
+- `angle`: ``
+- `auto_release`: `True`
+- `capacity`: `20`
+- `collision_sound`: `default_collision.wav`
+- `elasticity`: `0.5`
+- `friction`: `0.5`
+- `height`: `96`
+- `input_side`: `top`
+- `mass`: `1.0`
+- `output_side`: `bottom`
+- `release_interval`: `1.0`
+- `send_full_signal`: `True`
+- `spawn_sound`: `spawn.wav`
+- `velocity`: ``
+- `width`: `96`
+
+### Animation States
+- `False`: `warehouse_off`
+- `INITIALIZING`: `warehouse_initializing`
+- `IDLE`: `warehouse_idle`
+- `INGESTING`: `warehouse_ingesting`
+- `WRITING`: `warehouse_writing`
+- `FATAL`: `warehouse_fatal`

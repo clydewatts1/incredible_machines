@@ -1,15 +1,20 @@
 # Conveyor Belt
-**Category**: mechanical  
-**Key Bind**: N/A
+**Category**: unknown  
+**Key Bind**: C
 
+## Description
 A mechanical component.
 
-## Required Properties
-- `template`: Rectangle
-- `is_static`: True
-- `width`: 120
-- `height`: 20
+## Summary
+Summary goes here.
 
-## Optional Properties & Defaults
-- `color`: `[100, 100, 100]`
-- `friction`: `2.0`
+## Detail
+Detail goes here.
+
+## Parameters and Functionality
+
+### Baseline Properties
+- `template`: Unknown
+- `is_static`: False
+
+### Additional Parameters
