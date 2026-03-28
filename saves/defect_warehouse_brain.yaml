@@ -1,6 +1,9 @@
 name: New Flow
 description: Initial flow description.
 gravity:
+name: New Flow
+description: Initial flow description.
+gravity:
 - 0
 - 900
 damping: 0.99
@@ -8,6 +11,13 @@ wind:
 - 0
 - 0
 entities:
+- uuid: 2d749114-f9c7-44cb-8e1c-29aa24a1d16b
+  entity_id: payload_ball
+  position:
+    x: 369.0
+    y: 150.0
+  rotation: -1.4154875920144711e-14
+  overrides: {}
 - uuid: b562f872-1911-44db-a760-bffc5fb77773
   entity_id: warehouse
   position:

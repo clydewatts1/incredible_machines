@@ -78,6 +78,8 @@ class EffectBoxPart(FlowEntity):
             visual_fx_manager.spawn_glitter(x, y)
         elif effect_type == "balloon":
             visual_fx_manager.spawn_balloon(x, y)
+        elif effect_type == "fart":
+            visual_fx_manager.spawn_fart(x, y)
 
     def _broadcast_daisy_chain(self, active_instances: Dict[str, Any]):
         """Signals downstream neighbors if daisy chain is enabled."""

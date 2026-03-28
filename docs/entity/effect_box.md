@@ -9,7 +9,7 @@ Visual emitter that triggers particles like confetti or fireworks via signals.
 - `is_static`: True
 - `width`: 64
 - `height`: 64
-- `effect_type`: confetti
+- `effect_type`: confetti (Options: `confetti`, `firework`, `flare`, `glitter`, `balloon`, `fart`)
 
 ## Optional Properties & Defaults
 - `color`: `[240, 240, 240]`

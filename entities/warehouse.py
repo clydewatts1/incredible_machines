@@ -119,41 +119,35 @@ class WarehousePart(FlowEntity):
                 return payload
         return None
 
-    def _eject_payload(self, payload_entity: GamePart):
-        # Get properties
-        output_side = str(self.get_property("output_side", "bottom")).lower()
-        
-        # Try to get velocity from property, fallback to payload's entry speed
-        try:
-            speed = float(self.get_property("velocity", ""))
-        except ValueError:
-            speed = payload_entity.payload.get("_entry_speed", 150.0)
-        
-        # Try to get angle from property, fallback to default per side
-        try:
-            angle_deg = float(self.get_property("angle", ""))
-        except ValueError:
-            angle_deg = None
-        
-        # Default angles per output side
-        default_angles = {"bottom": 270.0, "top": 90.0, "left": 180.0, "right": 0.0}
-        default_angle = default_angles.get(output_side, 270.0)
-        if angle_deg is None:
-            angle_deg = default_angle
-        
-        # Create route_rule dict for utilities
-        route_rule = {"velocity": speed, "angle": angle_deg}
-        
-        # Use centralized routing utility to compute position and velocity
-        (eject_x, eject_y), (vx, vy) = calculate_ejection_kinematics(
-            self, output_side, route_rule, speed, default_angle, []
+    def _eject_payload(self, payload_entity: GamePart, entities: list, active_instances: dict):
+        """
+        M44: Eject the payload using standardized routing.
+        Preferentially enters a Data Pipe (state 10) or falls back to physical ejection.
+        """
+        # Determine if we should match by generic type if the payload has one
+        payload_type = None
+        if hasattr(payload_entity, "payload") and isinstance(payload_entity.payload, dict):
+            payload_type = payload_entity.payload.get("type")
+
+        # Use unified router
+        result = self.resolve_exit_path(
+            payload_entity, 
+            10.0,  # Generic success state
+            entities, 
+            active_instances,
+            data_type=payload_type
         )
+
+        if result == "pipe":
+            # Handled by pipe visuals
+            pass
+        elif result == "jammed":
+            # Repush to front of buffer and wait
+            if payload_entity.uuid not in self.stored_payload_uuids:
+                self.stored_payload_uuids.insert(0, payload_entity.uuid)
+            return
         
-        # Apply position and velocity
-        payload_entity.body.position = (eject_x, eject_y)
-        payload_entity.body.velocity = (vx, vy)
-        payload_entity.is_hidden = False
-        
+        # Flash on exit
         self.flash_timer = 10
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
@@ -207,7 +201,7 @@ class WarehousePart(FlowEntity):
                 uid_to_release = self.stored_payload_uuids.pop(0)
                 payload_to_release = active_instances.get(uid_to_release)
                 if payload_to_release:
-                    self._eject_payload(payload_to_release)
+                    self._eject_payload(payload_to_release, entities, active_instances)
                 
                 try:
                     self.release_timer = float(self.get_property("release_interval", 1.0))

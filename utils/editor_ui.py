@@ -96,6 +96,7 @@ class EditorUI:
         self.game_state = game_state
         self.callbacks = callbacks
         self.dirty_callback = callbacks.get("dirty_callback")
+        self.show_connections_globally = False # Milestone 44
 
         # Initialize pygame-gui UIManager with the correct theme file
         theme_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "theme.json")
@@ -300,15 +301,7 @@ class EditorUI:
         flow_btn.user_data = self.callbacks["flow_settings"]
         self.top_elements.append(flow_btn)
 
-        reimage_btn = UIButton(
-            relative_rect=pygame.Rect(right_x + 130, 10, 70, 30),
-            text="REIMAGE",
-            manager=self.ui_manager,
-            container=self.top_panel,
-            tool_tip_text="Regenerate all project assets"
-        )
-        reimage_btn.user_data = self.callbacks["reimage"]
-        self.top_elements.append(reimage_btn)
+
 
     def set_score(self, score):
         self.score_label.set_text(f"Score: {score}")
@@ -468,6 +461,15 @@ class EditorUI:
 
         # Object Inspector
         y_off = 0
+        # Display Entity UUID (Entry ID) at the top
+        uid_str = str(getattr(selected, 'uuid', 'N/A'))
+        id_lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 20, 20), 
+                         text=f"ID: {uid_str}", 
+                         manager=self.ui_manager, 
+                         container=self.left_container)
+        self.inspector_elements.append(id_lbl)
+        y_off += 25
+
         instance_name = selected.overrides.get("custom_name", selected.get_property("label", selected.variant_key))
         lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 40, 24), text=f"[{instance_name}]", manager=self.ui_manager, container=self.left_container)
         self.inspector_elements.append(lbl)
@@ -498,12 +500,50 @@ class EditorUI:
             self.inspector_inputs[key] = field
             self.inspector_elements.append(field)
 
+        # Milestone 43: Debug / Live Logic State Section
+        debug_keys = ["visual_state", "shoot_timer", "shoot_count", "cooldown_timer", "flash_timer", "is_paused"]
+        debug_data = {}
+        for dk in debug_keys:
+            if hasattr(selected, dk):
+                debug_data[dk] = getattr(selected, dk)
+        
+        if hasattr(selected, "payload") and selected.payload:
+            # Concise payload summary for the inspector
+            p_str = str(selected.payload)
+            debug_data["payload"] = p_str[:40] + ("..." if len(p_str) > 40 else "")
+
+        if debug_data:
+            y_off += 10
+            # Header with Detail button
+            lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 110, 24), 
+                          text="--- Live Logic State ---", 
+                          manager=self.ui_manager, 
+                          container=self.left_container)
+            self.inspector_elements.append(lbl)
+            
+            btn = UIButton(relative_rect=pygame.Rect(self.side_w - 105, y_off, 55, 24),
+                           text="Detail",
+                           manager=self.ui_manager,
+                           container=self.left_container,
+                           tool_tip_text="Open detailed state dialog")
+            btn.user_data = "OPEN_DEBUG_DIALOG"
+            self.inspector_elements.append(btn)
+            y_off += 26
+            
+            for dk, dv in debug_data.items():
+                lbl = UILabel(relative_rect=pygame.Rect(0, y_off, self.side_w - 30, 20), 
+                              text=f"{dk}: {dv}", 
+                              manager=self.ui_manager, 
+                              container=self.left_container)
+                self.inspector_elements.append(lbl)
+                y_off += 22
+
         apply_btn = UIButton(relative_rect=pygame.Rect(0, y_off, self.side_w - 50, 30), text="Apply Changes", manager=self.ui_manager, container=self.left_container)
         apply_btn.user_data = "APPLY"
         self.inspector_elements.append(apply_btn)
         y_off += 40
         
-        self.left_container.set_scrollable_area_dimensions((self.side_w - 20, y_off + 20))
+        self.left_container.set_scrollable_area_dimensions((self.side_w - 20, y_off + 60))
 
     def _build_flow_inspector(self):
         y_off = 0
@@ -551,7 +591,7 @@ class EditorUI:
         flow_save.user_data = "SAVE_FLOW_TRIGGER"
         self.inspector_elements.append(flow_save)
         
-        self.left_container.set_scrollable_area_dimensions((self.side_w - 20, y_off + 50))
+        self.left_container.set_scrollable_area_dimensions((self.side_w - 20, y_off + 80))
 
     def process_event(self, event):
         """Delegates events to pygame-gui and handles internal callbacks."""
@@ -597,12 +637,23 @@ class EditorUI:
                         self.game_state["wind"] = [wx, wy]
                         self.game_state["selected_instance"] = None
                         self.rebuild_left_inspector()
+                elif ud == "OPEN_DEBUG_DIALOG":
+                    if "open_debug" in self.callbacks:
+                        self.callbacks["open_debug"](self.game_state.get("selected_instance"))
+                elif ud == "TOGGLE_CONNECTIONS":
+                    self.show_connections_globally = not self.show_connections_globally
+                    self.rebuild_top_panel()
                 elif ud in self.all_variants:
                     self.game_state["active_tool"] = ud
                 elif ud in ["all"] + self.categories:
                     self.game_state["selected_category"] = ud
                     self.rebuild_category_tabs()
                     self.rebuild_right_palette()
+        
+        elif event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_c:
+                self.show_connections_globally = not self.show_connections_globally
+                self.rebuild_top_panel()
         
         return self.ui_manager.get_focus_set() is not None or self.ui_manager.get_hovering_any_element()
 

@@ -70,20 +70,41 @@ class PayloadBallPart(GamePart):
         pos = self.body.position
         screen_x, screen_y = camera.world_to_screen(pos.x, pos.y) if camera else (pos.x, pos.y)
 
-        score = 100
-        if hasattr(self, 'payload') and isinstance(self.payload, dict):
-            score = self.payload.get('score', 100)
-        else:
-            score = self.get_property('score', 100)
-
-        color = self.get_color_for_score(score)
-        radius = float(self.get_property('radius', 15.0))
-        current_time = pygame.time.get_ticks() / 1000.0
-
-        # --- Global Trace Trail (Phase 14: Handled by visual_fx_manager) ---
-
-        # 1. Main Base Sprite
-        pygame.draw.circle(surface, color, (int(screen_x), int(screen_y)), int(radius))
+        # Retrieve visual properties from payload (or fallback)
+        default_state_col = (0, 100, 0)
+        default_type_col = (0, 200, 0)
+        default_rim_col = (100, 255, 100)
         
-        # 2. Glossy Highlight
+        if hasattr(self, 'payload') and isinstance(self.payload, dict):
+            state_col = self.payload.get("ball_inner_colour", default_state_col)
+            type_col = self.payload.get("ball_colour", default_type_col)
+            rim_col = self.payload.get("ball_rim_colour", default_rim_col)
+        else:
+            state_col = default_state_col
+            type_col = default_type_col
+            rim_col = default_rim_col
+
+        radius = float(self.get_property('radius', 15.0))
+        
+        # Calculate visual radii
+        rim_radius = int(radius)
+        type_radius = int(radius * 0.75)
+        state_radius = int(radius * 0.40)
+
+        # 1. Outer Rim (Routing)
+        pygame.draw.circle(surface, rim_col, (int(screen_x), int(screen_y)), rim_radius)
+        
+        # 2. Main Body (Type)
+        pygame.draw.circle(surface, type_col, (int(screen_x), int(screen_y)), type_radius)
+        
+        # 3. Inner Circle (State)
+        pygame.draw.circle(surface, state_col, (int(screen_x), int(screen_y)), state_radius)
+        
+        # 4. Spin Line (Rotation visualizer)
+        # Using body.angle to draw a line from center to edge
+        end_x = screen_x + radius * math.cos(self.body.angle)
+        end_y = screen_y + radius * math.sin(self.body.angle)
+        pygame.draw.line(surface, (0, 0, 0), (int(screen_x), int(screen_y)), (int(end_x), int(end_y)), width=2)
+        
+        # 5. Glossy Highlight
         pygame.draw.circle(surface, (255, 255, 255), (int(screen_x - radius*0.3), int(screen_y - radius*0.3)), int(radius*0.3))

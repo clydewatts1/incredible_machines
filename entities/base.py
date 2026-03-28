@@ -206,6 +206,9 @@ class GamePart:
                 "drop_dead_age": constants.DEFAULT_PAYLOAD_DROP_DEAD_AGE,
                 "routing_depth": 0,
                 "processing_history": [],
+                "ball_inner_colour": (0, 100, 0),     # Dark Green - State
+                "ball_colour": (0, 200, 0),       # Green - Type
+                "ball_rim_colour": (100, 255, 100) # Light Green - Routing
             }
 
     def trim_payload(self):
@@ -766,20 +769,18 @@ class FlowEntity(GamePart):
         state_result,
         entities: list,
         active_instances: dict = None,
+        override_side: str = None,
+        data_type: str = None
     ) -> str:
         """
-        M32: Unified exit-path resolver with the Zero Rule.
+        M44: Unified exit-path resolver with Data Type support and Property Fallbacks.
 
-        State Normalisation:
-          If state_result <= 0, treat as error: search_state = 0.
-
-        Precedence (for BOTH normal and error paths):
-          1. Error/Matched Pipe – DataPipePart with source_uuid==self.uuid and
-             route_state == search_state. If full → JAMMED.
-          2. Explicit Rule – routing entry whose max_state == search_state.
-             Uses its velocity / angle / output_side.
-          3. Hard Exit (error default) – eject from "bottom" at tired_velocity,
-             set FATAL state.
+        Precedence:
+          1. Pipe Logic (route_state) – DataPipePart with source_uuid==self.uuid and route_state matching result.
+          2. Pipe Logic (route_type)  – DataPipePart with source_uuid==self.uuid and route_type matching data_type.
+          3. Target UUID Teleport   – Fallback teleport if target_uuid is explicitly set.
+          4. Explicit Rule          – routing entry from self.properties['routing'].
+          5. Physical Exit          – Ejects from override_side or output_side using velocity/angle properties.
 
         Returns:
             "pipe"    – payload handed to pipe; caller must NOT touch physics.
@@ -798,7 +799,42 @@ class FlowEntity(GamePart):
             search_state = raw
             is_error = False
 
-        # ── 1. Target UUID Teleport (Milestone 38) ─────────────────────────
+        # ── 1. Pipe Logic ─────────────────────────────────────────────────
+        matching_pipe = None
+        for entity in entities:
+            if getattr(entity, "variant_key", "") != "data_pipe":
+                continue
+            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
+                continue
+            
+            # Match by numeric state
+            try:
+                pipe_state = float(entity.get_property("route_state", -999))
+                if abs(pipe_state - search_state) <= 1e-6:
+                    matching_pipe = entity
+                    break
+            except (TypeError, ValueError):
+                pass
+            
+            # Match by generic data type
+            pipe_type = str(entity.get_property("route_type", "")).lower()
+            if data_type and pipe_type == str(data_type).lower():
+                matching_pipe = entity
+                break
+
+        if matching_pipe is not None:
+            accepted = bool(matching_pipe.ingest_payload(payload_entity))
+            if accepted:
+                # Update rim color to indicate successful pipe routing (Blue)
+                if hasattr(payload_entity, "payload") and isinstance(payload_entity.payload, dict):
+                    payload_entity.payload["ball_rim_colour"] = (100, 150, 255)
+                 
+                if is_error:
+                    self._set_state("FATAL")
+                return "pipe"
+            return "jammed"
+
+        # ── 2. Target UUID Teleport (Milestone 38 Fallback) ────────────────
         target_uuid = self.get_property("target_uuid")
         if target_uuid and target_uuid in (active_instances or {}):
             target = active_instances[target_uuid]
@@ -807,30 +843,7 @@ class FlowEntity(GamePart):
                     self._set_state("FATAL")
                 return "pipe"
 
-        # ── 2. Pipe Logic ─────────────────────────────────────────────────
-        matching_pipe = None
-        for entity in entities:
-            if getattr(entity, "variant_key", "") != "data_pipe":
-                continue
-            if str(entity.get_property("source_uuid", "")) != str(self.uuid):
-                continue
-            try:
-                pipe_state = float(entity.get_property("route_state", -999))
-            except (TypeError, ValueError):
-                continue
-            if abs(pipe_state - search_state) <= 1e-6:
-                matching_pipe = entity
-                break
-
-        if matching_pipe is not None:
-            accepted = bool(matching_pipe.ingest_payload(payload_entity))
-            if accepted:
-                if is_error:
-                    self._set_state("FATAL")
-                return "pipe"
-            return "jammed"
-
-        # ── 2. Explicit Rule ──────────────────────────────────────────────
+        # ── 3. Explicit Rule ──────────────────────────────────────────────
         routing_rules = self.get_property("routing", [])
         route_rule = find_route(search_state, routing_rules)
 
@@ -854,22 +867,70 @@ class FlowEntity(GamePart):
             )
             payload_entity.body.position = (ex, ey)
             payload_entity.body.velocity = (vx, vy)
+            
+            # Update rim color to indicate successful rule routing
+            if hasattr(payload_entity, "payload") and isinstance(payload_entity.payload, dict):
+                # Milestone 44 Fix: Support explicit color overrides from the routing rule
+                overridden = False
+                for color_key in ["ball_inner_colour", "ball_colour", "ball_rim_colour"]:
+                    if color_key in route_rule:
+                        payload_entity.payload[color_key] = route_rule[color_key]
+                        overridden = True
+                
+                if not overridden or "ball_rim_colour" not in route_rule:
+                    # We can tint it slightly based on state, but default to a distinct yellow
+                    r = min(255, int(150 + search_state % 105))
+                    g = min(255, int(150 + (search_state * 2) % 105))
+                    payload_entity.payload["ball_rim_colour"] = (r, g, 50)
+            
             if is_error:
                 self._set_state("FATAL")
             else:
                 self._set_state("WRITING")
             return "ejected"
 
-        # ── 3. Hard Exit (error default) ──────────────────────────────────
-        tired_velocity = float(self.get_property("tired_velocity", 150.0))
+        # ── 4. Physical Fallback (Standardized) ───────────────────────────
+        # Use override_side if provided, else output_side, else default to bottom
+        edge = str(override_side or self.get_property("output_side", "bottom")).lower()
+        
+        # Determine velocity and angle from properties or defaults
+        try:
+            v_val = self.get_property("exit_velocity") or self.get_property("shoot_speed") or self.get_property("velocity")
+            velocity = float(v_val or 150.0)
+        except (ValueError, TypeError):
+            velocity = 150.0
+            
+        try:
+            a_val = self.get_property("exit_angle") or self.get_property("angle")
+            angle_deg = float(a_val) if a_val is not None and a_val != "" else None
+        except (ValueError, TypeError):
+            angle_deg = None
+
+        default_angles = {"right": 0.0, "top": 90.0, "left": 180.0, "bottom": 270.0}
+        default_angle  = default_angles.get(edge, 270.0)
+        if angle_deg is None:
+            angle_deg = default_angle
+            
+        route_rule = {"velocity": velocity, "angle": angle_deg}
+        if self.connected_uuids:
+             route_rule["target"] = self.connected_uuids[0]
+
         (ex, ey), (vx, vy) = calculate_ejection_kinematics(
-            self, "bottom", None, tired_velocity, 270.0, entities
+            self, edge, route_rule, velocity, default_angle, entities
         )
         payload_entity.body.position = (ex, ey)
         payload_entity.body.velocity = (vx, vy)
-        # Always enter FATAL on a hard exit — no pipe, no rule
-        self._set_state("FATAL")
+        payload_entity.is_hidden = False
+        
+        if is_error:
+            self._set_state("FATAL")
+            if hasattr(payload_entity, "payload") and isinstance(payload_entity.payload, dict):
+                 payload_entity.payload["ball_rim_colour"] = (255, 50, 50)
+        else:
+            self._set_state("IDLE")
+            
         return "ejected"
+
 
     # ------------------------------------------------------------------ #
     #  Shared cleanup

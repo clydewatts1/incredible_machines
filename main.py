@@ -10,6 +10,9 @@ import time
 import glob
 import json
 import copy
+import csv
+import pygame_gui
+from pygame_gui.windows import UIMessageWindow
 
 import constants
 from agent_engine import FactoryPart
@@ -196,31 +199,7 @@ def sweep_orphaned_connections(deleted_uuid, entities):
                 if value == deleted_uuid:
                     entity.properties[key] = ""
 
-def get_wire_curve_point(start_pos, end_pos, t):
-    """Calculates a point along an elegant S-Curve Bezier for logic wires, with a gentle wind sway."""
-    p0 = pygame.math.Vector2(start_pos)
-    p3 = pygame.math.Vector2(end_pos)
-    
-    dx = p3.x - p0.x
-    dy = p3.y - p0.y
-    dist = p0.distance_to(p3)
-    
-    time_sec = pygame.time.get_ticks() / 1000.0
-    phase = (p0.x + p0.y) * 0.01 
-    max_sway = min(25.0, dist * 0.15)
-    
-    sway1 = math.sin(time_sec * 2.0 + phase) * max_sway
-    sway2 = math.sin(time_sec * 2.5 + phase + 1.0) * max_sway
-    
-    if abs(dx) > abs(dy):
-        p1 = p0 + pygame.math.Vector2(dx * 0.5, sway1)
-        p2 = p0 + pygame.math.Vector2(dx * 0.5, dy + sway2)
-    else:
-        p1 = p0 + pygame.math.Vector2(sway1, dy * 0.5)
-        p2 = p0 + pygame.math.Vector2(dx + sway2, dy * 0.5)
-        
-    u = 1 - t
-    return (u**3)*p0 + 3*(u**2)*t*p1 + 3*u*(t**2)*p2 + (t**3)*p3
+from utils.visual_utils import get_wire_curve_point
 
 
 def snap_to_grid(world_x, world_y):
@@ -552,43 +531,50 @@ def main():
             print(f"TEST RECORDER: Saved test suite to {test_dir}")
             handle_edit()
 
-    def handle_reimage():
-        """Step 6: REIMAGE callback logic."""
-        from utils.asset_manager import asset_manager
-        from utils.icon_manager import icon_manager
-        from utils.sprite_manager import sprite_manager
-        
-        project_name = getattr(env_manager, 'active_project', None)
-        if not project_name:
-            print("REIMAGE Error: No active project.")
+    def handle_open_debug(entity):
+        if not entity:
             return
-
-        # 1. Delete local .png files in icons and sprites
-        project_dir = os.path.join("saves", project_name)
-        for sub in ["icons", "sprites"]:
-            local_path = os.path.join(project_dir, sub)
-            if os.path.exists(local_path):
-                for f in os.listdir(local_path):
-                    if f.endswith(".png"):
-                        try:
-                            os.remove(os.path.join(local_path, f))
-                        except Exception as e:
-                            print(f"REIMAGE Warning: Could not delete {f}: {e}")
         
-        # 2. Clear Pygame asset cache
-        asset_manager.cache.clear()
+        # Gather detailed state
+        lines = []
+        lines.append(f"<b><u>Entity: {entity.variant_key}</u></b>")
+        lines.append(f"<b>UUID:</b> {getattr(entity, 'uuid', 'N/A')}")
+        lines.append(f"<b>Visual State:</b> {getattr(entity, 'visual_state', 'N/A')}")
+        lines.append(f"<b>Internal Logic Paused:</b> {getattr(entity, 'is_paused', False)}")
         
-        # 3. Trigger fresh generation
-        print(f"REIMAGE: Regenerating assets for project '{project_name}'...")
-        for vk, vd in all_variants.items():
-            icon_manager.get_icon(vk, vd.get("label"), skip_global=True)
-            
-        for entity in entities:
-            sprite_manager.get_sprite(entity.variant_key, overrides=entity.overrides, skip_global=True)
-            
-        # 4. Refresh UI
-        editor_ui.rebuild_right_palette()
-        print(f"REIMAGE: Assets for '{project_name}' have been regenerated.")
+        # Timers & Counters
+        for attr in ["shoot_timer", "shoot_count", "cooldown_timer", "flash_timer", "floating_timer"]:
+            if hasattr(entity, attr):
+                lines.append(f"<b>{attr}:</b> {getattr(entity, attr)}")
+        
+        # Physics
+        if hasattr(entity, "body") and entity.body:
+            pos = entity.body.position
+            vel = entity.body.velocity
+            lines.append(f"<b>Position:</b> ({pos.x:.2f}, {pos.y:.2f})")
+            lines.append(f"<b>Velocity:</b> ({vel.x:.2f}, {vel.y:.2f})")
+            lines.append(f"<b>Angle:</b> {math.degrees(entity.body.angle):.2f}°")
+        
+        # Payload
+        if hasattr(entity, "payload") and entity.payload:
+            lines.append("<br><b>--- Payload Data ---</b>")
+            try:
+                # Pretty print with indentation
+                p_text = json.dumps(entity.payload, indent=2)
+                # HTML escape/formatting
+                p_text = p_text.replace("\n", "<br>").replace(" ", "&nbsp;")
+                lines.append(f"<font face='mono'>{p_text}</font>")
+            except:
+                lines.append(str(entity.payload))
+        
+        message = "<br>".join(lines)
+        
+        UIMessageWindow(
+            rect=pygame.Rect(window_width // 2 - 250, window_height // 2 - 200, 500, 400),
+            html_message=message,
+            manager=editor_ui.ui_manager,
+            window_title=f"Debug: {entity.variant_key}"
+        )
 
     callbacks = {
         "play": lambda: handle_play(),
@@ -604,7 +590,8 @@ def main():
         "quit": lambda: handle_quit(),
         "flow_settings": handle_flow_settings,
         "save_flow": handle_save_flow,
-        "reimage": handle_reimage,
+        "open_debug": handle_open_debug,
+
         "record_test": lambda: handle_record_test(),
         "camera": lambda: camera,
         "dirty_callback": lambda: game_state.update({"is_dirty": True, "last_change_time": time.time()})
@@ -1265,22 +1252,38 @@ def main():
         
         if target_entity:
             if active_tool == "wire_tool":
-                if game_state["wiring_source"] is None:
+                # Phase 12: Separation of Logic Wires and Data Tubes
+                keys = pygame.key.get_pressed()
+                if keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]:
+                    # SHIFT + Click: Clear ALL outgoing logic connections
+                    if hasattr(target_entity, 'connected_uuids'):
+                        target_entity.connected_uuids.clear()
+                    
+                    sound_manager.play_sound("snap.wav")
+                    target_entity.flash_timer = 30
+                    game_state["wiring_source"] = None
+                    game_state["is_dirty"] = True
+                    game_state["last_change_time"] = time.time()
+                elif game_state["wiring_source"] is None:
                     game_state["wiring_source"] = target_entity
                 elif game_state["wiring_source"] != target_entity:
                     src = game_state["wiring_source"]
-                    if target_entity.uuid in src.connected_uuids:
-                        # M27 Extension: Toggle OFF (Remove Connection)
-                        src.connected_uuids.remove(target_entity.uuid)
+                    connected = getattr(src, 'connected_uuids', [])
+                    if target_entity.uuid in connected:
+                        # Toggle OFF
+                        connected.remove(target_entity.uuid)
                         sound_manager.play_sound("snap.wav")
-                        target_entity.flash_timer = 20 # Visual red flash indicator
+                        target_entity.flash_timer = 20
                     else:
-                        # Standard Connection
-                        src.connected_uuids.append(target_entity.uuid)
+                        # Standard Connection (Logic Wire - Signals Only)
+                        if target_entity.uuid not in connected:
+                            connected.append(target_entity.uuid)
                         target_entity.play_event_sound("spawn_sound")
+                    
                     game_state["wiring_source"] = None
                     game_state["is_dirty"] = True
-                    game_state["last_change_time"] = time.time() # Update last_change_time
+                    game_state["last_change_time"] = time.time()
+                    editor_ui.rebuild_left_inspector() 
                 else:
                     game_state["wiring_source"] = None
 
@@ -1300,16 +1303,19 @@ def main():
                     new_pipe.overrides["source_uuid"] = src.uuid
                     new_pipe.overrides["target_uuid"] = tgt.uuid
                     
-                    # Milestone 36 Fix: Auto-bridge source and target entities
-                    src.overrides["target_uuid"] = new_pipe.uuid
-                    tgt.overrides["source_uuid"] = new_pipe.uuid
+                    # Phase 12 Integration: creating a Data Tube automatically creates a Logic Wire.
+                    if not hasattr(src, 'connected_uuids'):
+                        src.connected_uuids = []
+                    if tgt.uuid not in src.connected_uuids:
+                        src.connected_uuids.append(tgt.uuid)
                     
                     entities.append(new_pipe)
                     active_instances[new_pipe.uuid] = new_pipe
                     target_entity.play_event_sound("spawn_sound")
                     game_state["pipe_source"] = None
                     game_state["is_dirty"] = True
-                    game_state["last_change_time"] = time.time() # Update last_change_time
+                    game_state["last_change_time"] = time.time()
+                    editor_ui.rebuild_left_inspector()
                 else:
                     game_state["pipe_source"] = None
 
@@ -1339,12 +1345,18 @@ def main():
 
             else:
                 # Select existing component for moving or inspection
-                grabbed_body = info.shape.body
-                trash_can_visible = True
+                mode = game_state.get("mode", "EDIT")
+                if mode == "EDIT":
+                    grabbed_body = info.shape.body
+                    trash_can_visible = True
+                
                 game_state["selected_instance"] = target_entity
                 editor_ui.rebuild_left_inspector()
                 
         elif active_tool is not None and active_tool not in ("wire_tool", "belt_tool", "pipe_tool"):
+            if game_state.get("mode") == "PAUSE":
+                return # No spawning in pause mode
+            
             # Spawn a new part into the world
             spawn_x, spawn_y = world_click_pos
             if game_state.get("snap_to_grid", False):
@@ -1496,7 +1508,7 @@ def main():
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 try:
                     world_click_pos = camera.screen_to_world(event.pos[0], event.pos[1])
-                    if playable_rect.collidepoint(event.pos) and current_mode == "EDIT":
+                    if playable_rect.collidepoint(event.pos) and current_mode in ("EDIT", "PAUSE"):
                         handle_tool_click(world_click_pos)
                 except Exception as e:
                     import traceback
@@ -1830,6 +1842,11 @@ def main():
         
         # Phase 14: Global Visual FX Budget (Stigmergy Traces & Particles)
         visual_fx_manager.draw(screen, camera=camera)
+        
+        # Milestone 44: Wiring 2.0 (Visible Splines & Data Pulses)
+        # Display connections if globally toggled OR if the wire tool is active
+        show_wiring = editor_ui.show_connections_globally or (game_state.get("active_tool") == "wire_tool")
+        visual_fx_manager.draw_connections(screen, camera, entities, active_instances, active_signals, show_all=show_wiring)
 
         for entity in entities:
             if hasattr(entity, 'body') and entity.body:
@@ -1875,85 +1892,11 @@ def main():
                     screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
                     screen.blit(p_text, p_rect)
             
-            if current_mode in ["EDIT", "PLAY", "PAUSE"] or game_state["active_tool"] == "wire_tool":
-                if hasattr(entity, 'connected_uuids') and getattr(entity, 'body', None):
-                    world_start_x, world_start_y = entity.body.position.x, entity.body.position.y
-                    screen_start = camera.world_to_screen(world_start_x, world_start_y)
-                    start_x, start_y = screen_start[0], screen_start[1]
-                    
-                    for tgt_uuid in entity.connected_uuids:
-                        tgt = active_instances.get(tgt_uuid)
-                        if tgt and getattr(tgt, 'body', None):
-                            world_end_x, world_end_y = tgt.body.position.x, tgt.body.position.y
-                            screen_end = camera.world_to_screen(world_end_x, world_end_y)
-                            end_x, end_y = screen_end[0], screen_end[1]
-                            
-                            # Phase 12: Viewport Rendering Culling (Wires)
-                            # Only draw if at least one endpoint is near the viewport (200px padding)
-                            if not (
-                                (-200 < start_x < constants.WINDOW_WIDTH + 200 and -200 < start_y < constants.WINDOW_HEIGHT + 200) or
-                                (-200 < end_x < constants.WINDOW_WIDTH + 200 and -200 < end_y < constants.WINDOW_HEIGHT + 200)
-                            ):
-                                continue
+        # Redundant wire drawing loop removed in Phase 11. 
+        # visual_fx_manager.draw_connections handles this now.
 
-                            start_pos = (int(start_x), int(start_y))
-                            end_pos = (int(end_x), int(end_y))
-                            
-                            flash = getattr(entity, 'flash_timer', 0)
-                            
-                            if getattr(entity, 'variant_key', '').startswith('portal'):
-                                wire_color = (200, 50, 255) if flash > 0 else (100, 20, 150)
-                                width = 4 if flash > 0 else 2
-                            else:
-                                wire_color = (0, 255, 255) if flash > 0 else (255, 255, 0)
-                                if current_mode in ["PLAY", "PAUSE"] and flash <= 0:
-                                    wire_color = (255, 200, 0)
-                                width = 3 if flash > 0 else 1
-
-                            points = [get_wire_curve_point(start_pos, end_pos, i / 25.0) for i in range(26)]
-                            int_points = [(int(p.x), int(p.y)) for p in points]
-
-                            if width == 1:
-                                pygame.draw.aalines(screen, wire_color, False, int_points)
-                            else:
-                                pygame.draw.lines(screen, wire_color, False, int_points, width)
-                                
-                            start_v = pygame.math.Vector2(start_pos)
-                            end_v = pygame.math.Vector2(end_pos)
-                            if start_v.distance_to(end_v) > 20:
-                                direction = points[-1] - points[-2]
-                                if direction.length() > 0:
-                                    direction = direction.normalize()
-                                    arrow_base = points[-1] - direction * 15
-                                    left_wing = arrow_base + pygame.math.Vector2(-direction.y, direction.x) * 5
-                                    right_wing = arrow_base + pygame.math.Vector2(direction.y, -direction.x) * 5
-                                    pygame.draw.polygon(
-                                        screen, 
-                                        wire_color, 
-                                        [(int(points[-1].x), int(points[-1].y)), 
-                                         (int(left_wing.x), int(left_wing.y)), 
-                                         (int(right_wing.x), int(right_wing.y))]
-                                    )
-
-        for sig in active_signals:
-            sender = active_instances.get(sig["sender_uuid"])
-            tgt = active_instances.get(sig["target_uuid"])
-            if sender and tgt and getattr(sender, 'body', None) and getattr(tgt, 'body', None):
-                sx, sy = camera.world_to_screen(sender.body.position.x, sender.body.position.y)
-                ex, ey = camera.world_to_screen(tgt.body.position.x, tgt.body.position.y)
-                
-                # Phase 12: Viewport Rendering Culling (Signals)
-                if not (
-                    (-200 < sx < constants.WINDOW_WIDTH + 200 and -200 < sy < constants.WINDOW_HEIGHT + 200) or
-                    (-200 < ex < constants.WINDOW_WIDTH + 200 and -200 < ey < constants.WINDOW_HEIGHT + 200)
-                ):
-                    continue
-
-                pt = get_wire_curve_point((sx, sy), (ex, ey), sig["progress"])
-                px, py = pt.x, pt.y
-                
-                pygame.draw.circle(screen, (0, 200, 255), (int(px), int(py)), 8) 
-                pygame.draw.circle(screen, (255, 255, 255), (int(px), int(py)), 4) 
+        # Redundant signal drawing loop removed in Phase 11.
+        # visual_fx_manager.draw_connections handles signal pulses now.
 
         if current_mode == "EDIT" and game_state["active_tool"] == "wire_tool" and game_state.get("wiring_source"):
             src = game_state["wiring_source"]

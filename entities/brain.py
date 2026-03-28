@@ -103,7 +103,7 @@ class BrainPart(FlowEntity):
 
         return "healthy"
 
-    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, **kwargs) -> bool:
+    def ingest_payload(self, payload_entity: GamePart, active_instances: Dict[str, Any] = None, skip_proximity: bool = False, **kwargs) -> bool:
         if self._is_destroyed:
             return False
 
@@ -112,16 +112,17 @@ class BrainPart(FlowEntity):
             return False
 
         # Physics/Bounds check for input side
-        input_side = str(self.get_property("input_side", "top")).lower()
-        dx = payload_entity.body.position.x - self.body.position.x
-        dy = payload_entity.body.position.y - self.body.position.y
-        
-        if input_side == "top" and not (dy < 0 and abs(dy) >= abs(dx) * 0.5):
-            return False
-        elif input_side == "left" and not (dx < 0 and abs(dx) >= abs(dy) * 0.5):
-            return False
-        elif input_side == "right" and not (dx > 0 and abs(dx) >= abs(dy) * 0.5):
-            return False
+        if not skip_proximity:
+            input_side = str(self.get_property("input_side", "top")).lower()
+            dx = payload_entity.body.position.x - self.body.position.x
+            dy = payload_entity.body.position.y - self.body.position.y
+            
+            if input_side == "top" and not (dy < 0 and abs(dy) >= abs(dx) * 0.5):
+                return False
+            elif input_side == "left" and not (dx < 0 and abs(dx) >= abs(dy) * 0.5):
+                return False
+            elif input_side == "right" and not (dx > 0 and abs(dx) >= abs(dy) * 0.5):
+                return False
 
         self._ensure_payload_defaults(payload_entity)
         gate = self._audit_payload_lifecycle(payload_entity)
@@ -271,6 +272,5 @@ class BrainPart(FlowEntity):
         # Process incoming signals (standard backpressure)
         self._process_incoming_signal()
 
-        # Cooldown & Polling are managed by poll_results in this simplified M32 model.
-        # However, we still need to poll results every frame.
+        # Milestone 32: Process AI results (formerly managed by Controller, now autonomous)
         self.poll_results(entities, active_instances or {})

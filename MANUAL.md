@@ -18,7 +18,6 @@ This definitive manual covers every aspect of the Incredible Machines engine, in
 - **PLAY / EDIT**: Toggle physics states.
 - **SAVE / LOAD**: Project persistence.
 - **● REC**: Start/Stop test recording.
-- **REIMAGE**: Force asset and icon regeneration.
 
 ---
 
