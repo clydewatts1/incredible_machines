@@ -1,198 +1,151 @@
-# **Incredible Machines: Project Constitution**
+<!--
+Sync Impact Report:
 
-This document defines the core principles, architectural constraints, and coding standards for the "Incredible Machines" project. All AI agents and developers must adhere to these rules to maintain project integrity.
+Version change: v1.2.0 → v1.3.0
 
-## **1\. Project Identity**
+List of modified principles: Added explicit Role Definition to Core Architecture.
 
-* **Name:** Incredible Machines  
-* **Genre:** 2D Physics-based puzzle game (inspired by The Incredible Machine)  
-* **Core Loop:** Place parts \-\> Run simulation \-\> Achieve goal \-\> Next level  
-* **Vibe:** Tinkering, experimentation, playful physics, mechanical logic.
+Added sections: N/A
 
-## **2\. Core Technologies**
+Removed sections: N/A
 
-* **Language:** Python 3.x  
-* **Rendering & Input:** Pygame Community Edition (CE) is highly recommended over standard Pygame for better performance and modern features.  
-* **Physics Engine:** Pymunk (2D physics library)  
-* **Configuration:** YAML (for levels, parts, environment settings)
+Templates requiring updates:
 
-## **3\. Architectural Principles**
+✅ updated: .specify/memory/constitution.md
 
-* **Separation of Concerns:**  
-  * *Physics (Pymunk):* Handles all collision, gravity, mass, and movement. Visuals must *follow* physics, not dictate them.  
-  * *Rendering (Pygame):* Only reads physics state to draw the screen.  
-  * *Game Logic:* State machine managing transitions (Edit Mode vs. Play Mode).  
-* **Data-Driven Design:** Hardcoding values (mass, friction, sprite paths) in Python is strictly prohibited. All entity definitions must live in config/entities.yaml.  
-  * **Property Inheritance Model:** While `entities.yaml` is the source of truth for base definitions, instantiated entities are permitted to hold an overrides dictionary (e.g., custom mass, custom JSON payloads) that takes precedence over the base definition.
-* **Modularity:** New parts/entities should be easily added by creating a new class inheriting from a base Entity class and adding a YAML entry.
+✅ updated: .specify/templates/plan-template.md
 
-## **4\. Physics Engine (Pymunk) Mandates**
+✅ updated: .specify/templates/spec-template.md
 
-* **The Single Source of Truth:** Pymunk's Space is the absolute authority on object position and rotation.  
-* **Coordinate Systems:** Pygame's origin (0,0) is top-left. Pymunk's origin can be bottom-left (standard) or top-left depending on setup. *Mandate:* Explicitly define and document the coordinate conversion functions and use them universally.  
-* **Units:** 1 Pymunk unit \= 1 pixel (unless a specific scale factor is explicitly decided and documented). Keep mass and forces within reasonable, stable ranges.  
-* **Time Step:** The physics simulation must use a fixed time step (e.g., 60Hz) to ensure deterministic behavior across different machines. Do *not* use variable delta-time for physics step().
+✅ updated: README.md
 
-## **5\. Coding Standards (Python)**
+Follow-up TODOs: Implement missing entity documents in docs/entity/
+-->
 
-* **Style:** PEP 8 compliant. Use type hinting (e.g., def calculate\_force(mass: float) \-\> float:) for all function signatures.  
-* **Naming Conventions:**  
-  * Classes: PascalCase  
-  * Variables/Functions: snake\_case  
-  * Constants: UPPER\_SNAKE\_CASE  
-* **Error Handling:** Fail gracefully. If a sprite is missing, draw a magenta placeholder rectangle and log a warning; do not crash.
+Incredible Machines (Fuath an Mhadra) Constitution
 
-## **6\. The State Machine**
+1. Project Philosophy
 
-The game must clearly distinguish between:
+This project is a visual programming environment disguised as a physics sandbox game. At its core, it is a workflow engine based loosely on WOLF (Workflow Object Logic Framework) and a visual ETL (Extract, Transform, Load) synthetic data pipeline. It blends strict, deterministic logic (regex, rules engines, faker data) with chaotic, rigid-body physics. Features MUST prioritize visual feedback, emergent gameplay, and modularity over rigid hardcoding.
 
-1. **Edit Mode:** Physics simulation is *paused*. Players can place, move, and configure parts.  
-2. **Play Mode:** Physics simulation is *running*. Player input is restricted to interactive parts (e.g., flipping a switch). Parts cannot be added or moved freely.
+2. Core Architecture
 
-## **7\. Version Control & AI Interaction**
+All physical and logical objects in the simulation MUST adhere to the established class hierarchy.
 
-* **Incremental Commits:** Code changes must be small, focused, and tied to a specific milestone.  
-* **Agent Roles:** Respect the defined roles of the Speckit AI agents (Plan, Specify, Implement, Checklist, Review). Do not merge steps.
+2.1 Roles and The FlowEntity Pattern
 
-## **8\. YAML Configuration Standards**
+Role Definition: A "Role" is an entity which is either a Sink, a Factory, or a Source. A Role can only have 0 or 1 input and 0 or 1 output.
 
-* All configurations (entities, levels) must be validated upon loading.  
-* Structure must be clean and self-documenting.  
-* Example:  
-  ball\_bowling:  
-    type: dynamic  
-    mass: 10  
-    radius: 15  
-    elasticity: 0.1  
-    friction: 0.8  
-    visual: "bowling\_ball.png"
+Rule: Any machine that processes, routes, or generates data (Sources, Sinks, Factories, Brains, Guards) MUST inherit from FlowEntity (which inherits from GamePart).
 
-## **9\. Performance Constraints**
+Ingestion: Do not write custom collision handlers for standard ingestion. Use FlowEntity.ingest_payload(payload_entity).
 
-* Target Framerate: 60 FPS.  
-* Object limits: The game should comfortably handle at least 100 physics objects simultaneously without dropping frames.  
-* Avoid loading assets (images, sounds) during the main loop. Pre-load everything during initialization.
+State Management: Always use self.visual_state (e.g., IDLE, INGESTING, WRITING, JAMMED, FATAL). The base class automatically handles animation frame loading and procedural placeholder generation based on this state.
 
-## **10\. Milestone Progression**
+2.2 Standardized Routing & The "Zero Rule"
 
-* Work must proceed strictly according to the defined milestones.  
-* No "feature creep." Do not implement features from Milestone 4 while working on Milestone 2\.
+Rule: Custom trigonometry for payload ejection is forbidden in sub-classes.
 
-## **11\. User Interface (UI) Standards**
+Mechanism: All outputs MUST be routed using self.resolve_exit_path(payload_entity, state_result, entities).
 
-* **Playable Area Boundary:** The UI acts as a physical picture frame. The Pymunk physics boundaries (static lines for floor/walls/ceiling) must be inset to match the playable\_rect. Objects must never spawn, fall, or bounce *behind* the UI elements.  
-* **Separation of Input:** The game must distinguish between "UI Clicks" and "World Clicks." The main event loop must process UI collisions first. If a click falls on a UI element, it MUST NOT accidentally interact with the physics space behind it.  
-* **Lightweight UI:** Avoid heavy external UI libraries (like pygame\_gui) unless absolutely necessary. Maintain a simple, custom UI manager (utils/ui\_manager.py) focusing on clear, basic components like buttons and panels.  
-* **Data-Driven Toolbars:** Object palettes (side panels) must populate dynamically based on the variants loaded from config/entities.yaml. Avoid hardcoding object buttons. Icons should be auto-generated by drawing the entity onto a temporary surface.  
-* **Graceful Stubs:** If a UI element represents a feature that does not yet exist (e.g., "Save", "Load", "Challenges"), it must render visually but safely log a "Not Implemented" message to the console when clicked, preventing game crashes.  
-* **Clear State Indication:** The UI must provide immediate, obvious visual feedback of the current game state (e.g., highlighting whether the game is currently in PLAY or EDIT mode, and indicating the active tool via a "ghost" cursor).
-* **Input Focus State:** When a UITextInput or UITextArea component has active focus, the UIManager must consume all keyboard events, and all global game hotkeys (e.g., 'Delete' for object removal, 'Space' for play/edit toggle) must be strictly suspended to prevent accidental game actions while typing.
+The Zero Rule: Any processing error, exception, or failure to match a logic rule MUST result in a state of 0 or less. The FlowEntity base class will automatically catch this and route it to an Error Pipe or drop it out of the bottom of the machine.
 
-## **12. Relational Architecture & Constraints**
+2.3 Handshake & Backpressure
 
-* **Two-Pass Instantiation Rule:** The engine must spawn all bodies/shapes first, and then apply constraints/joints in a second pass.  
-* **Instance Identity Rule:** Every spawned entity must have a Unique Identifier (UUID) to allow constraints and save/load files to target specific instances on the canvas.  
-* **Cascading Deletion Rule:** If an entity is deleted, the system must safely remove any associated Pymunk constraints attached to it before removing the body.
+Rule: Machines MUST never blindly emit payloads.
 
-## **13. Thread Safety & Asynchronous Processing**
+Mechanism: Always verify downstream availability. Sources and Sinks MUST use broadcast_status and receive_signal to communicate FULL or JAMMED states, pausing upstream emission timers to prevent physics flooding.
 
-* **The Main Thread Dictates Physics:** The Pymunk `space` object and all physics body modifications (creating, destroying, applying forces) **MUST** occur exclusively on the main Pygame execution thread. Pymunk is **NOT thread-safe**. Any attempt to modify physics bodies from a background thread will cause race conditions, data corruption, or crashes.
+2.4 Active vs. Passive Routing (WOLF)
 
-* **Background Processing Mandate:** Any long-running, blocking, or external I/O operations **MUST** be executed in a background thread or asynchronous worker pool to prevent frame-rate jitter in the Pygame render loop. Examples include:
-  * Simulated LLM or AI engine evaluations (e.g., Factory processing logic)
-  * File I/O operations (asset loading, save/load on disk)
-  * Network communication or external API calls
-  * Heavy CPU-intensive calculations (e.g., pathfinding, signal routing across complex networks)
+Passive Push: Standard nodes (Factories, Sources) process and forcefully push payloads downstream via Pipes or Physics.
 
-* **Thread-Safe Handoffs:** Background threads must communicate results back to the main thread using **thread-safe** structures only:
-  * **Recommended:** Python's `queue.Queue()` for passing data structures or status flags.
-  * **Pattern:** The main Pygame loop polls the queue during each frame, retrieves results, and executes the physical manifestation (e.g., updating a Pymunk body's velocity, spawning a new entity, applying a signal).
-  * **No Direct Modifications:** Background threads **MUST NOT** directly write to `entities` lists, `active_instances` dicts, or any game state variables. All state changes must be queued and applied by the main thread.
+Active Pull (Interactions & Guards): The engine supports a pull-based workflow. WarehousePart (with auto_release: false) acts as a passive "Interaction" storage node. GuardPart nodes actively pull payloads out of Interactions by evaluating them against rule-engine queries, holding backpressure if their target is full.
 
-* **Graceful Timeouts:** Background tasks must include timeout mechanisms. If a computation takes longer than a reasonable threshold (e.g., 5 seconds), the system must either:
-  * Abort the computation and log a warning.
-  * Return a sensible default result.
-  * Fail gracefully without crashing the game or blocking the UI.
+2.5 Synthetic Data & ETL (M40)
 
-* **Resource Cleanup:** Background threads must be properly joined or terminated before the game exits. Use Python's threading context managers (e.g., `ThreadPoolExecutor`) or explicitly manage thread lifecycle to prevent orphaned threads.
+Data Mutation: Payloads are not just empty physics objects; they are carriers of mutable JSON records. Entities like FakerSource and FakerEngine use the faker library to generate and overwrite data mid-flight. Sinks like FileSink act as the load layer, exporting this data to local directories.
 
-## **14. Extensible Plugin Architecture**
+2.6 Visual FX & Triggers (M41)
 
-* **The Registry Mandate:** When introducing processing engines, factories, logical transformers, or other extensible components, implement a **Registry Pattern** where:
-  * A central dictionary (or class-based registry) maps configuration strings to their corresponding Python classes or factory functions.
-  * Example: `ENGINE_REGISTRY = { "boolean_logic": BooleanEngine, "arithmetic": ArithmeticEngine, "string_concat": StringEngine }`
-  * Registry is initialized once at startup and remains immutable during gameplay.
+Separation of Physics and Visuals: Entities like EffectBoxPart and PressurePlatePart exist solely for visual payoff. They MUST utilize lightweight, 2D kinematic particle lists (internal drawing routines) rather than bogging down the main Pymunk physics engine with hundreds of tiny rigid bodies.
 
-* **No Hardcoded Logic Gates:** Core game entities (e.g., Factory, Processor, Router) must remain **completely agnostic** to the specific engine implementations. They must:
-  * Query their YAML configuration for an `engine_type` or `processor_type` string.
-  * Dynamically instantiate the required class from the Registry: `engine_class = ENGINE_REGISTRY[self.engine_type]`.
-  * Use the instantiated engine's standard interface (e.g., `engine.process(payload)`) without knowledge of internal logic.
-  * **Fail gracefully** if the requested engine type is not registered, logging a warning and using a null/passthrough engine instead of crashing.
+3. Physics & Memory Standards (Pymunk)
 
-* **Standard Interface Contract:** All engines/processors registered in the Registry must implement a consistent interface:
-  * **Constructor:** Accept configuration from YAML (e.g., `__init__(self, config_dict)`).
-  * **Process Method:** `def process(self, payload: dict) -> dict` or similar, returning a modified payload or result.
-  * **Validation Method:** `def validate_config(self) -> bool` to allow setup-time checks.
+Separation of Concerns: Physics and logic state mutations MUST happen ONLY in update_logic(dt). Rendering MUST happen ONLY in draw(surface, camera).
 
-* **Plugin Hot-Loading (Optional Future Enhancement):** The architecture must support the ability to register new engines at runtime (e.g., loading custom engine modules from a plugins directory) without requiring code recompilation or game restart. Design the Registry to support dynamic imports.
+Framerate Independence: Every movement, timer, and lerp MUST be multiplied by dt (Delta Time) and scaled by game_state["speed_multiplier"].
 
-## **15. Physical Data Degradation & Time-To-Live (TTL)**
+Memory Management & The Deletion Pipeline: NEVER delete objects directly using Python's del or by modifying arrays mid-loop. Always flag objects with entity.to_delete = True. The central garbage collection pipeline in main.py is responsible for safely removing Pymunk constraints and shapes after the physics step.
 
-* **Preventing Infinite Loops:** Because Milestone 22+ simulates computational logic using physical data payloads routing between nodes, infinite loops and cyclic routing are critical crash risks. The system must implement TTL or degradation mechanics to guarantee termination.
+The "Kill Z" Volume: To prevent infinite falls, any dynamic payload falling below the Kill Z threshold (e.g., y > 3000) MUST be flagged for the deletion pipeline.
 
-* **Payload Metrics (Mandatory):** Every data payload flowing through the simulation must carry:
-  * **TTL (Time-To-Live):** An integer countdown. Nodes decrement this counter with each processing step. When TTL reaches zero, the payload must be safely ejected or archived.
-  * **Cost (Energy):** A float representing the "fuel" or energy budget of the payload. Processing operations consume cost. When cost is depleted, the payload fails gracefully.
-  * **drop_dead_age:** An absolute age limit (in frames or seconds). Once a payload exceeds this age, it must be rejected automatically, regardless of TTL or cost.
-  * **Routing Depth:** A counter tracking how many nodes the payload has visited. If depth exceeds a hardcoded limit (e.g., 1000), reject the payload to prevent circular routing.
+Trace Cleanup: Payloads accumulate glowing stigmergic trace_history. When Sinks consume payloads, they MUST explicitly clear these lists and dictionaries to free Python RAM immediately.
 
-* **Audit & Rejection Logic:** Before processing a payload, every node must check these metrics:
-  ```
-  if payload.ttl <= 0 or payload.cost <= 0 or payload.age > payload.drop_dead_age or payload.routing_depth > MAX_DEPTH:
-      safely_eject_or_archive_payload(payload)
-      return  # Do not process further
-  ```
+4. UI & Input Standards
 
-* **Safe Floating Mechanics (No Negative Mass):** To simulate expired or "floating" payloads awaiting destruction:
-  * **Never** assign negative mass to a Pymunk body. Physics engines crash or produce unstable behavior with negative mass.
-  * **Instead:** Flag the body as "floating" (e.g., `body.floating = True`). During the main physics update step, apply a continuous upward anti-gravity force:
-    ```
-    if body.floating:
-        body.apply_force_at_world_point((0, -body.mass * UPWARD_ACCELERATION), body.position)
-    ```
-  * This mechanism allows expired payloads to visually float away before being deleted, providing clear feedback without physics instability.
+Framework: All new UI overlays, buttons, dropdowns, and text entries MUST be built using pygame-gui. Legacy custom UI rendering is deprecated.
 
-* **Archive & Recycling (Optional):** Ejected payloads can be archived to a separate "trash" list for deferred cleanup, reducing per-frame garbage collection pressure. Archived payloads are removed during an idle cleanup phase.
+Event Blocking: Before triggering any physical world interactions (like spawning or deleting machines), input handlers MUST verify that ui_manager.get_focus_set() is None to prevent clicks from bleeding through the interface.
 
-## **16. Payload Scoring & Health System**
+Controller & Avatar Support (M42): The engine supports gamepads via pygame.joystick routed through utils.controller. Controllers function as a Virtual Mouse in UI/Edit modes, and control a physical, high-friction PlayerAvatarPart in Play mode. Do not hardcode raw keyboard logic without considering the controller mapping in config/environment.yaml.
 
-* **Data Gamification:** Data payloads flowing through the system carry a **score** parameter, representing the payload's cumulative "health" or success metric. This adds a strategic and visual layer to data routing and signal processing.
+5. Data-Driven Configuration (YAML)
 
-* **Payload Health Metrics:**
-  * **score:** An integer or float (default: 0, max: typically 100) tracking the payload's quality or success state.
-  * **processing_history:** A list of (node_uuid, score_delta) tuples recording which nodes processed the payload and the score changes applied.
-  * **final_destination_bonus:** A bonus score granted if the payload reaches a designated final sink node successfully.
+Rule: Hardcoding object dimensions, speeds, logic patterns, colors, or hardware input mappings in Python files is strictly forbidden.
 
-* **Node Processing Rules:**
-  * Routing nodes may modify a payload's score based on processing outcomes:
-    * **Success:** `payload.score += success_bonus` (e.g., +10 for correct logic calculation).
-    * **Partial Success:** `payload.score += partial_bonus` (e.g., +5 for partial routing).
-    * **Failure:** `payload.score += failure_penalty` (e.g., -10 for incorrect result), but score is clamped to a minimum of 0.
-  * Nodes record the modification in `processing_history` for debugging and scoring.
+Entity Configuration: All machine parameters and default states MUST be defined in config/entities.yaml. Entities are spawned dynamically using the create_part factory function based on their variant_key.
 
-* **Visual Score Feedback:**
-  * Payloads should render with a visual indicator of their health (e.g., color gradient from green (high score) to red (low score), or a small text label showing the score).
-  * This allows players to see at a glance which payloads are succeeding vs. failing as they route through the simulation.
+Environment Configuration: Global engine settings, UI fallback colors, directory paths (icon_dir, sprite_dir), and hardware controls (e.g., gamepad mapping, cursor speeds, stick deadzones) MUST be defined in config/environment.yaml and accessed via utils.environment_manager.
 
-* **Final Scoring & Victory Conditions:**
-  * When a payload reaches a predefined "sink" or "output" node, its final score is recorded.
-  * Challenge levels can define victory conditions such as:
-    * "All payloads must reach the output with a score >= 80."
-    * "Achieve a combined score of 500 across all payloads."
-    * "Route at least 5 payloads successfully without any drooping below 50 score."
-  * The game loop polls sink nodes and accumulates final scores, triggering level victory checks.
+Project Directory Structure: Saves are not single YAML files. A flow is an isolated project residing at saves/[flow_name]/. This folder contains the root [flow_name].yaml, plus local overrides in icons/ and sprites/.
 
-* **Integration with Payload TTL:** Score and TTL interact:
-  * High-scoring payloads may have extended TTL (e.g., +50 frames per 10 score points).
-  * Low-scoring payloads degrade faster (e.g., -2 TTL per 10 frames).
-  * This creates emergent gameplay where successful routing chains grant longer viability.
+6. Asset Generation & Fallbacks
+
+Graceful Degradation: If an asset (.png, .wav) is missing, the game MUST NOT crash.
+
+Asset Cascading: When loading images, the AssetManager MUST search the local project directory first (saves/[flow_name]/sprites/), fall back to global assets/, and finally trigger procedural/AI generation if missing.
+
+Procedural Fallback: Use AssetManager to dynamically generate textured placeholders or missing icons using standard Pygame drawing primitives.
+
+AI Generation: For missing assets, attempt to ping the local Ollama instance (x/flux2-klein) using the project's metadata (flow_name, flow_description) to generate a thematic asset dynamically, caching it in the local project directory.
+
+7. Testing & Quality Assurance
+
+Test Mode: The engine supports headless execution via python main.py --test <pattern>.
+
+Determinism: Tests run at a forced fixed timestep (space.step(1/60.0)).
+
+State Isolation: AI Agents writing tests MUST ensure that entities, active_instances, and pymunk.Space are completely purged and re-initialized between wildcard test batches to prevent cross-contamination.
+
+Test Architecture: Tests reside in tests/<testname>/. They MUST contain an inputs.json (defining metadata, evaluators, and payload events) and an expected_output.csv baseline.
+
+Redirection: When test_mode is active, Sinks automatically redirect their output to tests/<testname>/output/ for automated assertion (either strict CSV matching or LLM semantic evaluation).
+
+8. External Agent Control (MCP)
+
+Thread Safety: The Pygame rendering and Pymunk physics step MUST run on the main thread. The MCP Server runs in a background daemon thread (uvicorn/starlette).
+
+The Bridge: External API/MCP endpoints MUST NEVER modify entities, active_instances, or space directly. All commands MUST be pushed to mcp_command_queue, which the main Pygame loop safely pops and executes synchronously once per frame.
+
+9. AI Agent Coding Directives (For Claude/Cursor/Antigravity)
+
+Spec-Driven Development: Prior to executing any large feature or milestone, rely on spec-kit to generate formal specifications (spec.md, plan.md, tasks.md). Agents SHOULD follow the exact architecture defined in the plans.
+
+Review the Rules: Always refer to this constitution before modifying routing or physics logic. Ensure you do not violate the "Zero Rule" or introduce memory leaks by failing to use entity.to_delete.
+
+Configuration Truth: Check config/entities.yaml and config/environment.yaml to verify properties and variables before hardcoding assumptions in Python.
+
+Utility Reusability: Prioritize utilizing existing utility modules (utils/routing.py, utils/physics_events.py) before writing new helper functions.
+
+10. Entity Documentation Standards
+
+Requirement: All entities MUST be documented in the docs/entity/ directory with a dedicated Markdown document for each entity.
+
+Content: Each entity document MUST explain all of the entity's properties, explicitly distinguishing between required and optional properties.
+
+Indexing: There MUST be a README.md in the docs/entity/ directory referencing each of the individual entity documents.
+
+Global Reference: The main project README.md MUST reference the docs/entity/README.md.
+
+Version: 1.3.0 | Ratified: 2026-03-26 | Last Amended: 2026-03-29

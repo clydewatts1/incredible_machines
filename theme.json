@@ -144,5 +144,50 @@
             "name": "arial",
             "size": "12"
         }
+    },
+    "#play_btn_active": {
+        "colours": {
+            "normal_bg": "#00FF00",
+            "dark_bg": "#00CC00",
+            "hovered_bg": "#00FFFF",
+            "normal_text": "#000000"
+        },
+        "font": { "name": "segoeuisymbol", "size": "18" }
+    },
+    "#stop_btn_active": {
+        "colours": {
+            "normal_bg": "#FF0000",
+            "dark_bg": "#CC0000",
+            "hovered_bg": "#00FFFF",
+            "normal_text": "#000000"
+        },
+        "font": { "name": "segoeuisymbol", "size": "18" }
+    },
+    "#pause_btn_active": {
+        "colours": {
+            "normal_bg": "#FFA500",
+            "dark_bg": "#CC8400",
+            "hovered_bg": "#00FFFF",
+            "normal_text": "#000000"
+        },
+        "font": { "name": "segoeuisymbol", "size": "18" }
+    },
+    "#fast_btn_active": {
+        "colours": {
+            "normal_bg": "#00FF00",
+            "dark_bg": "#00CC00",
+            "hovered_bg": "#00FFFF",
+            "normal_text": "#000000"
+        },
+        "font": { "name": "segoeuisymbol", "size": "18" }
+    },
+    "#slow_btn_active": {
+        "colours": {
+            "normal_bg": "#00FF00",
+            "dark_bg": "#00CC00",
+            "hovered_bg": "#00FFFF",
+            "normal_text": "#000000"
+        },
+        "font": { "name": "segoeuisymbol", "size": "18" }
     }
 }

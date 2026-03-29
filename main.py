@@ -215,6 +215,7 @@ def parse_args():
     parser.add_argument("-d", "--dump", type=str, help="Filename to save the current world configuration upon exit.")
     parser.add_argument("-t", "--test", type=str, help="Run automated test(s). Supports wildcards (e.g. 'sort_*' or 'all').")
     parser.add_argument("-v", "--visible", action="store_true", help="Make tests visible (render Pygame window).")
+    parser.add_argument("--headless", action="store_true", help="Run without a graphical window.")
     parser.add_argument("--replay", type=str, help="Replay a failure trace from a specific test.")
     return parser.parse_args()
 
@@ -233,7 +234,7 @@ def main():
     args = parse_args()
 
     # Milestone 35: Headless Execution
-    if args.test and not args.visible:
+    if args.headless or (args.test and not args.visible):
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         print("CLI: Running in HEADLESS mode.")
 
@@ -925,6 +926,7 @@ def main():
             if hasattr(entity, 'reset_flow_logic'):
                 entity.reset_flow_logic()
 
+        game_state["speed_multiplier"] = 1.0
         gc.collect() # Force immediate reclamation
         editor_ui.rebuild_top_panel()
     def handle_status_panels():

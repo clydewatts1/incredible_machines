@@ -251,22 +251,9 @@ variants:
           pattern: "^ADMIN.*"
           state: 50
       default_state: 0
-    routing:
-      - max_state: 0
-        angle: 45
-        velocity: 200
-        score: -20
-        desc: "Error (Heavy Damage)"
-      - max_state: 50
-        angle: 90
-        velocity: 100
-        score: -5
-        desc: "Partial Match (Light Damage)"
-      - max_state: 100
-        angle: 45
-        velocity: 100
-        score: 10
-        desc: "Success (Healing)"
+    # Strict I/O Alignment (v1.3.0): Factory is 1-In, 1-Out.
+    # Routing is now handled by Guards or single target_uuid.
+    # Legacy 'routing' table deprecated.
     animations:
       OFF: "sprite_factory_off"
       INITIALIZING: "sprite_factory_initializing"
@@ -322,7 +309,7 @@ variants:
     output_variant: "payload_ball"  # Emitted entity variant (defaults to bouncy_ball if omitted)
     engine_type: "csv"
     instructions:
-      filepath: "data/samples_NO_FILE.csv"
+      filepath: "data/samples.csv"
       debug: false
       loop: true
       skip_header: true
@@ -602,7 +589,7 @@ variants:
     width: 96
     height: 96
     is_static: True
-    model: "llama3.2"
+    model: "tinyllama"
   
     # --- NEW: I/O Configuration ---
     input_side: "top"      # Only accept payloads falling from the 'top'
@@ -610,17 +597,9 @@ variants:
     cost_modifier: -10.0   # How much energy a "thought" consumes
   
     system_prompt: "You are a quality control AI. Look at the 'status' field. If the status is 'SUCCESS', return route_state 10. If 'FAILURE', return route_state 100."
-    routing:
-      - max_state: 10
-        velocity: 200
-        angle: 45
-        desc: "Success Route"
-        output_side: "right"  # Successes shoot out the right!
-      - max_state: 100
-        velocity: 10
-        angle: 45
-        desc: "Failure Route"
-        output_side: "left"   # Failures shoot out the left!
+    # Strict I/O Alignment (v1.3.0): Brain is 1-In, 1-Out.
+    # Complex split-routing should use a Warehouse + Guards.
+    # Legacy 'routing' table deprecated.
     animations:
       OFF: "ai_brain_off"
       INITIALIZING: "ai_brain_initializing"
