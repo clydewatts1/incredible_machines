@@ -242,23 +242,26 @@ class EditorUI:
         cluster_width = 240
         start_x = center_x - (cluster_width // 2)
         
+        mode = self.game_state.get("mode", "EDIT")
+        speed = self.game_state.get("speed_multiplier", 1.0)
+
         transport_btns = [
-            ("<<", lambda: self._set_speed(0.5)),
-            ("▶",  self.callbacks["play"]),
-            ("⏸",  self.callbacks["pause"]),
-            (">>", lambda: self._set_speed(4.0)), # Toggles speed in main.py logic based on game_state
-            ("■",  self.callbacks["edit"])
+            ("<<", lambda: self._set_speed(0.5), "#slow_btn_active" if speed == 0.5 else "#transport_btn"),
+            ("▶",  self.callbacks["play"],      "#play_btn_active" if mode == "PLAY" else "#transport_btn"),
+            ("⏸",  self.callbacks["pause"],     "#pause_btn_active" if mode == "PAUSE" else "#transport_btn"),
+            (">>", lambda: self._set_speed(4.0), "#fast_btn_active" if speed == 4.0 else "#transport_btn"),
+            ("■",  self.callbacks["edit"],      "#stop_btn_active" if mode == "EDIT" else "#transport_btn")
         ]
         
         btn_x = start_x
-        for text, cb in transport_btns:
+        for text, cb, obj_id in transport_btns:
             btn = UIButton(
                 relative_rect=pygame.Rect(btn_x, 10, 40, 30),
                 text=text,
                 manager=self.ui_manager,
                 container=self.top_panel,
                 tool_tip_text=f"Transport: {text}",
-                object_id="#transport_btn"
+                object_id=obj_id
             )
             # We store callbacks in user_data or just handle them in process_event
             btn.user_data = cb
@@ -312,6 +315,7 @@ class EditorUI:
     def _set_speed(self, multiplier):
         self.game_state["speed_multiplier"] = multiplier
         sound_manager.play_sound("clunk_top.wav")
+        self.rebuild_top_panel()
 
     def rebuild_category_tabs(self):
         """Builds standardized category tabs for the palette."""

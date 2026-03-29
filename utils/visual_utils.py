@@ -25,4 +25,5 @@ def get_wire_curve_point(start_pos, end_pos, t):
         p2 = p0 + pygame.math.Vector2(dx + sway2, dy * 0.5)
         
     u = 1 - t
-    return (u**3)*p0 + 3*(u**2)*t*p1 + 3*u*(t**2)*p2 + (t**3)*p3
+    point = (u**3)*p0 + 3*(u**2)*t*p1 + 3*u*(t**2)*p2 + (t**3)*p3
+    return pygame.math.Vector2(point)

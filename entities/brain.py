@@ -255,10 +255,9 @@ class BrainPart(FlowEntity):
                 self.broadcast_status(active_instances or {}, custom_signal={"status": "REFRESH"})
                 continue
 
-            # Standardized Routing
-            print(f"DEBUG: Brain {self.uuid} Resolving exit for {payload_uuid} with state {route_state}")
-            exit_code = self.resolve_exit_path(payload_entity, route_state, entities, active_instances)
-            print(f"DEBUG: Brain {self.uuid} Routing result: {exit_code}")
+            # Standardized 1-Out Routing
+            print(f"DEBUG: Brain {self.uuid} Delegating exit for {payload_uuid} to resolve_exit_path (Strict 1-Out)")
+            self.resolve_exit_path(payload_entity, route_state, entities, active_instances)
             self.current_payload_uuid = None
 
         # Return to IDLE and broadcast updated status to neighbors

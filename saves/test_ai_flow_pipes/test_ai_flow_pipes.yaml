@@ -1,0 +1,75 @@
+name: test_ai_flow_pipes
+description: 'This uses CSV source and target to validate '
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 160672f7-74a5-4ca7-920f-775d0bdd3a97
+  entity_id: data_source_csv
+  position:
+    x: 325.0
+    y: 97.0
+  rotation: 0.0
+  overrides: {}
+- uuid: c6c6b832-84ce-47dd-a026-2da5c3ba7750
+  entity_id: data_sink_csv
+  position:
+    x: 319.0
+    y: 311.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    accepts_types:
+    - bouncy_ball
+    - payload_ball
+    active_sides:
+    - top
+    animations:
+      false: data_sink_off_csv
+      INITIALIZING: data_sink_initializing_csv
+      IDLE: data_sink_idle_csv
+      INGESTING: data_sink_ingesting_csv
+      WRITING: data_sink_writing_csv
+      FATAL: data_sink_fatal_csv
+    category: sinks
+    collision_sound: default_collision.wav
+    consumption_time: 1.0
+    elasticity: 0.5
+    export:
+      directory: exports
+      file_prefix: sink_csv
+      max_objects: 10
+      rotation_seconds: 180
+    exporter_type: csv
+    friction: 0.5
+    height: 96
+    is_static: 'True'
+    mass: 1.0
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      INGESTING: null
+      WRITING: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+- uuid: b067b3c7-80cb-450a-a0d7-852777971bec
+  entity_id: data_pipe
+  position:
+    x: 322.0
+    y: 204.0
+  rotation: 0.0
+  overrides:
+    source_uuid: 160672f7-74a5-4ca7-920f-775d0bdd3a97
+    target_uuid: c6c6b832-84ce-47dd-a026-2da5c3ba7750
+connections:
+- sender: 160672f7-74a5-4ca7-920f-775d0bdd3a97
+  receiver: c6c6b832-84ce-47dd-a026-2da5c3ba7750
+- sender: c6c6b832-84ce-47dd-a026-2da5c3ba7750
+  receiver: 160672f7-74a5-4ca7-920f-775d0bdd3a97

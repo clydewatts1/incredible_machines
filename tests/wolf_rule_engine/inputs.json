@@ -1,7 +1,0 @@
-{
-  "payload_events": [
-    { "tick": 10, "payload": { "amount": 100 } },
-    { "tick": 11, "payload": { "amount": 5000 } },
-    { "tick": 12, "payload": { "amount": 500 } }
-  ]
-}

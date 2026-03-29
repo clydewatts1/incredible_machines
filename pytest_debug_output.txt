@@ -1,0 +1,59 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-8.4.1, pluggy-1.6.0 -- C:\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\cw171001\OneDrive - Teradata\Documents\GitHub\incredible_machines
+plugins: anyio-4.11.0, Faker-40.11.1, asyncio-1.3.0, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 7 items
+
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr001_conservative_signaling PASSED [ 14%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr002_wildcard_routing PASSED [ 28%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr003_datapipe_inheritance_and_threshold PASSED [ 42%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr004_warehouse_state PASSED [ 57%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr005_guard_hibernation PASSED [ 71%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_ph2_any_routing_factory FAILED [ 85%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_ph2_backpressure_propagation PASSED [100%]
+
+================================== FAILURES ===================================
+____________ TestFlowStandardization.test_ph2_any_routing_factory _____________
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_ph2_any_routing_factory>
+
+    def test_ph2_any_routing_factory(self):
+        """Phase 2: Factory uses resolve_exit_path for 'any' pipe routing."""
+        factory = FactoryPart(self.space, 0, 0, "logic_factory")
+        factory.uuid = "fact-1"
+        factory.pos = (0, 0)
+        factory.body.position = pymunk.Vec2d(0, 0)
+    
+        pipe = DataPipePart(self.space, 10, 10, "data_pipe")
+        pipe.uuid = "pipe-1"
+        pipe.pos = (1, 1) # Very close
+        pipe.body.position = pymunk.Vec2d(1, 1)
+        pipe.properties["route_state"] = "any"
+    
+        payload = MagicMock(spec=GamePart)
+        payload.uuid = "p-test"
+        payload.body = MagicMock()
+        payload.body.position = pymunk.Vec2d(0, 0)
+    
+        entities = [factory, pipe, payload]
+        instances = {"fact-1": factory, "pipe-1": pipe}
+    
+        factory.queue.put({"payload_uuid": "p-test", "result": 10.0})
+        factory.poll_results(entities, instances)
+    
+        # In resolve_exit_path:
+        # result_state 10.0 > 0
+        # No logic pipe for 10.0
+        # Wildcard search finds pipe-1 (distance 1.41 < 32)
+        # pipe.ingest_payload is called.
+>       self.assertEqual(len(pipe.transit_queue), 1)
+E       AssertionError: 0 != 1
+
+tests\test_flow_standardization.py:144: AssertionError
+---------------------------- Captured stdout call -----------------------------
+DEBUG: Checking YAML routing table.
+=========================== short test summary info ===========================
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_ph2_any_routing_factory - AssertionError: 0 != 1
+========================= 1 failed, 6 passed in 0.75s =========================

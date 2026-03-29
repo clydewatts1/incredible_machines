@@ -1,67 +1,111 @@
-# Implementation Plan: Entity Docs Enhancement
+# Implementation Plan: [FEATURE]
 
-**Branch**: `003-entity-docs-enhancement` | **Date**: 2026-03-27 | **Spec**: [specs/003-entity-docs-enhancement/spec.md](spec.md)
-**Input**: Feature specification from `/specs/003-entity-docs-enhancement/spec.md`
+**Branch**: `[###-feature-name]` | **Date**: [DATE] | **Spec**: [link]
+**Input**: Feature specification from `/specs/[###-feature-name]/spec.md`
+
+**Note**: This template is filled in by the `/speckit.plan` command. See `.specify/templates/plan-template.md` for the execution workflow.
 
 ## Summary
 
-Enhance the current entity documentation by updating all entity documents in `docs/entity/` to include missing attributes found in their respective `single_entity_<entity_name>.yaml` configuration files. Standardize the document structure to include Description, Summary, Detail, and Parameters/Functionality sections.
+[Extract from feature spec: primary requirement + technical approach from research]
 
 ## Technical Context
 
-**Language/Version**: Markdown  
-**Primary Dependencies**: None  
-**Storage**: Local files (`docs/entity/*.md`)  
-**Testing**: Manual review against `single_entity_*.yaml` test files  
-**Target Platform**: GitHub / Markdown readers  
-**Project Type**: Documentation  
-**Performance Goals**: N/A  
-**Constraints**: Must accurately reflect YAML properties without leaking implementation details.  
-**Scale/Scope**: ~40+ entity markdown files.
+<!--
+  ACTION REQUIRED: Replace the content in this section with the technical details
+  for the project. The structure here is presented in advisory capacity to guide
+  the iteration process.
+-->
+
+**Language/Version**: [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]  
+**Primary Dependencies**: [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]  
+**Storage**: [if applicable, e.g., PostgreSQL, CoreData, files or N/A]  
+**Testing**: [e.g., pytest, XCTest, cargo test or NEEDS CLARIFICATION]  
+**Target Platform**: [e.g., Linux server, iOS 15+, WASM or NEEDS CLARIFICATION]
+**Project Type**: [e.g., library/cli/web-service/mobile-app/compiler/desktop-app or NEEDS CLARIFICATION]  
+**Performance Goals**: [domain-specific, e.g., 1000 req/s, 10k lines/sec, 60 fps or NEEDS CLARIFICATION]  
+**Constraints**: [domain-specific, e.g., <200ms p95, <100MB memory, offline-capable or NEEDS CLARIFICATION]  
+**Scale/Scope**: [domain-specific, e.g., 10k users, 1M LOC, 50 screens or NEEDS CLARIFICATION]
 
 ## Constitution Check
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-- [x] **FlowEntity Pattern**: N/A (Documentation only)
-- [x] **Zero Rule / Routing**: N/A
-- [x] **Handshake / Backpressure**: N/A
-- [x] **Data Mutation (M40)**: N/A
-- [x] **Visual FX (M41)**: N/A
-- [x] **Deletion Pipeline/Kill Z**: N/A
-- [x] **Configuration Isolation**: N/A
-- [x] **Entity Documentation**: YES, this feature perfectly aligns with and enforces the entity documentation standard required by Section 10 of the Constitution.
+- [ ] **FlowEntity Pattern**: Do new logic nodes inherit from `FlowEntity` and use `ingest_payload`?
+- [ ] **Zero Rule / Routing**: Are outputs explicitly routed via `resolve_exit_path` without custom trigonometry?
+- [ ] **Handshake / Backpressure**: Are nodes communicating via `broadcast_status` and `receive_signal`?
+- [ ] **Data Mutation (M40)**: For ETL data, are JSON records mutated correctly rather than changing physics parameters?
+- [ ] **Visual FX (M41)**: Are visual elements strictly kinematic and avoiding main Pymunk bodies?
+- [ ] **Deletion Pipeline/Kill Z**: Are entities systematically flagged with `to_delete = True` instead of direct removal?
+- [ ] **Configuration Isolation**: Are all new dimensions, colors, and inputs properly mapped to YAML files?
+- [ ] **Entity Documentation**: Are new or modified entities documented in `docs/entity/` with their properties explained, and referenced in `docs/entity/README.md`?
 
 ## Project Structure
 
 ### Documentation (this feature)
 
 ```text
-specs/003-entity-docs-enhancement/
-├── plan.md              # This file
-├── research.md          # Phase 0 output
-├── data-model.md        # Phase 1 output
-├── quickstart.md        # Phase 1 output
-└── tasks.md             # Phase 2 output
+specs/[###-feature]/
+├── plan.md              # This file (/speckit.plan command output)
+├── research.md          # Phase 0 output (/speckit.plan command)
+├── data-model.md        # Phase 1 output (/speckit.plan command)
+├── quickstart.md        # Phase 1 output (/speckit.plan command)
+├── contracts/           # Phase 1 output (/speckit.plan command)
+└── tasks.md             # Phase 2 output (/speckit.tasks command - NOT created by /speckit.plan)
 ```
 
 ### Source Code (repository root)
+<!--
+  ACTION REQUIRED: Replace the placeholder tree below with the concrete layout
+  for this feature. Delete unused options and expand the chosen structure with
+  real paths (e.g., apps/admin, packages/something). The delivered plan must
+  not include Option labels.
+-->
 
 ```text
-# Documentation structure
-docs/
-└── entity/
-    ├── README.md
-    ├── [entity_name].md
-    └── ...
+# [REMOVE IF UNUSED] Option 1: Single project (DEFAULT)
+src/
+├── models/
+├── services/
+├── cli/
+└── lib/
 
 tests/
-└── single_entity_[entity_name]/
-    └── single_entity_[entity_name].yaml
+├── contract/
+├── integration/
+└── unit/
+
+# [REMOVE IF UNUSED] Option 2: Web application (when "frontend" + "backend" detected)
+backend/
+├── src/
+│   ├── models/
+│   ├── services/
+│   └── api/
+└── tests/
+
+frontend/
+├── src/
+│   ├── components/
+│   ├── pages/
+│   └── services/
+└── tests/
+
+# [REMOVE IF UNUSED] Option 3: Mobile + API (when "iOS/Android" detected)
+api/
+└── [same as backend above]
+
+ios/ or android/
+└── [platform-specific structure: feature modules, UI flows, platform tests]
 ```
 
-**Structure Decision**: Standard documentation structure under `docs/entity/` cross-referenced with output from the UI's test recording system in `tests/`.
+**Structure Decision**: [Document the selected structure and reference the real
+directories captured above]
 
 ## Complexity Tracking
 
-N/A - No violations.
+> **Fill ONLY if Constitution Check has violations that must be justified**
+
+| Violation | Why Needed | Simpler Alternative Rejected Because |
+|-----------|------------|-------------------------------------|
+| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
+| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |

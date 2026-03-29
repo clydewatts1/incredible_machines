@@ -1,233 +1,139 @@
-import math
-
 import pygame
 import pymunk
-from typing import Any, Dict
+import math
+from typing import Any, Dict, List, Optional
 
-from entities.base import GamePart
-
+from entities.base import GamePart, FlowEntity
 
 def get_pipe_curve_point(start_pos, end_pos, t):
-    """Return one point on a swaying cubic Bezier between start and end."""
-    p0 = pygame.math.Vector2(start_pos)
-    p3 = pygame.math.Vector2(end_pos)
-    dx = p3.x - p0.x
-    dy = p3.y - p0.y
-    dist = p0.distance_to(p3)
+    """Calculates a point on a quadratic Bezier curve and returns pymunk.Vec2d."""
+    mid_x = (start_pos[0] + end_pos[0]) / 2
+    control = (mid_x, start_pos[1])
+    
+    inv_t = 1.0 - t
+    x = inv_t**2 * start_pos[0] + 2 * inv_t * t * control[0] + t**2 * end_pos[0]
+    y = inv_t**2 * start_pos[1] + 2 * inv_t * t * control[1] + t**2 * end_pos[1]
+    return pymunk.Vec2d(x, y)
 
-    time_sec = pygame.time.get_ticks() / 1000.0
-    phase = (p0.x + p0.y) * 0.01
-    max_sway = min(30.0, dist * 0.2)
-
-    sway1 = math.sin(time_sec * 1.5 + phase) * max_sway
-    sway2 = math.sin(time_sec * 2.0 + phase + 1.0) * max_sway
-
-    if abs(dx) > abs(dy):
-        p1 = p0 + pygame.math.Vector2(dx * 0.5, sway1)
-        p2 = p0 + pygame.math.Vector2(dx * 0.5, dy + sway2)
-    else:
-        p1 = p0 + pygame.math.Vector2(sway1, dy * 0.5)
-        p2 = p0 + pygame.math.Vector2(dx + sway2, dy * 0.5)
-
-    u = 1.0 - t
-    return (u ** 3) * p0 + 3.0 * (u ** 2) * t * p1 + 3.0 * u * (t ** 2) * p2 + (t ** 3) * p3
-
-
-class DataPipePart(GamePart):
-    """Logical transit tube that routes payloads directly between entities."""
-
-    def __init__(self, space, x, y, property_key="data_pipe"):
+class DataPipePart(FlowEntity):
+    """
+    Kinematic entity that moves payloads along a visual path.
+    Inherits from FlowEntity to participate in standardized signaling.
+    """
+    def __init__(self, space, x, y, property_key):
         super().__init__(space, x, y, property_key)
-        self.space = space
-
-        # Purely logical/visual transit queue.
-        self.transit_queue = []
-        self._cached_start_pos = None
-        self._cached_end_pos = None
-
-        # Replace default physics with a tiny static sensor node for selection only.
-        if self.shape and self.shape in space.shapes:
-            space.remove(self.shape)
-        if self.body and self.body in space.bodies and self.body != space.static_body:
-            space.remove(self.body)
-
-        self.body = pymunk.Body(body_type=pymunk.Body.STATIC)
-        self.body.position = (x, y)
-        self.shape = pymunk.Circle(self.body, 12)
-        self.shape.sensor = True
-        self.shapes = [self.shape]
-        space.add(self.body, self.shape)
-
+        # Ensure kinematic body for pipes
+        if self.body:
+            self.body.body_type = pymunk.Body.KINEMATIC
+            
+        self.pos = (x, y)
+        self.transit_queue = [] # List of {payload, start_time, duration}
+        self.visual_state = "IDLE"
+        
+        # FR-003 Properties
         self.properties.setdefault("source_uuid", "")
         self.properties.setdefault("target_uuid", "")
         self.properties.setdefault("capacity", 5)
         self.properties.setdefault("transit_time", 2.0)
-        self.properties.setdefault("route_state", 10.0)
+        self.properties.setdefault("route_state", "any") # FR-002: Default to wildcard routing
 
-    def apply_draft_overrides(self, new_dict):
-        super().apply_draft_overrides(new_dict)
-        # Clear cached positions to force recalculation if endpoints changed
-        if "source_uuid" in new_dict or "target_uuid" in new_dict:
-            self._cached_start_pos = None
-            self._cached_end_pos = None
+        self.logic_signal = "IDLE"
+        self.last_broadcast_signal = None
 
+    def ingest_payload(self, payload):
+        """Standard FlowEntity ingestion."""
+        # Sanity check for payload body
+        if not payload or not payload.body:
+             return False
 
-
-    def ingest_payload(self, payload_entity, active_instances: Dict[str, Any] = None, **kwargs):
         capacity = int(self.get_property("capacity", 5))
         if len(self.transit_queue) >= capacity:
             return False
-
-        payload_entity.is_hidden = True
-        if getattr(payload_entity, "body", None):
-            payload_entity.body.velocity = (0.0, 0.0)
-            payload_entity.body.angular_velocity = 0.0
             
-            # Milestone 34/35/36 Fix: Remove from space so it doesn't stay in sensor areas
-            if self.space:
-                # 1. Remove Shapes
-                for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
-                    if s and s in self.space.shapes:
-                        self.space.remove(s)
-                # 2. Remove Body
-                if payload_entity.body and payload_entity.body in self.space.bodies:
-                    self.space.remove(payload_entity.body)
-
-        self.transit_queue.append({"entity": payload_entity, "progress": 0.0})
+        duration = float(self.get_property("transit_time", 2.0))
+        self.transit_queue.append({
+            "payload": payload,
+            "start_time": 0.0,
+            "duration": duration
+        })
+        
+        # Set payload to kinematic and hide while in transit
+        payload.body.body_type = pymunk.Body.KINEMATIC
+        payload.is_hidden = True
+            
         return True
 
     def update_logic(self, dt, game_state, entities, active_instances=None):
+        # 1. Standard FlowEntity signal processing
         super().update_logic(dt, game_state, entities, active_instances)
-
-        if not isinstance(active_instances, dict):
-            return
-
-        # Milestone 38 Fix: Store reference for signal forwarding
-        self.active_instances_ref = active_instances
-
-        source_uuid = self.get_property("source_uuid", "")
-        target_uuid = self.get_property("target_uuid", "")
-        source = active_instances.get(source_uuid) if source_uuid else None
-        target = active_instances.get(target_uuid) if target_uuid else None
-
-        # Phase 12: Separation of Logic/Pipes. 
-        # Data Pipes no longer auto-register for signals. Logic wires handle signals.
-
-        if source and getattr(source, "body", None):
-            self._cached_start_pos = (source.body.position.x, source.body.position.y)
-        if target and getattr(target, "body", None):
-            self._cached_end_pos = (target.body.position.x, target.body.position.y)
-
-        if self._cached_start_pos and self._cached_end_pos:
-            mid_x = (self._cached_start_pos[0] + self._cached_end_pos[0]) * 0.5
-            mid_y = (self._cached_start_pos[1] + self._cached_end_pos[1]) * 0.5
-            self.body.position = (mid_x, mid_y)
-
-        if game_state.get("mode") != "PLAY":
-            return
-
-        transit_time = float(self.get_property("transit_time", 2.0))
-        if transit_time <= 0.0:
-            transit_time = 0.01
-
-        for item in self.transit_queue:
-            item["progress"] = min(1.0, float(item.get("progress", 0.0)) + (dt / transit_time))
-
-        i = 0
-        while i < len(self.transit_queue):
-            item = self.transit_queue[i]
-            if item["progress"] < 1.0:
-                i += 1
-                continue
-
-            payload_entity = item.get("entity")
-            if payload_entity is None or getattr(payload_entity, "to_delete", False):
-                self.transit_queue.pop(i)
-                continue
-
-            if target and hasattr(target, "ingest_payload"):
-                accepted = bool(target.ingest_payload(payload_entity, active_instances, skip_proximity=True))
-                if accepted:
-                    self.transit_queue.pop(i)
-                    continue
-
-            # Backpressure: remain queued at end of pipe.
-            item["progress"] = 1.0
-            i += 1
-
-    def draw(self, surface, camera=None, **kwargs):
-        if self._cached_start_pos and self._cached_end_pos:
-            start_x, start_y = self._cached_start_pos
-            end_x, end_y = self._cached_end_pos
-        else:
-            start_x, start_y = self.body.position.x, self.body.position.y
-            end_x, end_y = self.body.position.x, self.body.position.y
-
-        if camera:
-            start_x, start_y = camera.world_to_screen(start_x, start_y)
-            end_x, end_y = camera.world_to_screen(end_x, end_y)
-
-        capacity = int(self.get_property("capacity", 5))
-        is_full = len(self.transit_queue) >= capacity
-
-        tube_rgba = (255, 90, 60, 110) if is_full else (110, 210, 255, 90)
-        core_rgba = (255, 130, 90, 200) if is_full else (180, 235, 255, 190)
-
-        points = [get_pipe_curve_point((start_x, start_y), (end_x, end_y), idx / 24.0) for idx in range(25)]
-        int_points = [(int(p.x), int(p.y)) for p in points]
-
-        tube_surface = pygame.Surface(surface.get_size(), pygame.SRCALPHA)
-        pygame.draw.lines(tube_surface, tube_rgba, False, int_points, 18)
-        pygame.draw.lines(tube_surface, core_rgba, False, int_points, 6)
-        surface.blit(tube_surface, (0, 0))
-
-        for item in self.transit_queue:
-            payload_entity = item.get("entity")
-            progress = float(item.get("progress", 0.0))
-            point = get_pipe_curve_point((start_x, start_y), (end_x, end_y), progress)
-
-            payload_color = (0, 255, 255)
-            if payload_entity is not None:
-                payload = getattr(payload_entity, "payload", {})
-                if isinstance(payload, dict) and hasattr(payload_entity, "get_color_for_score"):
-                    payload_color = payload_entity.get_color_for_score(payload.get("score", 100))
-
-            pygame.draw.circle(surface, payload_color, (int(point.x), int(point.y)), 9)
-            pygame.draw.circle(surface, (255, 255, 255), (int(point.x), int(point.y)), 9, 1)
-
-        mid_x = int((start_x + end_x) * 0.5)
-        mid_y = int((start_y + end_y) * 0.5)
-        pygame.draw.circle(surface, core_rgba, (mid_x, mid_y), 7)
-        pygame.draw.circle(surface, (255, 255, 255), (mid_x, mid_y), 7, 1)
-
-    def cleanup(self):
-        # M27 Extension: Drop payloads at their exact Bezier positions
-        start_pos = self._cached_start_pos or self.body.position
-        end_pos = self._cached_end_pos or self.body.position
         
-        for item in self.transit_queue:
-            payload_entity = item.get("entity")
-            if payload_entity is None:
-                continue
-                
-            progress = float(item.get("progress", 0.0))
-            # Calculate the exact Bezier point where they were in the pipe
-            drop_point = get_pipe_curve_point(start_pos, end_pos, progress)
+        # Use passed-in instances or cached ref
+        instances = active_instances or getattr(self, "active_instances_ref", {})
+        
+        # 2. Determine current signal based on internal state + downstream pressure
+        current_signal = "IDLE"
+        capacity = int(self.get_property("capacity", 5))
+        
+        if self.downstream_status == "JAMMED" or len(self.transit_queue) >= capacity:
+            current_signal = "JAMMED"
+        
+        # 3. Delta Threshold Signaling (FR-003)
+        if current_signal != self.last_broadcast_signal:
+            self.logic_signal = current_signal
+            self.last_broadcast_signal = current_signal
+            self.broadcast_status(instances)
             
-            payload_entity.is_hidden = False
-            if getattr(payload_entity, "body", None):
-                payload_entity.body.velocity = (0.0, 0.0)
-                payload_entity.body.angular_velocity = 0.0
-                payload_entity.body.position = (drop_point.x, drop_point.y)
+        # 4. Move payloads along the pipe
+        if not self.is_paused:
+            for item in list(self.transit_queue):
+                if item["start_time"] < item["duration"]:
+                    item["start_time"] = min(item["duration"], item["start_time"] + dt)
                 
-                # Milestone 36 Fix: Re-add to space (Body FIRST)
-                if self.space:
-                    if payload_entity.body and payload_entity.body not in self.space.bodies:
-                        self.space.add(payload_entity.body)
-                    for s in getattr(payload_entity, "shapes", [getattr(payload_entity, "shape", None)]):
-                        if s and s not in self.space.shapes:
-                            self.space.add(s)
-                    self.space.reindex_shapes_for_body(payload_entity.body)
+                if item["start_time"] >= item["duration"]:
+                    target_uuid = self.get_property("target_uuid", "")
+                    target_node = instances.get(target_uuid)
+                    
+                    payload = item["payload"]
+                    if target_node and hasattr(target_node, "ingest_payload"):
+                        # If the target accepts it, remove from queue
+                        if target_node.ingest_payload(payload, instances):
+                            self.transit_queue.remove(item)
+                            payload.is_hidden = False
+                            if payload.body:
+                                payload.body.body_type = pymunk.Body.DYNAMIC
+                            continue
 
-        self.transit_queue.clear()
-        super().cleanup()
+    def draw(self, surface, camera):
+        instances = getattr(self, "active_instances_ref", {})
+        source_node = instances.get(self.get_property("source_uuid", ""))
+        target_node = instances.get(self.get_property("target_uuid", ""))
+        
+        if not source_node or not target_node:
+            return
+
+        # Calculate curve positions
+        p1 = camera.world_to_screen(source_node.body.position.x, source_node.body.position.y)
+        p2 = camera.world_to_screen(target_node.body.position.x, target_node.body.position.y)
+        
+        points = []
+        for i in range(21):
+            t = i / 20.0
+            pt = get_pipe_curve_point(p1, p2, t)
+            points.append((int(pt.x), int(pt.y)))
+            
+        # Draw the pipe body
+        if len(points) > 1:
+            # Teal for active, red for jammed
+            color = (150, 230, 255, 180) if self.logic_signal != "JAMMED" else (255, 100, 100, 180)
+            
+            # Draw glow and core
+            pygame.draw.lines(surface, (*color[:3], 80), False, points, 18)
+            pygame.draw.lines(surface, color, False, points, 6)
+            
+        # Draw payloads in transit
+        for item in self.transit_queue:
+            prog = item["start_time"] / item["duration"]
+            pos = get_pipe_curve_point(p1, p2, prog)
+            # Match payload color or standard white
+            pygame.draw.circle(surface, (255, 255, 255), (int(pos.x), int(pos.y)), 10)
+            pygame.draw.circle(surface, (200, 240, 255), (int(pos.x), int(pos.y)), 10, 2)

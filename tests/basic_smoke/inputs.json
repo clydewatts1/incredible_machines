@@ -1,9 +1,0 @@
-{
-  "test_name": "basic_smoke",
-  "test_description": "2-payload basic smoke test",
-  "evaluator": "strict_csv",
-  "payload_events": [
-    {"tick": 60, "payload": {"score": 100.0, "val": 10}},
-    {"tick": 500, "payload": {"score": 150.0, "val": 20}}
-  ]
-}

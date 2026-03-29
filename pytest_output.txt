@@ -1,0 +1,260 @@
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-8.4.1, pluggy-1.6.0 -- C:\Python313\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\cw171001\OneDrive - Teradata\Documents\GitHub\incredible_machines
+plugins: anyio-4.11.0, Faker-40.11.1, asyncio-1.3.0, cov-7.0.0
+asyncio: mode=Mode.STRICT, debug=False, asyncio_default_fixture_loop_scope=None, asyncio_default_test_loop_scope=function
+collecting ... collected 5 items
+
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr001_conservative_signaling FAILED [ 20%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr002_wildcard_routing FAILED [ 40%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr003_datapipe_inheritance_and_threshold FAILED [ 60%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr004_warehouse_state FAILED [ 80%]
+tests/test_flow_standardization.py::TestFlowStandardization::test_fr005_guard_hibernation FAILED [100%]
+
+================================== FAILURES ===================================
+__________ TestFlowStandardization.test_fr001_conservative_signaling __________
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_fr001_conservative_signaling>
+
+    def test_fr001_conservative_signaling(self):
+        """FR-001: Any JAMMED signal takes precedence."""
+>       entity = FlowEntity((0,0))
+                 ^^^^^^^^^^^^^^^^^
+E       TypeError: FlowEntity.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+
+tests\test_flow_standardization.py:15: TypeError
+_____________ TestFlowStandardization.test_fr002_wildcard_routing _____________
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_fr002_wildcard_routing>
+
+    def test_fr002_wildcard_routing(self):
+        """FR-002: resolve_exit_path supports 'any' wildcard."""
+>       source = FlowEntity((0,0))
+                 ^^^^^^^^^^^^^^^^^
+E       TypeError: FlowEntity.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+
+tests\test_flow_standardization.py:27: TypeError
+____ TestFlowStandardization.test_fr003_datapipe_inheritance_and_threshold ____
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_fr003_datapipe_inheritance_and_threshold>
+
+    def test_fr003_datapipe_inheritance_and_threshold(self):
+        """FR-003: DataPipe inherits from FlowEntity and uses delta thresholds."""
+>       pipe = DataPipePart((0,0))
+               ^^^^^^^^^^^^^^^^^^^
+E       TypeError: DataPipePart.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+
+tests\test_flow_standardization.py:40: TypeError
+_____________ TestFlowStandardization.test_fr004_warehouse_state ______________
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_fr004_warehouse_state>
+
+    def test_fr004_warehouse_state(self):
+        """FR-004: Warehouse exposes last_state (IDLE/ACTIVE)."""
+>       wh = WarehousePart(None, 0, 0, "wh")
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_flow_standardization.py:61: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+entities\warehouse.py:23: in __init__
+    super().__init__(space, x, y, property_key)
+entities\base.py:570: in __init__
+    super().__init__(space, x, y, property_key)
+entities\base.py:20: in __init__
+    self.properties = load_entity_config(property_key)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+property_key = 'wh'
+
+    def load_entity_config(property_key):
+        """
+        Loads entity properties from config/entities.yaml using deep merge inheritance.
+        Fails loudly if the file, template, or key are missing.
+        """
+        config_path = os.path.join(os.path.dirname(__file__), '..', 'config', 'entities.yaml')
+    
+        if not os.path.exists(config_path):
+            print(f"FAIL LOUDLY: Missing config file at {config_path}")
+            sys.exit(1)
+    
+        with open(config_path, 'r') as f:
+            data = yaml.safe_load(f)
+    
+        templates = data.get("templates", {})
+        variants = data.get("variants", {})
+    
+        if property_key not in variants:
+            print(f"FAIL LOUDLY: YAML missing requested variant key: '{property_key}'.")
+>           sys.exit(1)
+E           SystemExit: 1
+
+utils\config_loader.py:24: SystemExit
+---------------------------- Captured stdout call -----------------------------
+FAIL LOUDLY: YAML missing requested variant key: 'wh'.
+____________ TestFlowStandardization.test_fr005_guard_hibernation _____________
+
+self = <test_flow_standardization.TestFlowStandardization testMethod=test_fr005_guard_hibernation>
+
+    def test_fr005_guard_hibernation(self):
+        """FR-005: Guard slumbers when upstream is IDLE."""
+>       guard = GuardPart(None, 0, 0, "guard")
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_flow_standardization.py:70: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+entities\guard.py:26: in __init__
+    super().__init__(space, x, y, property_key)
+entities\base.py:570: in __init__
+    super().__init__(space, x, y, property_key)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <entities.guard.GuardPart object at 0x000001D229E557F0>, space = None
+x = 0, y = 0, property_key = 'guard'
+
+    def __init__(self, space, x, y, property_key):
+        self.space = space
+        self.uuid = str(uuid.uuid4())
+        self.variant_key = property_key
+        self.properties = load_entity_config(property_key)
+        self.overrides = {}
+        self.template = self.get_property("template")
+        self.is_hovered = False
+        self.to_delete = False
+        self.connected_uuids = []
+        self.payload = {}
+        self.floating = False
+        self.floating_timer = 0.0
+    
+        # Determine Body Type
+        mass = float(self.get_property("mass", 1.0))
+        is_static = self.get_property("is_static", False)
+    
+        if is_static:
+            self.body = pymunk.Body(body_type=pymunk.Body.STATIC)
+        else:
+            self.body = pymunk.Body(mass, pymunk.moment_for_box(mass, (10, 10))) # placeholder moment
+    
+        self.body.position = (x, y)
+    
+        # Shape Creation
+        tex_width, tex_height = 0, 0
+        self.shapes = []
+        if self.template == "Circle":
+            radius = float(self.get_property("radius", 15))
+            self.shapes = [pymunk.Circle(self.body, radius)]
+            tex_width, tex_height = radius * 2, radius * 2
+            if not is_static:
+                self.body.moment = pymunk.moment_for_circle(mass, 0, radius)
+        elif self.template in ["Rectangle", "Square"]:
+            width = float(self.get_property("width", 50))
+            height = float(self.get_property("height", 50))
+            self.shapes = [pymunk.Poly.create_box(self.body, size=(width, height))]
+    
+            # Phase 2: Directional Sensors in Pymunk (Active Sides)
+            active_sides = list(self.get_property("active_sides", []))
+            if self.get_property("active_side"):
+                active_sides.append(self.get_property("active_side"))
+    
+            if "sink" in self.variant_key:
+                pass
+    
+            for side in active_sides:
+                side = side.lower()
+                offset = 2.0
+                hw = width / 2.0
+                hh = height / 2.0
+                if side == "top":
+                    p1, p2 = (-hw, -hh - offset), (hw, -hh - offset)
+                elif side == "bottom":
+                    p1, p2 = (-hw, hh + offset), (hw, hh + offset)
+                elif side == "left":
+                    p1, p2 = (-hw - offset, -hh), (-hw - offset, hh)
+                elif side == "right":
+                    p1, p2 = (hw + offset, -hh), (hw + offset, hh)
+                else:
+                    continue
+    
+                sensor_seg = pymunk.Segment(self.body, p1, p2, 2.0)
+                sensor_seg.sensor = False  # False so we can conditionally bounce!
+                if self.variant_key == "basket":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_BASKET
+                elif self.variant_key == "cannon":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_CANNON
+                elif self.variant_key == "logic_factory" and side == "top":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
+                elif self.variant_key.startswith("data_sink") and side == "top":
+                    sensor_seg.collision_type = constants.COLLISION_TYPE_SINK_TOP
+                else:
+                    sensor_seg.collision_type = 4
+                self.shapes.append(sensor_seg)
+    
+            tex_width, tex_height = width, height
+            if not is_static:
+                self.body.moment = pymunk.moment_for_box(mass, (width, height))
+        elif self.template == "Diamond":
+            width = float(self.get_property("width", 50))
+            height = float(self.get_property("height", 50))
+            verts = get_diamond_vertices(width, height)
+            self.shapes = [pymunk.Poly(self.body, verts)]
+            tex_width, tex_height = width, height
+            if not is_static:
+                self.body.moment = pymunk.moment_for_poly(mass, verts)
+        elif self.template == "Half-Circle":
+            radius = float(self.get_property("radius", 50))
+            segments = int(self.get_property("segments", 15))
+            verts = get_arc_vertices(radius, 0, math.pi, segments)
+            self.shapes = [pymunk.Poly(self.body, verts)]
+            tex_width, tex_height = radius * 2, radius
+            if not is_static:
+                self.body.moment = pymunk.moment_for_poly(mass, verts)
+        elif self.template == "Quarter-Circle":
+            radius = float(self.get_property("radius", 50))
+            segments = int(self.get_property("segments", 15))
+            verts = get_arc_vertices(radius, 0, math.pi / 2, segments)
+            self.shapes = [pymunk.Poly(self.body, verts)]
+            tex_width, tex_height = radius, radius
+            if not is_static:
+                self.body.moment = pymunk.moment_for_poly(mass, verts)
+        elif self.template == "UShape":
+            width = float(self.get_property("width", 60))
+            height = float(self.get_property("height", 60))
+            thick = 10
+            base_verts = [(-width/2, height/2 - thick), (width/2, height/2 - thick), (width/2, height/2), (-width/2, height/2)]
+            left_verts = [(-width/2, -height/2), (-width/2 + thick, -height/2), (-width/2 + thick, height/2), (-width/2, height/2)]
+            right_verts = [(width/2 - thick, -height/2), (width/2, -height/2), (width/2, height/2), (width/2 - thick, height/2)]
+    
+            self.shapes = [
+                pymunk.Poly(self.body, base_verts),
+                pymunk.Poly(self.body, left_verts),
+                pymunk.Poly(self.body, right_verts)
+            ]
+    
+            if self.variant_key in ["basket", "cannon"]:
+                sensor_verts = [(-width/2 + thick, -height/2), (width/2 - thick, -height/2),
+                                (width/2 - thick, -height/2 + 5), (-width/2 + thick, -height/2 + 5)]
+                sensor_shape = pymunk.Poly(self.body, sensor_verts)
+                sensor_shape.sensor = True
+                sensor_shape.collision_type = 2 if self.variant_key == "basket" else 3
+                self.shapes.append(sensor_shape)
+    
+            tex_width, tex_height = width, height
+            if not is_static:
+                self.body.moment = pymunk.moment_for_box(mass, (width, height))
+        else:
+            raise ValueError(f"Unknown template {self.template}")
+    
+        self.shape = self.shapes[0]
+>       self.space.add(self.body)
+        ^^^^^^^^^^^^^^
+E       AttributeError: 'NoneType' object has no attribute 'add'
+
+entities\base.py:149: AttributeError
+=========================== short test summary info ===========================
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_fr001_conservative_signaling - TypeError: FlowEntity.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_fr002_wildcard_routing - TypeError: FlowEntity.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_fr003_datapipe_inheritance_and_threshold - TypeError: DataPipePart.__init__() missing 3 required positional arguments: 'x', 'y', and 'property_key'
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_fr004_warehouse_state - SystemExit: 1
+FAILED tests/test_flow_standardization.py::TestFlowStandardization::test_fr005_guard_hibernation - AttributeError: 'NoneType' object has no attribute 'add'
+============================== 5 failed in 0.56s ==============================

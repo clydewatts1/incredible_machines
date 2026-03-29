@@ -9,8 +9,15 @@ Data Pipes connect a **Source** to a **Target**. They pull payloads from the sou
 ### Standard Properties
 - `source_uuid`: The UUID of the upstream entity.
 - `target_uuid`: The UUID of the downstream entity.
-- `route_state`: (Optional) Numeric state/result that this pipe handles.
+- `capacity`: (Optional, default 5) The maximum number of payloads the pipe can hold before signaling JAMMED.
+- `transit_time`: (Optional, default 2.0) Time in seconds for a payload to travel through the pipe.
+- `route_state`: (Optional) Numeric state/result that this pipe handles. Use `"any"` for a wildcard fallback that matches all results.
 - `route_type`: (Optional) Generic string tag (e.g., 'JSON', 'Image') for specialized paths.
+
+## Signaling & Backpressure
+Data Pipes participate in a universal handshake (inheriting from `FlowEntity`). 
+- **JAMMED**: Broadcast when internal capacity is reached OR when the downstream target is JAMMED.
+- **Delta Threshold**: Signals are only broadcast when crossing critical state boundaries (Full vs Not Full) to optimize performance.
 
 ## Entity Combinations
 
