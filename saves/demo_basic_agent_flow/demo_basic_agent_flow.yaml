@@ -1,0 +1,595 @@
+name: demo_basic_agent_flow
+description: Initial flow description.
+gravity:
+- 0.0
+- 900.0
+damping: 0.99
+wind:
+- 0.0
+- 0.0
+entities:
+- uuid: 725285bc-51d8-4a56-a75e-08a05f8b0185
+  entity_id: bouncy_ball
+  position:
+    x: 21.647703126465306
+    y: 705.0770383113553
+  rotation: -6.6017940408910905
+  overrides: {}
+- uuid: 92429887-adf2-4d40-8ce1-c336536e73e4
+  entity_id: data_source_csv
+  position:
+    x: 356.0
+    y: 83.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    active_side: Left
+    animations:
+      false: data_source_off
+      INITIALIZING: data_source_initializing_csv
+      IDLE: data_source_idle_csv
+      POLLING: data_source_polling_csv
+      EMITTING: data_source_emitting_csv
+      EXHAUSTED: data_source_exhausted_csv
+      FATAL: data_source_fatal_csv
+    category: sources
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    emit_interval: 2.0
+    engine_type: csv
+    exit_angle: 180.0
+    exit_velocity: 150.0
+    friction: 0.5
+    height: 96
+    instructions:
+      filepath: data/samples.csv
+      debug: false
+      loop: true
+      skip_header: true
+      delimiter: ','
+    is_static: 'True'
+    mass: 1.0
+    output_variant: payload_ball
+    sounds:
+      false: null
+      INITIALIZING: null
+      IDLE: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
+      FATAL: null
+    spawn_sound: spawn.wav
+    width: 96
+- uuid: 7b7fc474-a5c8-4568-8311-585c7d09da9b
+  entity_id: ai_brain
+  position:
+    x: 360.0
+    y: 205.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    animations:
+      false: ai_brain_off
+      INITIALIZING: ai_brain_initializing
+      IDLE: ai_brain_idle
+      INGESTING: ai_brain_ingesting
+      WRITING: ai_brain_writing
+      FATAL: ai_brain_fatal
+    auto_release: 'True'
+    category: logic
+    collision_sound: default_collision.wav
+    cost_modifier: -10.0
+    elasticity: 0.5
+    friction: 0.5
+    height: 96
+    input_side: top
+    is_static: 'True'
+    mass: 1.0
+    model: tinyllama
+    output_side: bottom
+    routing:
+    - max_state: 0.0
+      output_side: bottom
+      angle: 270.0
+      velocity: 10.0
+    - max_state: 10.0
+      output_side: bottom
+      angle: 225.0
+      velocity: 500.0
+    - max_state: 100.0
+      output_side: bottom
+      angle: 315.0
+      velocity: 500.0
+    spawn_sound: spawn.wav
+    route_colours:
+      '10.0':
+      - 0
+      - 255
+      - 0
+      '100.0':
+      - 255
+      - 0
+      - 0
+      '0.0':
+      - 0
+      - 0
+      - 255
+    system_prompt: Analyze the 'status' field of the payload. If the 'status' is 'SUCCESS',
+      return route_state 10. If the 'status' is 'FAILURE', return route_state 100.
+      If the 'status' is 'ERROR' or any other unexpected value, return route_state
+      0.
+    width: 96
+- uuid: 00adf2e0-90d1-489a-8ce7-b290db98a6e2
+  entity_id: long_ramp
+  position:
+    x: 342.0
+    y: 472.0
+  rotation: -1.4000000000000001
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: f470116d-72ed-425d-9307-a67f7c3f9f30
+  entity_id: long_ramp
+  position:
+    x: 402.0
+    y: 467.0
+  rotation: 1.4000000000000001
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: eb274633-56e8-4c39-b43a-5b78a1af0cc4
+  entity_id: long_ramp
+  position:
+    x: 463.0
+    y: 515.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: e764f3c9-74be-475e-8da7-f6730cf11793
+  entity_id: long_ramp
+  position:
+    x: 578.0
+    y: 516.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 9e68098b-483d-4580-a9c9-cc084ccc31d6
+  entity_id: long_ramp
+  position:
+    x: 284.0
+    y: 518.0
+  rotation: 0.0
+  overrides: {}
+- uuid: f2932f57-2490-4c6f-bbe4-c909247e6958
+  entity_id: long_ramp
+  position:
+    x: 188.0
+    y: 518.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 4a9bf90b-a425-460d-a7d0-e51d9bdb6c0e
+  entity_id: long_ramp
+  position:
+    x: 78.0
+    y: 513.0
+  rotation: 0.0
+  overrides: {}
+- uuid: ef587e24-e6e9-47cd-a261-6d1c70537372
+  entity_id: long_ramp
+  position:
+    x: 548.0
+    y: 503.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: a7044239-d4e4-4d39-803f-2416eff6ba3a
+  entity_id: long_ramp
+  position:
+    x: 55.0
+    y: 469.0
+  rotation: 1.0
+  overrides: {}
+- uuid: 5017ef89-7cf4-40f9-bbc6-7c7d79e6f3bf
+  entity_id: long_ramp
+  position:
+    x: 629.0
+    y: 461.0
+  rotation: -0.8
+  overrides: {}
+- uuid: ee437b35-9c38-4886-a432-06afaa607613
+  entity_id: long_ramp
+  position:
+    x: 326.0
+    y: 552.0
+  rotation: 1.1
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: c8d7fc8f-b736-4b30-83d9-5ad4aa5b4ee9
+  entity_id: long_ramp
+  position:
+    x: 405.0
+    y: 594.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 3487ab56-159b-4254-819d-fcafe9319645
+  entity_id: long_ramp
+  position:
+    x: 474.0
+    y: 557.0
+  rotation: -1.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: blocks
+    collision_sound: default_collision.wav
+    elasticity: 0.2
+    flash_duration: 0.3
+    friction: 0.8
+    height: 10
+    is_reactive: 'True'
+    is_static: 'True'
+    key_bind: 2
+    mass: 1.0
+    spawn_sound: spawn.wav
+    width: 100
+- uuid: 6028cc33-48c8-4c89-9121-82dc8a2374a9
+  entity_id: text_box
+  position:
+    x: 485.0
+    y: 96.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    bg_color:
+    - 40
+    - 40
+    - 40
+    - 200
+    category: other
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    font_size: 20
+    friction: 0.5
+    height: 50
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    text: 'Source '
+    text_color:
+    - 255
+    - 255
+    - 255
+    width: 100
+- uuid: 9a06ef99-0bc4-4091-a48a-73d9893242d7
+  entity_id: text_box
+  position:
+    x: 471.0
+    y: 333.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    bg_color:
+    - 40
+    - 40
+    - 40
+    - 200
+    category: other
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    font_size: 20
+    friction: 0.5
+    height: 50
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    text: Brain - AI Agent TINYOLLAMA
+    text_color:
+    - 255
+    - 255
+    - 255
+    width: 100
+- uuid: ff128b2d-febb-4090-b062-c53eca48deb4
+  entity_id: text_box
+  position:
+    x: 49.0
+    y: 555.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    bg_color:
+    - 40
+    - 40
+    - 40
+    - 200
+    category: other
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    font_size: 20
+    friction: 0.5
+    height: 50
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    text: Approved Bucket
+    text_color:
+    - 255
+    - 255
+    - 255
+    width: 100
+- uuid: 202d65ab-d10a-4334-ac86-d37603135a56
+  entity_id: text_box
+  position:
+    x: 596.0
+    y: 610.0
+  rotation: 0.0
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    bg_color:
+    - 40
+    - 40
+    - 40
+    - 200
+    category: other
+    collision_sound: default_collision.wav
+    elasticity: 0.5
+    font_size: 20
+    friction: 0.5
+    height: 50
+    is_static: 'True'
+    mass: 1.0
+    spawn_sound: spawn.wav
+    text: Not Approved Bucket
+    text_color:
+    - 255
+    - 255
+    - 255
+    width: 100
+- uuid: e15d88ec-03e7-482b-b7a2-c29c1742765c
+  entity_id: effect_box
+  position:
+    x: 722.0398952534373
+    y: 690.1000000014906
+  rotation: -1.8227883218643857e-15
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: visuals
+    collision_sound: default_collision.wav
+    color:
+    - 80
+    - 80
+    - 80
+    cooldown_duration: 0.5
+    daisy_chain: 'False'
+    delay_duration: 0.0
+    effect_type: confetti
+    elasticity: 0.5
+    firing_duration: 1.0
+    friction: 0.5
+    height: 60
+    mass: 1.0
+    name: Effect Box
+    properties:
+      effect_type: confetti
+      delay: 0.1
+      duration: 0.5
+      cooldown: 1.0
+      trigger_on_impact: 'false'
+      daisy_chain: 'false'
+    spawn_sound: spawn.wav
+    trigger_on_impact: 'False'
+    width: 60
+- uuid: 60b4eb03-8e52-4198-a0ec-372a0a840467
+  entity_id: effect_box
+  position:
+    x: 222.02424266278953
+    y: 690.0421715459719
+  rotation: -0.0001570378509636727
+  overrides: {}
+- uuid: d10596ba-c256-4b93-a598-4cb57b00d614
+  entity_id: effect_box
+  position:
+    x: 201.0
+    y: 575.0
+  rotation: 0.0
+  overrides: {}
+- uuid: 738d4f57-4a05-4178-85cc-989b8d9e2468
+  entity_id: bouncy_ball
+  position:
+    x: 289.92926462873663
+    y: 497.7218688000639
+  rotation: 12.045040784566442
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: payloads
+    collision_sound: bounce.wav
+    elasticity: 0.9
+    friction: 0.3
+    key_bind: 1
+    mass: 1.0
+    radius: 15
+    spawn_sound: spawn.wav
+- uuid: 772f8e2e-4acb-42dc-b195-aeeca954df42
+  entity_id: pressure_plate
+  position:
+    x: 294.0
+    y: 381.0
+  rotation: -0.5
+  overrides:
+    custom_name: ''
+    custom_description: ''
+    category: visuals
+    collision_sound: default_collision.wav
+    color:
+    - 100
+    - 255
+    - 100
+    cooldown: 0.5
+    elasticity: 0.5
+    friction: 0.5
+    height: 10
+    is_sensor: 'False'
+    is_static: 'True'
+    mass: 1.0
+    name: Pressure Plate
+    properties:
+      cooldown: 1.0
+      is_sensor: 'true'
+    spawn_sound: spawn.wav
+    width: 80
+- uuid: eabe17de-0d69-4ae8-aa38-a603684afe7d
+  entity_id: payload_ball
+  position:
+    x: 399.2684256579103
+    y: 574.0998326081983
+  rotation: 3.934792051506388
+  overrides: {}
+- uuid: 0ad6d001-6547-4cbc-a6d8-97cfc9c72d2c
+  entity_id: payload_ball
+  position:
+    x: 259.9781953593375
+    y: 498.068546613729
+  rotation: -1.5780968932725592
+  overrides: {}
+- uuid: edebdf28-90a7-45ed-9093-03a29fb5827c
+  entity_id: payload_ball
+  position:
+    x: 361.9431277068526
+    y: 574.1000000014905
+  rotation: 1.0768203979303692
+  overrides: {}
+- uuid: 99e29d74-7eea-47d1-ab2c-0793e39ad05e
+  entity_id: payload_ball
+  position:
+    x: 230.0486960506388
+    y: 498.0886575705223
+  rotation: -3.552458152344562
+  overrides: {}
+- uuid: b08b5548-c7b3-4b63-a670-ea829fad33cc
+  entity_id: payload_ball
+  position:
+    x: 200.12025393391679
+    y: 498.084113741864
+  rotation: -5.4422812522642605
+  overrides: {}
+- uuid: e665cfc4-5d52-4c89-9fd9-5fd03124b84a
+  entity_id: payload_ball
+  position:
+    x: 170.22025750929933
+    y: 498.09856398557133
+  rotation: -7.335420255217549
+  overrides: {}
+- uuid: a6dcd66e-8bbf-4a1d-ac21-06dd6dc8e9db
+  entity_id: payload_ball
+  position:
+    x: 140.32027565897732
+    y: 498.06562079478846
+  rotation: -9.25766853050872
+  overrides: {}
+- uuid: 3dd33fb7-d7d8-492f-a917-54800eda0742
+  entity_id: payload_ball
+  position:
+    x: 84.76026895095025
+    y: 478.4680874685728
+  rotation: -13.839396612899925
+  overrides: {}
+- uuid: 882c6bb8-8376-43f5-8fac-4c0452617045
+  entity_id: payload_ball
+  position:
+    x: 110.83548962339542
+    y: 493.10000000954955
+  rotation: 0.6339733015204811
+  overrides: {}
+- uuid: 35a84f53-aa0b-4f4c-9226-72b6d1df0bd9
+  entity_id: payload_ball
+  position:
+    x: 155.27066710158846
+    y: 472.1209406772818
+  rotation: -4.537695883703622
+  overrides: {}
+- uuid: 850ccf41-b9ac-47ad-877b-b8047e33664e
+  entity_id: payload_ball
+  position:
+    x: 554.0165677768524
+    y: 483.3919339572513
+  rotation: 3.674537672966223
+  overrides: {}
+- uuid: ed01f636-bf2d-493a-a0b9-6918827b2f4c
+  entity_id: payload_ball
+  position:
+    x: 360.0
+    y: 205.0
+  rotation: 0.0
+  overrides: {}
+connections:
+- sender: 772f8e2e-4acb-42dc-b195-aeeca954df42
+  receiver: d10596ba-c256-4b93-a598-4cb57b00d614

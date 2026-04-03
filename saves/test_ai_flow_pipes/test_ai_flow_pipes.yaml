@@ -8,68 +8,70 @@ wind:
 - 0.0
 - 0.0
 entities:
-- uuid: 160672f7-74a5-4ca7-920f-775d0bdd3a97
+- uuid: 50c909a1-dd96-4bed-89e4-7a0cb2d36283
   entity_id: data_source_csv
   position:
-    x: 325.0
-    y: 97.0
-  rotation: 0.0
-  overrides: {}
-- uuid: c6c6b832-84ce-47dd-a026-2da5c3ba7750
-  entity_id: data_sink_csv
-  position:
-    x: 319.0
-    y: 311.0
+    x: 336.0
+    y: 128.0
   rotation: 0.0
   overrides:
     custom_name: ''
     custom_description: ''
-    accepts_types:
-    - bouncy_ball
-    - payload_ball
-    active_sides:
-    - top
+    active_side: Left
     animations:
-      false: data_sink_off_csv
-      INITIALIZING: data_sink_initializing_csv
-      IDLE: data_sink_idle_csv
-      INGESTING: data_sink_ingesting_csv
-      WRITING: data_sink_writing_csv
-      FATAL: data_sink_fatal_csv
-    category: sinks
+      false: data_source_off
+      INITIALIZING: data_source_initializing_csv
+      IDLE: data_source_idle_csv
+      POLLING: data_source_polling_csv
+      EMITTING: data_source_emitting_csv
+      EXHAUSTED: data_source_exhausted_csv
+      FATAL: data_source_fatal_csv
+    category: sources
     collision_sound: default_collision.wav
-    consumption_time: 1.0
     elasticity: 0.5
-    export:
-      directory: exports
-      file_prefix: sink_csv
-      max_objects: 10
-      rotation_seconds: 180
-    exporter_type: csv
+    emit_interval: 2.0
+    engine_type: csv
+    exit_angle: 180.0
+    exit_velocity: 150.0
     friction: 0.5
     height: 96
+    instructions:
+      filepath: data/samples.csv
+      debug: false
+      loop: true
+      skip_header: true
+      delimiter: ','
     is_static: 'True'
     mass: 1.0
+    output_variant: payload_ball
     sounds:
       false: null
       INITIALIZING: null
       IDLE: null
-      INGESTING: null
-      WRITING: null
+      POLLING: null
+      EMITTING: null
+      EXHAUSTED: null
       FATAL: null
     spawn_sound: spawn.wav
     width: 96
-- uuid: b067b3c7-80cb-450a-a0d7-852777971bec
+- uuid: 98e05b8a-8893-42e1-aff1-625a2732905e
   entity_id: data_pipe
   position:
-    x: 322.0
-    y: 204.0
+    x: 332.5
+    y: 242.5
   rotation: 0.0
   overrides:
-    source_uuid: 160672f7-74a5-4ca7-920f-775d0bdd3a97
-    target_uuid: c6c6b832-84ce-47dd-a026-2da5c3ba7750
+    source_uuid: 50c909a1-dd96-4bed-89e4-7a0cb2d36283
+    target_uuid: 6809fe08-5bf0-4469-a667-33cd2746dfde
+- uuid: e9a91f02-651b-4c1f-ba31-1a5f2610b187
+  entity_id: data_pipe
+  position:
+    x: 332.5
+    y: 242.5
+  rotation: 0.0
+  overrides:
+    source_uuid: 8bfd1b96-ce3a-456f-9b22-c3d9c7d5aa91
+    target_uuid: 00a09228-eac5-43ad-89ee-f1c66d3d7409
 connections:
-- sender: 160672f7-74a5-4ca7-920f-775d0bdd3a97
-  receiver: c6c6b832-84ce-47dd-a026-2da5c3ba7750
-- sender: c6c6b832-84ce-47dd-a026-2da5c3ba7750
-  receiver: 160672f7-74a5-4ca7-920f-775d0bdd3a97
+- sender: 98e05b8a-8893-42e1-aff1-625a2732905e
+  receiver: 50c909a1-dd96-4bed-89e4-7a0cb2d36283

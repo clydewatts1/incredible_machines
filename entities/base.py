@@ -23,6 +23,7 @@ class GamePart:
         self.is_hovered = False
         self.to_delete = False
         self.connected_uuids = []
+        self.is_hidden = False # Milestone 45 Fix: Universal visibility flag
         self.payload = {}
         self.floating = False
         self.floating_timer = 0.0
@@ -85,7 +86,14 @@ class GamePart:
                 elif self.variant_key == "logic_factory" and side == "top":
                     sensor_seg.collision_type = constants.COLLISION_TYPE_FACTORY_TOP
                 elif self.variant_key.startswith("data_sink") and side == "top":
+                    # Milestone 45 Fix: Deeper sensor to avoid box bounce
+                    offset = 4.0 
+                    p1, p2 = (-hw, -hh - offset), (hw, -hh - offset)
+                    sensor_seg = pymunk.Segment(self.body, p1, p2, 3.0) 
                     sensor_seg.collision_type = constants.COLLISION_TYPE_SINK_TOP
+                    sensor_seg.sensor = False 
+                    self.shapes.append(sensor_seg)
+                    continue # Skip default segment creation below
                 else:
                     sensor_seg.collision_type = 4
                 self.shapes.append(sensor_seg)

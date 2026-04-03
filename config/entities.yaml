@@ -214,21 +214,17 @@ variants:
     direction: "clockwise"
     color: [200, 100, 50]
 
-  guard:
-    template: "Rectangle"
-    label: "Guard"
+  guard_node:
+    name: "Guard Router"
     category: "logic"
-    width: 64
-    height: 64
-    is_static: True
-    texture_path: ""
-    guard_query: "True"
-    sort_by: ""
-    sort_order: "desc"
-    scan_interval: 0.5
-    source_uuid: ""
-    target_uuid: ""
-    color: [0, 150, 255]
+    template: "Rectangle"
+    width: 80
+    height: 40
+    color: [255, 100, 100]
+    properties:
+      guard_query: "true"
+      sort_by: "score"
+      sort_order: "desc"
 
   logic_factory:
     template: "Rectangle"
@@ -646,7 +642,7 @@ variants:
     error_entity_id: ""
     transit_time: 0.5
 
-# Added in 2026-03-19 - data pipe
+  # Added in 2026-03-19 - data pipe
   data_pipe:
     name: "Data Pipe"
     category: "logic"
@@ -657,9 +653,9 @@ variants:
     properties:
       capacity: 5             # Maximum number of balls the pipe can hold at once
       transit_time: 2.0       # How many seconds it takes to travel from source to target
-    route_state: 10         # The routing state this pipe listens for from the Brain
+      route_state: "any"      # Defaulting to 'any' for the new unified routing
 
-# Added in 2026-03-19 - smart splitter (M29)
+  # Added in 2026-03-19 - smart splitter (M29)
   smart_splitter:
     label: "Smart Splitter"
     category: "logic"
@@ -728,48 +724,53 @@ variants:
     color: [255, 180, 100]
     output_directory: "exports/synthetic_data"
 
-# Milestone 41: Visuals & Triggers
+  # Milestone 41: Visuals & Triggers
   pressure_plate:
-    label: "Pressure Plate"
+    name: "Pressure Plate"
     category: "visuals"
     template: "Rectangle"
     width: 80
     height: 10
     is_static: True
-    is_sensor: False
-    cooldown: 0.5
-    color: [180, 180, 180]
-    description: "Detects when a dynamic body is on top and broadcasts a signal."
+    color: [100, 255, 100]
+    properties:
+      cooldown: 1.0
+      is_sensor: "false"
 
   effect_box:
-    label: "Effect Box"
-    category: "active"
+    name: "Effect Box"
+    category: "visuals"
     template: "Rectangle"
-    width: 64
-    height: 64
+    width: 60
+    height: 60
+    color: [80, 80, 80]
     is_static: True
-    color: [240, 240, 240]
-    effect_type: "confetti"
-    auto_trigger_interval: 0.0
-    daisy_chain: False
-    trigger_on_impact: False
-    firing_duration: 1.0
-    delay_duration: 0.0
-    cooldown_duration: 0.5
-    animations:
-      IDLE: "effect_box_idle"
-      EMITTING: "effect_box_emitting"
-    description: "Visual emitter that triggers particles like confetti or fireworks via signals."
-  
+    properties:
+      effect_type: "confetti"
+      delay: 0.1
+      duration: 0.5
+      cooldown: 1.0
+      trigger_on_impact: "false"
+      daisy_chain: "false"
+
   avatar:
-    label: "AV"
-    description: "Player Avatar. Controlled via Left Stick (Gamepad)."
-    category: "logic"
+    name: "Player Avatar"
+    category: "items"
     template: "Circle"
     radius: 20
-    is_static: False
-    color: [50, 200, 50]
-    mass: 5.0
-    spawn_sound: "spawn.wav"
-    width: 40
-    height: 40
+    color: [50, 200, 100]
+    properties:
+      custom_description: "A physics-enabled avatar you can move with the Left Joystick!"
+
+  interaction:
+    name: "Interaction Node"
+    category: "logic"
+    template: "Rectangle"
+    width: 96
+    height: 96
+    color: [60, 70, 90]
+    properties:
+      auto_release: false
+      capacity: 50
+      input_side: "top"
+      output_side: "bottom"

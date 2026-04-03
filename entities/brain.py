@@ -20,7 +20,7 @@ try:
     class BrainDecision(BaseModel):
         thought: str = Field(description="Internal reasoning for the decision.")
         route_state: float = Field(description="The numeric state to route the payload to (e.g., 0, 1, 2).")
-        injected_data: Dict[str, str] = Field(description="Any new data or labels to add to the payload.")
+        injected_data: Dict[str, Any] = Field(description="Any new data or labels to add to the payload.")
         
     AI_AVAILABLE = True
 except ImportError:
@@ -129,11 +129,19 @@ class BrainPart(FlowEntity):
         
         if gate == "bottom":
             # Direct ejection for dead payloads
+            payload_entity.is_hidden = False # Ensure visible if it was hidden
             self.resolve_exit_path(payload_entity, 0.0, [], {})
             return True
 
         self.current_payload_uuid = payload_entity.uuid
         self.visual_state = "INGESTING"
+        
+        # Milestone 45 Fix: Suppress physics and hide while "thinking"
+        payload_entity.is_hidden = True
+        if payload_entity.body:
+            payload_entity.body.position = (-10000, -10000)
+            payload_entity.body.velocity = (0, 0)
+            
         self._start_worker(payload_entity)
         return True
 
@@ -238,9 +246,19 @@ class BrainPart(FlowEntity):
             # Inject AI data
             injected_data = result_data.get("injected_data", {})
             if isinstance(injected_data, dict) and injected_data:
+                # If the injected_data has keys like 'ball_colour', merge to top level too
+                # so PayloadBallPart can see them.
+                payload_entity.payload.update(injected_data)
+                
+                # Still keep a copy in 'data' for downstream logic traceability
                 if not isinstance(payload_entity.payload.get("data"), dict):
                     payload_entity.payload["data"] = {}
                 payload_entity.payload["data"].update(injected_data)
+            
+            # New Feature: Mapping route_state to ball_colour for visual feedback
+            route_colours = self.get_property("route_colours", {})
+            if route_colours and str(route_state) in route_colours:
+                 payload_entity.payload["ball_colour"] = route_colours[str(route_state)]
             
             payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
             
@@ -257,6 +275,7 @@ class BrainPart(FlowEntity):
 
             # Standardized 1-Out Routing
             print(f"DEBUG: Brain {self.uuid} Delegating exit for {payload_uuid} to resolve_exit_path (Strict 1-Out)")
+            payload_entity.is_hidden = False # Milestone 45 Fix: Reveal before ejection
             self.resolve_exit_path(payload_entity, route_state, entities, active_instances)
             self.current_payload_uuid = None
 

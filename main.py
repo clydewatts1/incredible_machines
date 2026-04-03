@@ -1874,25 +1874,25 @@ def main():
                         pygame.draw.circle(screen, (255, 0, 255), (sx, sy), 5)
                         pygame.draw.circle(screen, (0, 0, 0), (sx, sy), 5, 1)
 
-                if hasattr(entity, 'payload') and entity.payload:
-                    if game_state.get("show_traces", False) and "trace" in entity.payload:
-                        trace_list = entity.payload.get("trace", [])
-                        if trace_list:
-                            payload_str = " -> ".join(trace_list[-3:]) 
+                    if hasattr(entity, 'payload') and entity.payload:
+                        if game_state.get("show_traces", False) and "trace" in entity.payload:
+                            trace_list = entity.payload.get("trace", [])
+                            if trace_list:
+                                payload_str = " -> ".join(trace_list[-3:]) 
+                            else:
+                                payload_str = "Trace: Started"
                         else:
-                            payload_str = "Trace: Started"
-                    else:
-                        payload_str = str(entity.payload)
-                        if len(payload_str) > 20:
-                            payload_str = payload_str[:17] + "..."
-                    
-                    p_text = small_font.render(payload_str, True, (0, 255, 255))
-                    p_rect = p_text.get_rect(center=(int(screen_x), int(screen_y) - 25))
-                    
-                    bg_surf = pygame.Surface((p_rect.width + 8, p_rect.height + 4), pygame.SRCALPHA)
-                    bg_surf.fill((0, 0, 0, 180))
-                    screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
-                    screen.blit(p_text, p_rect)
+                            payload_str = str(entity.payload)
+                            if len(payload_str) > 20:
+                                payload_str = payload_str[:17] + "..."
+                        
+                        p_text = small_font.render(payload_str, True, (0, 255, 255))
+                        p_rect = p_text.get_rect(center=(int(screen_x), int(screen_y) - 25))
+                        
+                        bg_surf = pygame.Surface((p_rect.width + 8, p_rect.height + 4), pygame.SRCALPHA)
+                        bg_surf.fill((0, 0, 0, 180))
+                        screen.blit(bg_surf, (p_rect.x - 4, p_rect.y - 2))
+                        screen.blit(p_text, p_rect)
             
         # Redundant wire drawing loop removed in Phase 11. 
         # visual_fx_manager.draw_connections handles this now.

@@ -133,6 +133,9 @@ class DataSink(FlowEntity):
         self.consumption_timer = float(self.get_property("consumption_time", 1.0))
         self.current_consuming_payload = payload_entity
         payload_entity.is_hidden = True
+        if payload_entity.body:
+            payload_entity.body.position = (-10000, -10000)
+            payload_entity.body.velocity = (0, 0)
         payload_entity.trim_payload() # Milestone 34: Data Bloat Prevention
         
         # Immediate signal to upstream neighbors (tells them we are now BUSY/FULL)
